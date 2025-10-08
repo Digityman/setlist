@@ -2,14 +2,13 @@
   "name": "Setlist Streamer",
   "short_name": "Setlist",
   "description": "Browse bands and stream fan-taped concerts from the Internet Archive.",
-  "start_url": "/index.html",
-  "scope": "/",
+  "start_url": "/setlist/app.html",
+  "scope": "/setlist/",
   "display": "standalone",
   "background_color": "#000000",
   "theme_color": "#000000",
-  "categories": ["music", "audio", "entertainment"],
   "icons": [
-    { "src": "/icons/icon-192.png", "sizes": "192x192", "type": "image/png" },
-    { "src": "/icons/icon-512.png", "sizes": "512x512", "type": "image/png" }
+    { "src": "/setlist/icons/icon-192.png", "sizes": "192x192", "type": "image/png" },
+    { "src": "/setlist/icons/icon-512.png", "sizes": "512x512", "type": "image/png" }
   ]
 }
