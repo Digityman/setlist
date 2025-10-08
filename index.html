@@ -13,6 +13,8 @@
     --panel:rgba(255,255,255,.07); --pill:rgba(255,255,255,.15);
     --wavePast:#b06cff; --waveFuture:#d1d5db;
     --tap:44px;
+    /* space reserved for bottom player (updated by JS) */
+    --playerH: 100px;
   }
   html,body{height:100%}
   body{
@@ -21,6 +23,8 @@
     -webkit-text-size-adjust:100%; text-size-adjust:100%;
     -webkit-tap-highlight-color: transparent;
     touch-action: manipulation;
+    /* keep content above the bottom-fixed player */
+    padding-bottom: var(--playerH);
   }
   img{max-width:100%;height:auto;-webkit-user-drag:none;user-select:none}
   a{color:#c6e1ff;text-decoration:none}
@@ -44,8 +48,17 @@
   select option{background:#111;color:#fff}
   .chip{background:var(--chip);padding:2px 8px;border-radius:999px;font-size:12px;line-height:1;display:inline-flex;align-items:center;white-space:nowrap}
 
-  /* ===== Sticky Player ===== */
-  .playerSticky{position:sticky;top:0;z-index:30;background:linear-gradient(180deg,rgba(0,0,0,.9),rgba(0,0,0,.6));backdrop-filter:blur(4px);padding:8px 0 10px}
+  /* ===== Bottom-fixed Player (moved from sticky top) ===== */
+  .playerSticky{
+    position:fixed;
+    left:0; right:0; bottom:0;
+    z-index:30;
+    background:linear-gradient(180deg,rgba(0,0,0,.9),rgba(0,0,0,.6));
+    backdrop-filter:blur(4px);
+    padding:8px 0 10px;
+    padding-bottom:calc(10px + env(safe-area-inset-bottom, 0px)); /* safe area for notches */
+    box-shadow:0 -6px 16px rgba(0,0,0,.35);
+  }
   .playerBar{display:grid;grid-template-columns:1fr auto;gap:12px;align-items:center}
   @media (max-width:860px){.playerBar{grid-template-columns:1fr}}
   .pill{background:var(--pill);border-radius:12px;padding:8px 10px;display:flex;align-items:center;gap:10px}
@@ -105,11 +118,19 @@
   .favBand.on{opacity:1}
   .cardLink{position:absolute;inset:0;border-radius:12px;z-index:1}
 
-  /* ===== Continue listening toast ===== */
-  .toast{position:fixed;left:16px;bottom:16px;z-index:40;display:flex;align-items:center;gap:10px;background:var(--panel);border:1px solid rgba(255,255,255,.1);border-radius:12px;padding:8px 10px;backdrop-filter:blur(4px)}
+  /* ===== Continue listening toast (lift above player) ===== */
+  .toast{
+    position:fixed;left:16px;
+    bottom:calc(16px + var(--playerH));
+    z-index:40;display:flex;align-items:center;gap:10px;
+    background:var(--panel);border:1px solid rgba(255,255,255,.1);border-radius:12px;
+    padding:8px 10px;backdrop-filter:blur(4px)
+  }
   .toast .sub{max-width:70vw;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+
   @media (prefers-reduced-motion:reduce){.eq i{animation:none}}
 </style>
+
 <link rel="manifest" href="/setlist/manifest.json">
 <meta name="theme-color" content="#000000">
 <script>
