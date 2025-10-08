@@ -110,6 +110,13 @@
   .toast .sub{max-width:70vw;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
   @media (prefers-reduced-motion:reduce){.eq i{animation:none}}
 </style>
+<link rel="manifest" href="/setlist/manifest.json">
+<meta name="theme-color" content="#000000">
+<script>
+if ('serviceWorker' in navigator) {
+  navigator.serviceWorker.register('/setlist/sw.js');
+}
+</script>
 </head>
 <body>
 <div class="wrap">
@@ -692,3 +699,4 @@ ROUTER.route();
 </script>
 </body>
 </html>
+
