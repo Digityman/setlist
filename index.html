@@ -134,11 +134,27 @@
 <link rel="manifest" href="/setlist/manifest.json">
 <meta name="theme-color" content="#000000">
 <script>
+// Reserve space for the bottom-fixed player so content isn't covered
+(function reservePlayerSpace(){
+  const el = document.querySelector('.playerSticky');
+  function setH(){
+    const h = (el?.offsetHeight || 100);
+    document.documentElement.style.setProperty('--playerH', (h + 8) + 'px');
+  }
+  if (el) {
+    setH();
+    addEventListener('resize', setH, {passive:true});
+  }
+})();
+</script>
+  
+<script>
 if ('serviceWorker' in navigator) {
   // IMPORTANT: use the public URL path, including /setlist/
   navigator.serviceWorker.register('/setlist/sw.js');
 }
 </script>
+  
 </head>
 <body>
 <div class="wrap">
