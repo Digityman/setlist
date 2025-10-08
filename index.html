@@ -6,6 +6,27 @@
 <title>Live Music Archive — Mobile Player</title>
 <link rel="preconnect" href="https://archive.org">
 <style>
+  /* Compact one-line player */
+.playerCompact .btn{padding:4px 6px;min-height:32px;min-width:32px;border-radius:10px;font-size:13px}
+.playerCompact .controls{gap:6px}
+.playerCompact .pill{padding:8px 10px}
+.playerCompact .seekWrap{gap:6px;min-width:140px}
+.playerCompact #P_times{min-width:76px;font-size:12px}
+.playerCompact #P_seekVis{left:10px;right:90px} /* less room for times in compact line */
+
+/* Popover for volume/options */
+.popover{
+  position:fixed; left:50%; transform:translateX(-50%);
+  bottom:calc(var(--playerH) + 10px);
+  background:rgba(15,15,18,.98);
+  border:1px solid rgba(255,255,255,.12);
+  border-radius:12px; padding:10px;
+  box-shadow:0 8px 24px rgba(0,0,0,.45);
+  z-index:50;
+}
+.popover.hidden{display:none}
+.vpanel .btn{min-height:36px}
+
   /* ===== Mobile-first foundation ===== */
   *,*::before,*::after{box-sizing:border-box}
   :root{
@@ -146,6 +167,38 @@
     addEventListener('resize', setH, {passive:true});
   }
 })();
+  <script>
+// Toggle the volume/options popover
+(function popover(){
+  const btn = document.getElementById('P_menu');
+  const pop = document.getElementById('P_pop');
+  if (!btn || !pop) return;
+
+  const open = () => pop.classList.remove('hidden');
+  const close = () => pop.classList.add('hidden');
+
+  btn.addEventListener('click', (e) => {
+    e.stopPropagation();
+    pop.classList.toggle('hidden');
+  });
+
+  // Close on outside tap or ESC
+  document.addEventListener('click', (e) => {
+    if (!pop.classList.contains('hidden') && !pop.contains(e.target) && e.target !== btn) close();
+  }, {passive:true});
+  document.addEventListener('keydown', (e) => { if (e.key === 'Escape') close(); });
+
+  // Keep popover above player & centered
+  const place = () => {
+    pop.style.bottom = `calc(var(--playerH) + 10px)`;
+    pop.style.left = '50%';
+    pop.style.transform = 'translateX(-50%)';
+  };
+  place();
+  addEventListener('resize', place, {passive:true});
+})();
+</script>
+
 </script>
   
 <script>
@@ -170,37 +223,44 @@ if ('serviceWorker' in navigator) {
   </header>
 
   <!-- Sticky Player -->
-  <div class="playerSticky">
-    <div class="playerBar">
-      <div class="pill">
-        <div class="controls">
-          <button id="P_prev" class="btn" title="Previous">⏮</button>
-          <button id="P_back10" class="btn" title="Back 10s">↶10</button>
-          <button id="P_play" class="btn" title="Play/Pause">▶</button>
-          <button id="P_fwd10" class="btn" title="Forward 10s">10↷</button>
-          <button id="P_next" class="btn" title="Next">⏭</button>
-          <button id="P_repeat" class="btn" aria-pressed="false" title="Repeat concert">⟲</button>
-          <button id="P_shuffle" class="btn" aria-pressed="false" title="Shuffle">⇄</button>
-        </div>
-        <div class="seekWrap">
-          <label for="P_seek" class="sr-only">Seek</label>
-          <canvas id="P_seekVis" height="18" aria-hidden="true"></canvas>
-          <input id="P_seek" type="range" class="range" min="0" max="0" value="0" title="Seek position">
-          <div id="P_times" class="sub"><span id="P_cur">0:00</span><span id="P_dur">0:00</span></div>
-          <span id="P_loading" class="loading" role="status" aria-label="Buffering…"></span>
-        </div>
-      </div>
-      <div class="pill" style="gap:10px;align-items:center;min-width:240px">
-        <button id="P_vdown" class="btn" title="Volume down">🔈</button>
+ <div class="playerBar playerCompact">
+  <div class="pill">
+    <div class="controls">
+      <button id="P_prev" class="btn btn--sm" title="Previous">⏮</button>
+      <button id="P_back10" class="btn btn--sm" title="Back 10s">↶10</button>
+      <button id="P_play" class="btn btn--sm" title="Play/Pause">▶</button>
+      <button id="P_fwd10" class="btn btn--sm" title="Forward 10s">10↷</button>
+      <button id="P_next" class="btn btn--sm" title="Next">⏭</button>
+      <button id="P_repeat" class="btn btn--sm" aria-pressed="false" title="Repeat concert">⟲</button>
+      <button id="P_shuffle" class="btn btn--sm" aria-pressed="false" title="Shuffle">⇄</button>
+      <!-- NEW: menu button opens volume/options popover -->
+      <button id="P_menu" class="btn btn--sm" title="Volume & options">🔊</button>
+    </div>
+
+    <div class="seekWrap">
+      <label for="P_seek" class="sr-only">Seek</label>
+      <canvas id="P_seekVis" height="18" aria-hidden="true"></canvas>
+      <input id="P_seek" type="range" class="range" min="0" max="0" value="0" title="Seek position">
+      <div id="P_times" class="sub"><span id="P_cur">0:00</span><span id="P_dur">0:00</span></div>
+      <span id="P_loading" class="loading" role="status" aria-label="Buffering…"></span>
+    </div>
+  </div>
+
+  <!-- NEW: Popover with the original volume controls -->
+  <div id="P_pop" class="popover hidden" role="dialog" aria-label="Audio options">
+    <div class="pill vpanel">
+      <div style="display:flex;align-items:center;gap:8px">
+        <button id="P_vdown" class="btn btn--sm" title="Volume down">🔈</button>
         <label for="P_vol" class="sr-only">Volume</label>
-        <input id="P_vol" type="range" min="0" max="1" step="0.01" value="0.7" style="width:140px" title="Volume">
-        <span id="P_pct" class="sub" style="min-width:32px;text-align:right">70%</span>
-        <button id="P_vup" class="btn" title="Volume up">🔊</button>
-        <button id="P_mute" class="btn" aria-pressed="false" title="Mute">🔇</button>
+        <input id="P_vol" type="range" min="0" max="1" step="0.01" value="0.7" style="width:180px" title="Volume">
+        <span id="P_pct" class="sub" style="min-width:36px;text-align:right">70%</span>
+        <button id="P_vup" class="btn btn--sm" title="Volume up">🔊</button>
+        <button id="P_mute" class="btn btn--sm" aria-pressed="false" title="Mute">🔇</button>
       </div>
     </div>
-    <audio id="P_audio" crossorigin="anonymous"></audio>
   </div>
+</div>
+
 
   <!-- Continue listening toast -->
   <div id="listenToast" class="toast hidden">
