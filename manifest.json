@@ -2,7 +2,7 @@
   "name": "Setlist Streamer",
   "short_name": "Setlist",
   "description": "Browse bands and stream fan-taped concerts from the Internet Archive.",
-  "start_url": "/setlist/app.html",
+  "start_url": "/setlist/index.html",
   "scope": "/setlist/",
   "display": "standalone",
   "background_color": "#000000",
