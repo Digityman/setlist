@@ -114,6 +114,7 @@
 <meta name="theme-color" content="#000000">
 <script>
 if ('serviceWorker' in navigator) {
+  // IMPORTANT: use the public URL path, including /setlist/
   navigator.serviceWorker.register('/setlist/sw.js');
 }
 </script>
@@ -699,4 +700,5 @@ ROUTER.route();
 </script>
 </body>
 </html>
+
 
