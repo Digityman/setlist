@@ -40,10 +40,10 @@
   .ghost{background:transparent}
   .muted{color:var(--muted)}
 
-  /* Bands grid — smaller tiles so ≥5 per row */
+  /* Bands grid — leave layout as-is (you said it's good) */
   .bandsGrid{
     display:grid;
-    grid-template-columns: repeat(auto-fill, minmax(100px, 1fr)); /* <= makes 5–8 per row depending on width */
+    grid-template-columns: repeat(auto-fill, minmax(140px, 1fr));
     gap:10px;
     padding:0 12px 120px;
   }
@@ -81,6 +81,11 @@
   .progressBar{
     position:absolute; left:0; bottom:0; height:3px; background:var(--warn); border-radius:0 0 12px 12px; width:0%;
   }
+
+  /* Show header meta pills */
+  .showMeta{display:flex; gap:8px; flex-wrap:wrap; align-items:center; padding:0 12px 6px}
+  .showTitle{font-weight:600}
+  .chip{background:var(--panel); border:1px solid var(--ring); border-radius:999px; padding:6px 10px; font-size:12px; color:var(--muted)}
 
   /* Player */
   .player{
@@ -153,13 +158,21 @@
     <div class="pill sp" style="min-width:160px;">
       <input id="concertSearch" type="search" placeholder="Search concerts" style="width:100%;">
     </div>
+    <button id="favConcertsToggle" class="btn" title="Show only favorites">☆ Favorites</button>
   </div>
 
   <!-- Show (tracklist) toolbar -->
   <div class="toolbar" id="toolbar-show" style="display:none;">
     <button class="btn ghost" id="backToConcerts" title="Back">← Concerts</button>
     <button class="btn" id="favShowBtn" title="Favorite">☆ Favorite</button>
-    <a id="openOnIA" class="btn ghost" target="_blank" rel="noopener">Archive.org</a>
+    <!-- No Archive.org link per request -->
+  </div>
+
+  <!-- Show header metadata -->
+  <div id="showMeta" class="showMeta" style="display:none;">
+    <span class="showTitle" id="showTitle"></span>
+    <span class="chip" id="showDate" style="display:none;"></span>
+    <span class="chip" id="showLoc"  style="display:none;"></span>
   </div>
 
   <div id="content" class="grid" aria-live="polite"></div>
@@ -242,7 +255,7 @@ const IA = {
     u.searchParams.set('output', 'json');
     return u.toString();
   },
-  concertsUrl({ bandId, sort = 'date desc', rows = 500, year = '', term = '' }){
+  concertsUrl({ bandId, sort = 'date desc', rows = 1000, year = '', term = '' }){
     let q = `collection:(${bandId}) AND mediatype:(etree OR audio)`;
     if (year) q += ` AND year:(${year})`;
     if (term) q += ` AND (title:(${term}) OR date:(${term}))`;
@@ -283,12 +296,13 @@ const IA = {
 };
 
 /* ------------------------------
-   Bands screen (with small images)
+   Bands screen (images)
 ------------------------------ */
 async function showBands(){
   show($('#toolbar-bands'), true);
   show($('#toolbar-band'), false);
   show($('#toolbar-show'), false);
+  show($('#showMeta'), false);
 
   const content = $('#content');
   if (!content) return;
@@ -337,21 +351,32 @@ async function showBands(){
 }
 
 /* ------------------------------
-   Band screen (concert list + all-year facet)
+   Band screen (concert list + all-year facet + favorites filter)
 ------------------------------ */
 let currentBandId = '';
 let currentConcerts = [];
+let onlyFavConcerts = false;
+
+function isFav(id){
+  const favs = store.get('favShows', []);
+  return favs.includes(id);
+}
 
 async function showBand(params){
   show($('#toolbar-bands'), false);
   show($('#toolbar-band'), true);
   show($('#toolbar-show'), false);
+  show($('#showMeta'), false);
 
   const [idRaw] = params || [];
   const id = decodeURIComponent(idRaw || '');
   currentBandId = id;
 
   $('#backToBands').onclick = () => location.hash = '#/bands';
+  const favBtn = $('#favConcertsToggle');
+  favBtn.onclick = () => { onlyFavConcerts = !onlyFavConcerts; renderConcerts(); updateFavConcertsBtn(); };
+  function updateFavConcertsBtn(){ favBtn.textContent = onlyFavConcerts ? '★ Favorites' : '☆ Favorites'; }
+  updateFavConcertsBtn();
 
   const content = $('#content');
   if (!content) return;
@@ -407,6 +432,10 @@ function renderConcerts(){
   let list = currentConcerts.slice();
   if (year) list = list.filter(d => String(d.year) === String(year));
   if (term) list = list.filter(d => (d.title||'').toLowerCase().includes(term) || (d.date||'').toLowerCase().includes(term));
+  if (onlyFavConcerts){
+    const favs = store.get('favShows', []);
+    list = list.filter(d => favs.includes(d.identifier));
+  }
 
   if (!list.length){
     content.innerHTML = `<div class="card"><span class="small">No concerts found.</span></div>`;
@@ -415,13 +444,15 @@ function renderConcerts(){
 
   content.innerHTML = list.map(it => {
     const date = it.date ? new Date(it.date).toLocaleDateString() : (it.year || '');
+    const star = isFav(it.identifier) ? '★' : '☆';
     return `
       <div class="card" data-id="${it.identifier}">
         <div>
           <h3>${it.title || it.identifier}</h3>
           <div class="small muted">${date} • ${Number(it.downloads||0).toLocaleString()} views</div>
         </div>
-        <div style="display:flex; gap:8px;">
+        <div style="display:flex; gap:8px; align-items:center;">
+          <span class="small" title="Favorited">${star}</span>
           <button class="btn detailsBtn">Details</button>
         </div>
       </div>
@@ -439,16 +470,13 @@ function renderConcerts(){
 }
 
 /* ------------------------------
-   Show page (tracklist, progress, favorite)
+   Show page (tracklist, progress, favorite, metadata header)
 ------------------------------ */
 let currentShowId = '';
 let trackEls = [];
 let trackList = []; // {url,title,length}
+let currentShowMeta = null;
 
-function isFav(id){
-  const favs = store.get('favShows', []);
-  return favs.includes(id);
-}
 function toggleFav(id){
   const favs = store.get('favShows', []);
   const i = favs.indexOf(id);
@@ -456,10 +484,27 @@ function toggleFav(id){
   store.set('favShows', favs);
   updateFavBtn();
 }
+
 function updateFavBtn(){
   const btn = $('#favShowBtn');
   if (!btn) return;
-  btn.textContent = isFav(currentShowId) ? '★ Favorited' : '☆ Favorite';
+  const favs = store.get('favShows', []);
+  btn.textContent = favs.includes(currentShowId) ? '★ Favorited' : '☆ Favorite';
+}
+
+function setShowHeader(meta){
+  const title = meta?.metadata?.title || currentShowId;
+  const date  = meta?.metadata?.date || '';
+  const venue = meta?.metadata?.venue || '';
+  const coverage = meta?.metadata?.coverage || ''; // often City, State
+  const location = [venue, coverage].filter(Boolean).join(' • ');
+
+  $('#showTitle').textContent = title;
+  show($('#showMeta'), true);
+  if (date){ $('#showDate').textContent = new Date(date).toLocaleDateString(); show($('#showDate'), true); }
+  else show($('#showDate'), false);
+  if (location){ $('#showLoc').textContent = location; show($('#showLoc'), true); }
+  else show($('#showLoc'), false);
 }
 
 async function showShow(params){
@@ -472,7 +517,6 @@ async function showShow(params){
   currentShowId = id;
 
   $('#backToConcerts').onclick = () => history.back();
-  $('#openOnIA').href = `https://archive.org/details/${encodeURIComponent(id)}`;
   $('#favShowBtn').onclick = () => toggleFav(id);
   updateFavBtn();
 
@@ -482,8 +526,10 @@ async function showShow(params){
 
   try{
     const meta = await IA.fetchJSON(IA.metaUrl(id));
+    currentShowMeta = meta;
+    setShowHeader(meta);
+
     const files = meta?.files || [];
-    // prioritize MP3; fallback to OGG/FLAC streams that are HTTP accessible
     const playable = files.filter(f => {
       const fmt = (f.format||'').toLowerCase();
       const name = (f.name||'').toLowerCase();
@@ -506,7 +552,7 @@ async function showShow(params){
 
     content.innerHTML = trackList.map((t,i)=>`
       <div class="track" data-i="${i}">
-        <button class="btn playBtn">${i===0?'▶️':'▶️'}</button>
+        <button class="btn playBtn">▶️</button>
         <div class="meta">
           <div class="title">${t.title}</div>
           <div class="len">${t.length}</div>
