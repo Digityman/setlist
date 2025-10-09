@@ -17,40 +17,31 @@
   a{color:inherit; text-decoration:none}
 
   .wrap{min-height:100%; display:flex; flex-direction:column}
-  header{
-    padding:14px 16px; display:flex; align-items:center; gap:10px; background:var(--panel); position:sticky; top:0; z-index:3;
-    box-shadow:0 1px 0 #000 inset, 0 1px 0 rgba(255,255,255,.03);
-  }
+  header{padding:14px 16px; display:flex; align-items:center; gap:10px; background:var(--panel); position:sticky; top:0; z-index:3; box-shadow:0 1px 0 #000 inset, 0 1px 0 rgba(255,255,255,.03)}
   header h1{font-size:18px; margin:0; white-space:nowrap}
   header .crumb{opacity:.75}
 
   /* Toolbars */
   .toolbar{display:flex; gap:8px; padding:10px 12px; align-items:center; flex-wrap:wrap}
-  .pill{
-    background:var(--panel); border:1px solid var(--ring); border-radius:999px; padding:8px 12px; display:flex; align-items:center; gap:8px;
-  }
-  select, input[type="search"]{
-    background:transparent; color:var(--text); border:none; outline:none; font:14px system-ui; min-width:120px;
-  }
-  .btn{
-    background:var(--btn); color:var(--text); border:1px solid var(--ring); border-radius:12px; padding:10px 12px;
-    display:inline-flex; align-items:center; justify-content:center; gap:6px; min-width:40px; min-height:40px;
-  }
+  .pill{background:var(--panel); border:1px solid var(--ring); border-radius:999px; padding:8px 12px; display:flex; align-items:center; gap:8px}
+  select, input[type="search"]{background:transparent; color:var(--text); border:none; outline:none; font:14px system-ui; min-width:120px}
+  .btn{background:var(--btn); color:var(--text); border:1px solid var(--ring); border-radius:12px; padding:10px 12px; display:inline-flex; align-items:center; justify-content:center; gap:6px; min-width:40px; min-height:40px}
   .btn:active{transform:translateY(1px)}
   .ghost{background:transparent}
   .muted{color:var(--muted)}
   .chip{background:var(--panel); border:1px solid var(--ring); border-radius:999px; padding:6px 10px; font-size:12px; color:var(--muted)}
 
-  /* Bands grid — keep your current look (≈3 per row) */
-  .bandsGrid{display:grid; grid-template-columns: repeat(auto-fill, minmax(140px, 1fr)); gap:10px; padding:0 12px 120px}
-  .bandTile{background:var(--panel); border:1px solid var(--ring); border-radius:14px; padding:8px; display:flex; flex-direction:column; gap:6px; cursor:pointer}
-  .bandTile img{width:100%; aspect-ratio:1/1; object-fit:cover; border-radius:10px; background:#0c0c0d}
-  .bandTitle{font-weight:600; font-size:13px}
-  .bandViews{font-size:11px; color:var(--muted)}
+  /* Bands grid — tightened so ~5 per row */
+  .bandsGrid{display:grid; grid-template-columns: repeat(auto-fill, minmax(80px, 1fr)); gap:8px; padding:0 12px 120px}
+  .bandTile{background:var(--panel); border:1px solid var(--ring); border-radius:12px; padding:6px; display:flex; flex-direction:column; gap:6px; cursor:pointer}
+  .bandTile img{width:100%; aspect-ratio:1/1; object-fit:cover; border-radius:8px; background:#0c0c0d}
+  .bandTitle{font-weight:600; font-size:12px}
+  .bandViews{font-size:10px; color:var(--muted)}
 
   /* Concert list */
   .grid{display:grid; grid-template-columns:1fr; gap:8px; padding:0 12px 120px}
   .card{background:var(--panel); border:1px solid var(--ring); border-radius:14px; padding:12px; display:flex; justify-content:space-between; align-items:center}
+  .card.tap{cursor:pointer}
   .card h3{margin:0 0 6px 0; font-size:15px}
   .row{display:flex; gap:8px; align-items:center; flex-wrap:wrap}
   .small{font-size:12px; color:var(--muted)}
@@ -213,7 +204,7 @@ async function showBands(){
   }catch(e){ console.error(e); content.className='grid'; content.innerHTML=`<div class="card"><span class="small">Failed to load bands.</span></div>`; }
 }
 
-/* ------------ Concerts page (no facets; full pagination) ------------ */
+/* ------------ Concerts page (pagination, full-year list) ------------ */
 let currentBandId=''; let allConcerts=[]; let onlyFavConcerts=false;
 
 function favShows(){ return store.get('favShows',[]); }
@@ -222,7 +213,7 @@ function isFav(id){ return favShows().includes(id); }
 async function fetchAllConcerts(bandId){
   const rows=500;
   let page=1, got=[], numFound=Infinity;
-  while(got.length < numFound && page <= 20){ // safety cap
+  while(got.length < numFound && page <= 20){
     const data = await IA.fetchJSON(IA.concertsUrl({bandId, sort:'date desc', rows, page}));
     const resp = data?.response || {};
     numFound = Number(resp.numFound || got.length);
@@ -245,11 +236,9 @@ async function showBand(params){
     allConcerts = await fetchAllConcerts(currentBandId);
 
     // build year counts (ascending)
-    const counts={};
-    for(const d of allConcerts){ if(d.year) counts[d.year]=(counts[d.year]||0)+1; }
+    const counts={}; for(const d of allConcerts){ if(d.year) counts[d.year]=(counts[d.year]||0)+1; }
     const years = Object.keys(counts).map(y=>({year:Number(y), count:counts[y]})).sort((a,b)=>a.year-b.year);
-    const yearSel=$('#yearSel');
-    yearSel.innerHTML = `<option value="">All years</option>` + years.map(y=>`<option value="${y.year}">${y.year} (${y.count.toLocaleString()})</option>`).join('');
+    $('#yearSel').innerHTML = `<option value="">All years</option>` + years.map(y=>`<option value="${y.year}">${y.year} (${y.count.toLocaleString()})</option>`).join('');
 
     renderConcerts();
   }catch(e){ console.error(e); content.innerHTML=`<div class="card"><span class="small">Failed to load concerts.</span></div>`; }
@@ -262,16 +251,14 @@ function renderConcerts(){
   let list=allConcerts.slice();
   if(year) list=list.filter(d=>String(d.year)===String(year));
   if(term) list=list.filter(d=>{
-    const t=(d.title||'').toLowerCase(); const v=(d.venue||'').toLowerCase(); const c=(d.coverage||'').toLowerCase(); const dt=(d.date||'').toLowerCase();
+    const t=(d.title||'').toLowerCase(), v=(d.venue||'').toLowerCase(), c=(d.coverage||'').toLowerCase(), dt=(d.date||'').toLowerCase();
     return t.includes(term)||v.includes(term)||c.includes(term)||dt.includes(term);
   });
   if(onlyFavConcerts){ const fav=favShows(); list=list.filter(d=>fav.includes(d.identifier)); }
 
   // sort logic
-  let sortExpr = sortSel;
-  if (sortSel==='auto'){ sortExpr = year ? 'date asc' : 'date desc'; }
-  const dir = sortExpr.endsWith('asc') ? 1 : -1;
-  const key = sortExpr.split(' ')[0];
+  let sortExpr = sortSel; if (sortSel==='auto'){ sortExpr = year ? 'date asc' : 'date desc'; }
+  const dir = sortExpr.endsWith('asc') ? 1 : -1; const key = sortExpr.split(' ')[0];
   list.sort((a,b)=>{
     if(key==='avg_rating'){ return ((a.avg_rating||0)-(b.avg_rating||0))*dir; }
     if(key==='downloads'){ return ((a.downloads||0)-(b.downloads||0))*dir; }
@@ -282,16 +269,13 @@ function renderConcerts(){
 
   content.innerHTML = list.map(it=>{
     const dateStr = it.date ? new Date(it.date).toLocaleDateString() : (it.year||'');
-    const rating = Math.round((it.avg_rating||0)*2)/2; // halves
-    const reviews = it.num_reviews||0;
-    const stars = '★★★★★'.split('').map((s,i)=>{
-      const v=i+1; return `<span class="starGlyph">${rating>=v?'★':(rating>=v-0.5?'⯨':'☆')}</span>`;
-    }).join('');
+    const rating = Math.round((it.avg_rating||0)*2)/2; const reviews = it.num_reviews||0;
+    const stars = '★★★★★'.split('').map((s,i)=>{ const v=i+1; return `<span class="starGlyph">${rating>=v?'★':(rating>=v-0.5?'⯨':'☆')}</span>`; }).join('');
     const favMark = isFav(it.identifier) ? '★' : '☆';
     const venueLine = [it.venue, it.coverage].filter(Boolean).join(', ');
     const viewsChip = `<span class="chip">${fmtCompact(it.downloads||0)} views</span>`;
     return `
-      <div class="card" data-id="${it.identifier}">
+      <div class="card tap" data-id="${it.identifier}">
         <div>
           <h3>${it.title || it.identifier}</h3>
           <div class="row">
@@ -302,20 +286,22 @@ function renderConcerts(){
           <div class="small">${venueLine}</div>
         </div>
         <div class="row">
-          <button class="btn detailsBtn">Details</button>
           <button class="btn ghost favToggle" title="Favorite">${favMark}</button>
         </div>
       </div>`;
   }).join('');
 
+  // Whole card navigates; star toggles favorite without navigation
   content.onclick = ev => {
-    const card = ev.target.closest('.card'); if(!card) return;
-    if (ev.target.classList.contains('detailsBtn')) {
-      location.hash = '#/show/' + encodeURIComponent(card.dataset.id);
-    } else if (ev.target.classList.contains('favToggle')) {
-      const id = card.dataset.id; const fav=favShows(); const i=fav.indexOf(id);
-      if(i>=0) fav.splice(i,1); else fav.push(id); store.set('favShows',fav); renderConcerts();
+    const favBtn = ev.target.closest('.favToggle');
+    if (favBtn){
+      const card = favBtn.closest('.card'); const id = card.dataset.id;
+      const fav=favShows(); const i=fav.indexOf(id); if(i>=0) fav.splice(i,1); else fav.push(id);
+      store.set('favShows',fav); renderConcerts();
+      return;
     }
+    const card = ev.target.closest('.card.tap');
+    if (card) location.hash = '#/show/' + encodeURIComponent(card.dataset.id);
   };
 }
 
@@ -334,15 +320,10 @@ function setShowHeader(meta){
   if(date){ $('#showDate').textContent = new Date(date).toLocaleDateString(); show($('#showDate'),true);} else show($('#showDate'),false);
   if(location){ $('#showLoc').textContent = location; show($('#showLoc'),true);} else show($('#showLoc'),false);
 }
-function cleanTitle(name){
-  let t = name.replace(/\.(mp3|ogg|flac)$/i,''); t = t.replace(/[_-]+/g,' ').replace(/\s+/g,' ').trim(); t = t.replace(/^(\d+)[\s.\-_]+/,''); return t;
-}
+function cleanTitle(name){ let t=name.replace(/\.(mp3|ogg|flac)$/i,''); t=t.replace(/[_-]+/g,' ').replace(/\s+/g,' ').trim(); t=t.replace(/^(\d+)[\s.\-_]+/,''); return t; }
 function naturalCmp(a,b){ return a.localeCompare(b,undefined,{numeric:true,sensitivity:'base'}); }
-function extractTrackNo(f){
-  const n1 = Number(f.track || f.trackno || ''); if (!isNaN(n1) && n1>0) return n1;
-  const m = /(\d+)[^\d]*\.(mp3|ogg|flac)$/i.exec(f.name||''); if (m) return Number(m[1]);
-  return Infinity;
-}
+function extractTrackNo(f){ const n1=Number(f.track||f.trackno||''); if(!isNaN(n1)&&n1>0) return n1; const m=/(\d+)[^\d]*\.(mp3|ogg|flac)$/i.exec(f.name||''); if(m) return Number(m[1]); return Infinity; }
+
 async function showShow(params){
   show($('#toolbar-bands'),false); show($('#toolbar-band'),false); show($('#toolbar-show'),true);
   currentShowId = decodeURIComponent((params||[])[0]||'');
@@ -355,21 +336,15 @@ async function showShow(params){
     setShowHeader(meta);
     const files = meta?.files||[];
 
-    // Prefer MP3; fallback to OGG/FLAC only if no MP3s exist
     let playable = files.filter(f => /\.mp3$/i.test(f.name||'') || (f.format||'').toLowerCase().includes('mp3'));
-    if (playable.length===0){
-      playable = files.filter(f => /\.(ogg|flac)$/i.test(f.name||'') || /(ogg|flac)/.test((f.format||'').toLowerCase()));
-    }
+    if (playable.length===0){ playable = files.filter(f => /\.(ogg|flac)$/i.test(f.name||'') || /(ogg|flac)/.test((f.format||'').toLowerCase())); }
 
-    // Sort & de-dupe
     playable.sort((a,b)=>{ const an=extractTrackNo(a), bn=extractTrackNo(b); if (an!==bn) return an-bn; return naturalCmp(a.name||'', b.name||''); });
-    const seen=new Set();
-    trackList = [];
+
+    const seen=new Set(); trackList=[];
     for (const f of playable){
       const title = cleanTitle(f.title || f.name || '');
-      const key = title.toLowerCase();
-      if (seen.has(key)) continue;
-      seen.add(key);
+      const key = title.toLowerCase(); if (seen.has(key)) continue; seen.add(key);
       const url = `https://archive.org/download/${currentShowId}/${encodeURIComponent(f.name)}`;
       trackList.push({ url, title, length: f.length || '' });
     }
@@ -378,10 +353,7 @@ async function showShow(params){
 
     content.innerHTML = trackList.map((t,i)=>`
       <div class="track" data-i="${i}">
-        <div class="tleft">
-          <div class="tnum">${i+1}</div>
-          <div class="tname">${t.title}</div>
-        </div>
+        <div class="tleft"><div class="tnum">${i+1}</div><div class="tname">${t.title}</div></div>
         <div class="tlen">${t.length}</div>
         <div class="progressBar" id="pb-${i}"></div>
       </div>`).join('');
@@ -397,19 +369,12 @@ let queue=[]; let curIndex=-1;
 function setQueueFromTracks(){ queue = trackList.map(t=>t.url); }
 function playIndex(i){ if(!trackList.length) return; setQueueFromTracks(); curIndex=Math.max(0,Math.min(i,queue.length-1)); A.src=queue[curIndex]; A.play().catch(()=>{}); updateTrackHighlight(); }
 function updateTrackHighlight(){ trackEls.forEach((el,idx)=>el.classList.toggle('playing', idx===curIndex)); }
-
 P.play?.addEventListener('click', ()=>{ if(A.paused) A.play(); else A.pause(); });
 P.prev?.addEventListener('click', ()=>{ if(curIndex>0) playIndex(curIndex-1); });
 P.next?.addEventListener('click', ()=>{ if(curIndex<queue.length-1) playIndex(curIndex+1); });
 P.mute?.addEventListener('click', ()=>{ A.muted=!A.muted; });
 P.seek?.addEventListener('input', ()=>{ if(!A.duration||isNaN(A.duration)) return; A.currentTime=(P.seek.value/1000)*A.duration; });
-
-A.addEventListener('timeupdate', ()=>{
-  if(A.duration && !isNaN(A.duration)){
-    P.cur.textContent=fmtTime(A.currentTime); P.dur.textContent=' / '+fmtTime(A.duration); P.seek.value=Math.floor((A.currentTime/A.duration)*1000);
-    if(curIndex>=0){ const pb=$('#pb-'+curIndex); if(pb) pb.style.width=`${(A.currentTime/A.duration)*100}%`; }
-  }else{ P.cur.textContent='0:00'; P.dur.textContent=' / 0:00'; P.seek.value=0; }
-});
+A.addEventListener('timeupdate', ()=>{ if(A.duration&&!isNaN(A.duration)){ P.cur.textContent=fmtTime(A.currentTime); P.dur.textContent=' / '+fmtTime(A.duration); P.seek.value=Math.floor((A.currentTime/A.duration)*1000); if(curIndex>=0){ const pb=$('#pb-'+curIndex); if(pb) pb.style.width=`${(A.currentTime/A.duration)*100}%`; } }else{ P.cur.textContent='0:00'; P.dur.textContent=' / 0:00'; P.seek.value=0; } });
 A.addEventListener('play', ()=>{ P.play.textContent='⏸'; updateTrackHighlight(); });
 A.addEventListener('pause', ()=>{ P.play.textContent='▶️'; });
 A.addEventListener('ended', ()=>{ if(curIndex<queue.length-1) playIndex(curIndex+1); });
