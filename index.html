@@ -93,6 +93,33 @@
   .showTitle{font-weight:600; margin-right:6px}
   .showMeta .end{margin-left:auto; display:flex; align-items:center}
   .stars{display:inline-flex; align-items:center; gap:4px}
+
+  /* === FIXED PLAYER (V1 behavior) === */
+  .player{
+    position:fixed; left:0; right:0; bottom:0;
+    background:var(--panel);
+    border-top:1px solid var(--ring);
+    box-shadow:0 -1px 0 #000 inset, 0 -6px 24px rgba(0,0,0,.35);
+    padding:10px 12px calc(10px + env(safe-area-inset-bottom));
+    z-index:5;
+  }
+  .player .controls{
+    display:flex; align-items:center; gap:8px;
+    max-width:1000px; margin:0 auto;
+  }
+  .player .btn{min-width:42px; min-height:42px; border-radius:12px}
+  .seekWrap{display:flex; align-items:center; gap:10px; flex:1; min-width:180px}
+  #P_times{font-size:12px; color:var(--muted); white-space:nowrap}
+  #P_seek{
+    flex:1; height:6px; border:none; outline:none; border-radius:999px;
+    background:#2a2b2f; -webkit-appearance:none; appearance:none;
+  }
+  #P_seek::-webkit-slider-thumb{
+    -webkit-appearance:none; appearance:none; width:14px; height:14px; border-radius:50%; background:#7bdcaa; border:none;
+  }
+  #P_seek::-moz-range-thumb{
+    width:14px; height:14px; border-radius:50%; background:#7bdcaa; border:none;
+  }
 </style>
 </head>
 <body>
@@ -148,7 +175,7 @@
     <button id="resetConcerts" class="btn ghost muted">Reset</button>
   </div>
 
-  <!-- Show header metadata (title + date/location chips + Favorite on right) -->
+  <!-- Show header metadata -->
   <div id="showMeta" class="showMeta" style="display:none;">
     <span class="showTitle" id="showTitle"></span>
     <span class="chip" id="showDate" style="display:none;"></span>
@@ -161,8 +188,8 @@
   <div id="content" class="grid" aria-live="polite"></div>
 </div>
 
-<!-- Player -->
-<div class="player playerCompact" id="player">
+<!-- Fixed Player (V1) -->
+<div class="player" id="player">
   <div class="controls">
     <button id="P_prev" class="btn" title="Previous">⏮</button>
     <button id="P_play" class="btn" title="Play/Pause">▶️</button>
@@ -366,7 +393,7 @@ const SortDrop = (()=> {
   const btn  = document.getElementById('sortBtn');
   const menu = document.getElementById('sortMenu');
   let value = 'auto';
-  let options = [
+  const options = [
     {value:'auto', label:'Auto'},
     {value:'date asc', label:'Date ↑'},
     {value:'date desc', label:'Date ↓'},
@@ -374,7 +401,6 @@ const SortDrop = (()=> {
     {value:'downloads desc', label:'Views ↓'},
   ];
   function render(){ menu.innerHTML = options.map(o=>`<div class="item" data-value="${o.value}">${o.label}</div>`).join(''); }
-  function open(){ menu.classList.add('open'); }
   function close(){ menu.classList.remove('open'); }
   wrap.addEventListener('click', (e)=>{ if(e.target.closest('.item')) return; menu.classList.toggle('open'); });
   document.addEventListener('click', (e)=>{ if(!wrap.contains(e.target)) close(); });
@@ -392,7 +418,7 @@ const SortDrop = (()=> {
   let onChange = null;
   function subscribe(fn){ onChange = fn; }
   render(); setValue('auto', true);
-  return {getValue:()=>value, setValue, subscribe, open, close};
+  return {getValue:()=>value, setValue, subscribe};
 })();
 
 /* Scrollable Year dropdown controller */
@@ -403,7 +429,6 @@ const YearDrop = (()=> {
   let value = '';
   let options = [{value:'', label:'All years'}];
   function render(){ menu.innerHTML = options.map(o=>`<div class="item" data-value="${o.value}">${o.label}</div>`).join(''); }
-  function open(){ menu.classList.add('open'); }
   function close(){ menu.classList.remove('open'); }
   wrap.addEventListener('click', (e)=>{ if(e.target.closest('.item')) return; menu.classList.toggle('open'); });
   document.addEventListener('click', (e)=>{ if(!wrap.contains(e.target)) close(); });
@@ -418,7 +443,7 @@ const YearDrop = (()=> {
   function setValue(v){ value=v||''; btn.textContent=(options.find(o=>String(o.value)===String(value))?.label)||'All years'; }
   function getValue(){ return value; }
   render();
-  return {setOptions,setValue,getValue, open, close};
+  return {setOptions,setValue,getValue};
 })();
 
 function resolveSort(){ return state.sortSel==='auto' ? (state.year ? 'date asc' : 'date desc') : state.sortSel; }
