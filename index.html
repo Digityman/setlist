@@ -6,10 +6,11 @@
 <title>Live Music Archive — Mobile Player</title>
 <link rel="preconnect" href="https://archive.org">
 <link rel="manifest" href="manifest.json">
+<link rel="icon" type="image/png" href="icons/icon-192.png">
 <style>
   :root{
     --bg:#0f0f10; --panel:#161719; --text:#e9e9ea; --muted:#a6a6ac; --accent:#5bd19a;
-    --btn:#232428; --btnHi:#2c2e33; --ring:#2b2d31;
+    --btn:#232428; --ring:#2b2d31;
   }
   html,body{height:100%}
   body{margin:0; background:var(--bg); color:var(--text); font:14px/1.4 system-ui,-apple-system,Segoe UI,Roboto,Arial,sans-serif}
@@ -23,6 +24,7 @@
   header h1{font-size:18px; margin:0; white-space:nowrap}
   header .crumb{opacity:.75}
 
+  /* Toolbar */
   .toolbar{display:flex; gap:8px; padding:10px 12px; align-items:center; flex-wrap:wrap}
   .pill{
     background:var(--panel); border:1px solid var(--ring); border-radius:999px; padding:8px 12px; display:flex; align-items:center; gap:8px;
@@ -38,14 +40,32 @@
   .ghost{background:transparent}
   .muted{color:var(--muted)}
 
-  .grid{display:grid; grid-template-columns:1fr; gap:6px; padding:0 12px 110px}
+  /* Bands grid with thumbnails */
+  .bandsGrid{
+    display:grid;
+    grid-template-columns: repeat(auto-fill, minmax(140px, 1fr));
+    gap:10px;
+    padding:0 12px 120px;
+  }
+  .bandTile{
+    background:var(--panel); border:1px solid var(--ring); border-radius:14px; padding:10px;
+    display:flex; flex-direction:column; gap:8px; cursor:pointer;
+  }
+  .bandTile img{
+    width:100%; aspect-ratio:1/1; object-fit:cover; border-radius:10px; background:#0c0c0d;
+  }
+  .bandTitle{font-weight:600}
+  .bandViews{font-size:12px; color:var(--muted)}
+
+  /* List cards (used on concerts) */
+  .grid{display:grid; grid-template-columns:1fr; gap:6px; padding:0 12px 120px}
   .card{
     background:var(--panel); border:1px solid var(--ring); border-radius:14px; padding:12px; display:flex; justify-content:space-between; align-items:center;
   }
   .card h3{margin:0; font-size:15px}
   .small{font-size:12px; color:var(--muted)}
-  .tap{cursor:pointer}
 
+  /* Player */
   .player{
     position:fixed; left:0; right:0; bottom:0; background:var(--panel);
     border-top:1px solid var(--ring); padding:10px; z-index:5;
@@ -60,7 +80,7 @@
   .playerCompact #P_seek{width:100%; max-width:160px}
   .playerCompact #P_seekVis{left:10px; right:120px; max-width:160px}
 
-  /* Hide +/-10s buttons entirely (we no longer use them) */
+  /* Hide +/-10s buttons entirely */
   #P_back10, #P_fwd10{ display:none !important; }
 
   input[type="range"]{
@@ -77,14 +97,13 @@
 <body>
 <div class="wrap">
   <header>
-    <h1><a href="#/bands">Live Music Archive</a> <span class="crumb">— Bands</span></h1>
+    <h1><a href="#/bands">Live Music Archive</a> <span class="crumb" id="crumb"></span></h1>
     <span id="routeInfo" class="small muted"></span>
   </header>
 
-  <div class="toolbar">
+  <div class="toolbar" id="toolbar-bands">
     <div class="pill">
-      <span class="small muted">Sort</span>
-      <select id="sortSel">
+      <select id="sortSel" aria-label="Sort">
         <option value="downloads desc" selected>Views ↓</option>
         <option value="downloads asc">Views ↑</option>
         <option value="title asc">Title A→Z</option>
@@ -93,8 +112,7 @@
     </div>
 
     <div class="pill">
-      <span class="small muted">Subject</span>
-      <select id="subjectSel">
+      <select id="subjectSel" aria-label="Subject">
         <option value="all" selected>All subjects</option>
       </select>
     </div>
@@ -105,6 +123,19 @@
 
     <button id="favToggle" class="btn">☆ Favorites</button>
     <button id="resetBtn" class="btn ghost muted">Reset</button>
+  </div>
+
+  <!-- Band toolbar (shows on band route) -->
+  <div class="toolbar" id="toolbar-band" style="display:none;">
+    <button class="btn ghost" id="backToBands" title="Back">← Bands</button>
+    <div class="pill">
+      <select id="yearSel" aria-label="Year">
+        <option value="">All years</option>
+      </select>
+    </div>
+    <div class="pill sp" style="min-width:160px;">
+      <input id="concertSearch" type="search" placeholder="Search concerts" style="width:100%;">
+    </div>
   </div>
 
   <div id="content" class="grid" aria-live="polite"></div>
@@ -142,6 +173,7 @@ const fmtTime = secs => {
   const s = secs % 60;
   return m + ":" + String(s).padStart(2, "0");
 };
+function show(el, on=true){ if(!el) return; el.style.display = on ? '' : 'none'; }
 
 /* ------------------------------
    Router (minimal, safe)
@@ -158,8 +190,8 @@ const Router = (() => {
     const r = parse();
     const handler = routes[r.name] || routes['bands'];
     if (typeof handler === 'function') handler(r.params);
-    const routeInfo = $('#routeInfo');
-    if (routeInfo) routeInfo.textContent = (r.name === 'bands' ? '' : r.name);
+    const crumb = $('#crumb');
+    crumb.textContent = r.name === 'band' ? '— Concerts' : '— Bands';
   }
   return { on, route };
 })();
@@ -168,7 +200,7 @@ window.addEventListener('hashchange', Router.route);
 document.addEventListener('DOMContentLoaded', Router.route);
 
 /* ------------------------------
-   Data: Archive.org helpers
+   Archive.org helpers
 ------------------------------ */
 const IA = {
   bandsUrl({ q = 'collection:(etree) AND mediatype:(collection)', sort = 'downloads desc', rows = 100, page = 1 } = {}){
@@ -183,6 +215,27 @@ const IA = {
     u.searchParams.set('output', 'json');
     return u.toString();
   },
+  concertsUrl({ bandId, sort = 'date desc', rows = 200, year = '', term = '' }){
+    // Search shows within a band's collection; filter by year if provided.
+    let q = `collection:(${bandId}) AND mediatype:(etree OR audio)`;
+    if (year) q += ` AND year:(${year})`;
+    if (term) q += ` AND (title:(${term}) OR date:(${term}))`;
+
+    const u = new URL('https://archive.org/advancedsearch.php');
+    u.searchParams.set('q', q);
+    u.searchParams.append('fl[]','identifier');
+    u.searchParams.append('fl[]','title');
+    u.searchParams.append('fl[]','date');
+    u.searchParams.append('fl[]','year');
+    u.searchParams.append('fl[]','downloads');
+    u.searchParams.append('sort[]', sort);
+    u.searchParams.set('rows', rows);
+    u.searchParams.set('page', 1);
+    u.searchParams.set('output', 'json');
+    return u.toString();
+  },
+  metaUrl(id){ return `https://archive.org/metadata/${id}`; },
+  imgUrl(id){ return `https://archive.org/services/img/${id}`; },
   async fetchJSON(url){
     const res = await fetch(url, { cache: 'no-store' });
     if (!res.ok) throw new Error('Network ' + res.status);
@@ -191,12 +244,15 @@ const IA = {
 };
 
 /* ------------------------------
-   Bands screen
+   Bands screen (with images)
 ------------------------------ */
 async function showBands(){
+  show($('#toolbar-bands'), true);
+  show($('#toolbar-band'), false);
+
   const content = $('#content');
   if (!content) return;
-
+  content.className = 'bandsGrid';
   content.innerHTML = `<div class="card"><span class="small muted">Loading top bands…</span></div>`;
 
   const sortSel = $('#sortSel');
@@ -220,55 +276,110 @@ async function showBands(){
     }
 
     content.innerHTML = items.map(b => `
-      <div class="card tap" data-id="${b.id}">
-        <div>
-          <h3>${b.title}</h3>
-          <div class="small muted">${b.downloads.toLocaleString()} views</div>
-        </div>
-        <button class="btn">Browse</button>
+      <div class="bandTile" data-id="${b.id}">
+        <img src="${IA.imgUrl(b.id)}" alt="${b.title}">
+        <div class="bandTitle">${b.title}</div>
+        <div class="bandViews">${b.downloads.toLocaleString()} views</div>
       </div>
     `).join('');
 
-    content.addEventListener('click', ev => {
-      const card = ev.target.closest('.card.tap');
-      if (!card) return;
-      const id = card.getAttribute('data-id');
-      if (!id) return;
+    content.onclick = (ev) => {
+      const tile = ev.target.closest('.bandTile');
+      if (!tile) return;
+      const id = tile.getAttribute('data-id');
       location.hash = '#/band/' + encodeURIComponent(id);
-    }, { once:true });
-
+    };
   }catch(err){
     console.error(err);
+    content.className = 'grid';
     content.innerHTML = `<div class="card"><span class="small">Failed to load bands. Check network/CORS.</span></div>`;
   }
 }
 
 /* ------------------------------
-   Band screen (stub for now)
+   Band screen (concert list + Year filter)
 ------------------------------ */
+let currentBandId = '';
+let currentConcerts = [];
+
 async function showBand(params){
-  const [id] = params || [];
+  show($('#toolbar-bands'), false);
+  show($('#toolbar-band'), true);
+
+  const [idRaw] = params || [];
+  const id = decodeURIComponent(idRaw || '');
+  currentBandId = id;
+
+  $('#backToBands').onclick = () => location.hash = '#/bands';
+
   const content = $('#content');
   if (!content) return;
-  if (!id){ location.hash = '#/bands'; return; }
-
+  content.className = 'grid';
   content.innerHTML = `
-    <div class="card">
-      <div>
-        <h3>${decodeURIComponent(id)}</h3>
-        <div class="small muted">Tap back to choose another band.</div>
-      </div>
-      <button class="btn" onclick="location.hash='#/bands'">Back</button>
-    </div>
-    <div class="card"><span class="small muted">Concert list coming next…</span></div>
+    <div class="card"><span class="small muted">Loading concerts for <b>${id}</b>…</span></div>
   `;
+
+  try{
+    // initial fetch (no year filter)
+    const data = await IA.fetchJSON(IA.concertsUrl({ bandId:id, sort:'date desc', rows:500 }));
+    const docs = (data?.response?.docs || []);
+    currentConcerts = docs;
+
+    // Build Year options (desc)
+    const years = [...new Set(docs.map(d => d.year).filter(Boolean))]
+      .map(Number).filter(n => !isNaN(n)).sort((a,b)=>b-a);
+    const yearSel = $('#yearSel');
+    yearSel.innerHTML = `<option value="">All years</option>` + years.map(y=>`<option value="${y}">${y}</option>`).join('');
+    yearSel.onchange = () => renderConcerts();
+    $('#concertSearch').onchange = () => renderConcerts();
+
+    renderConcerts();
+  }catch(err){
+    console.error(err);
+    content.innerHTML = `<div class="card"><span class="small">Failed to load concerts.</span></div>`;
+  }
 }
 
-/* ------------------------------
-   Wire routes
------------------------------- */
-Router.on('bands', showBands);
-Router.on('band', showBand);
+function renderConcerts(){
+  const content = $('#content');
+  if (!content) return;
+  const year = $('#yearSel')?.value || '';
+  const term = ($('#concertSearch')?.value || '').trim().toLowerCase();
+
+  let list = currentConcerts.slice();
+  if (year) list = list.filter(d => String(d.year) === String(year));
+  if (term) list = list.filter(d => (d.title||'').toLowerCase().includes(term) || (d.date||'').toLowerCase().includes(term));
+
+  if (!list.length){
+    content.innerHTML = `<div class="card"><span class="small">No concerts found.</span></div>`;
+    return;
+  }
+
+  content.innerHTML = list.map(it => {
+    const date = it.date ? new Date(it.date).toLocaleDateString() : (it.year || '');
+    return `
+      <div class="card" data-id="${it.identifier}">
+        <div>
+          <h3>${it.title || it.identifier}</h3>
+          <div class="small muted">${date} • ${Number(it.downloads||0).toLocaleString()} views</div>
+        </div>
+        <div style="display:flex; gap:8px;">
+          <button class="btn playShow">Play</button>
+          <a class="btn ghost" href="https://archive.org/details/${it.identifier}" target="_blank" rel="noopener">Open</a>
+        </div>
+      </div>
+    `;
+  }).join('');
+
+  content.onclick = async (ev) => {
+    const card = ev.target.closest('.card');
+    if (!card) return;
+    if (ev.target.classList.contains('playShow')) {
+      const id = card.getAttribute('data-id');
+      await playFirstMp3(id);
+    }
+  };
+}
 
 /* ------------------------------
    Player logic (no ±10s buttons)
@@ -284,22 +395,32 @@ const P = {
   dur: $('#P_times .dur')
 };
 
-// Demo source so controls are alive; swap when wiring setlists
-A.src = 'https://archive.org/download/testmp3testfile/mpthreetest.mp3';
-A.preload = 'metadata';
+let queue = [];
+let curIndex = -1;
 
-let demoQueue = [A.src];
-let curIndex = 0;
+async function playFirstMp3(identifier){
+  try{
+    const meta = await IA.fetchJSON(IA.metaUrl(identifier));
+    const files = meta?.files || [];
+    const mp3 = files.find(f => (f.format||'').toLowerCase().includes('mp3') && f.name && f.name.endsWith('.mp3'));
+    if (!mp3) throw new Error('No MP3 found');
+    const url = `https://archive.org/download/${identifier}/${encodeURIComponent(mp3.name)}`;
+    queue = [url]; curIndex = 0;
+    A.src = url; A.play().catch(()=>{});
+  }catch(e){
+    console.warn('Could not play show:', e);
+  }
+}
 
 function load(i){
-  curIndex = Math.max(0, Math.min(i, demoQueue.length-1));
-  A.src = demoQueue[curIndex];
-  A.play().catch(()=>{ /* ignore autoplay block */ });
+  curIndex = Math.max(0, Math.min(i, queue.length-1));
+  A.src = queue[curIndex];
+  A.play().catch(()=>{});
 }
 
 P.play?.addEventListener('click', () => { if (A.paused) A.play(); else A.pause(); });
 P.prev?.addEventListener('click', () => load(Math.max(0, curIndex-1)));
-P.next?.addEventListener('click', () => load(Math.min(demoQueue.length-1, curIndex+1)));
+P.next?.addEventListener('click', () => load(Math.min(queue.length-1, curIndex+1)));
 P.mute?.addEventListener('click', () => { A.muted = !A.muted; });
 
 P.seek?.addEventListener('input', () => {
@@ -322,10 +443,15 @@ A.addEventListener('timeupdate', () => {
 
 A.addEventListener('play',  () => { P.play.textContent = '⏸'; });
 A.addEventListener('pause', () => { P.play.textContent = '▶️'; });
-A.addEventListener('ended', () => { if (curIndex < demoQueue.length-1) load(curIndex+1); });
 
 /* ------------------------------
-   Filters
+   Wire routes
+------------------------------ */
+Router.on('bands', showBands);
+Router.on('band', showBand);
+
+/* ------------------------------
+   Filters for bands
 ------------------------------ */
 $('#sortSel')?.addEventListener('change', showBands);
 $('#searchBox')?.addEventListener('change', showBands);
@@ -337,11 +463,9 @@ $('#resetBtn')?.addEventListener('click', () => {
 });
 
 /* ------------------------------
-   Service worker registration
-   (only if you actually want it)
+   Service worker (optional)
 ------------------------------ */
 if ('serviceWorker' in navigator) {
-  // Optional: register, but our sw.js doesn’t add a no-op fetch handler.
   navigator.serviceWorker.register('sw.js').catch(console.warn);
 }
 </script>
