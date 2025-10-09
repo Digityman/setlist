@@ -3,10 +3,21 @@
 <head>
 <meta charset="utf-8"/>
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover"/>
-<title>Live Music Archive — Mobile Player</title>
-<link rel="preconnect" href="https://archive.org">
+<title>Setlist Streamer</title>
+
+<!-- PWA + Icons -->
 <link rel="manifest" href="manifest.json">
-<link rel="icon" type="image/png" href="icons/icon-192.png">
+<meta name="theme-color" content="#0f0f10">
+<!-- Favicon / app icons (put these files in /icons) -->
+<link rel="icon" type="image/png" sizes="32x32" href="icons/logo-32.png">
+<link rel="icon" type="image/png" sizes="192x192" href="icons/logo-192.png">
+<link rel="apple-touch-icon" sizes="180x180" href="icons/logo-180.png">
+<link rel="apple-touch-icon" sizes="192x192" href="icons/logo-192.png">
+<link rel="apple-touch-icon" sizes="512x512" href="icons/logo-512.png">
+<meta property="og:image" content="icons/logo-512.png">
+
+<link rel="preconnect" href="https://archive.org">
+
 <style>
   :root{
     --bg:#0f0f10; --panel:#161719; --text:#e9e9ea; --muted:#a6a6ac; --accent:#5bd19a;
@@ -38,8 +49,7 @@
     position:absolute; top:110%; left:0; right:0;
     background:var(--panel); border:1px solid var(--ring); border-radius:12px;
     box-shadow:0 8px 24px rgba(0,0,0,.45);
-    display:none; max-height:280px; /* ~9 rows */
-    overflow:auto; z-index:50;
+    display:none; max-height:280px; overflow:auto; z-index:50;
   }
   .menu.open{display:block}
   .menu .item{padding:9px 12px; cursor:pointer; white-space:nowrap}
@@ -59,8 +69,6 @@
   .card h3{margin:0 0 6px 0; font-size:15px}
   .row{display:flex; gap:8px; align-items:center; flex-wrap:wrap}
   .small{font-size:12px; color:var(--muted)}
-  .stars{display:inline-flex; align-items:center; gap:6px}
-  .starGlyph{color:#ffcc33}
   .favToggle{min-width:40px}
 
   /* Load more card */
@@ -89,18 +97,20 @@
   .playerCompact #P_times{min-width:84px; font-size:12px; text-align:right}
   .playerCompact #P_times .dur{opacity:.8; margin-left:2px}
   .playerCompact #P_seek{width:100%; max-width:180px}
-  #P_back10, #P_fwd10{display:none!important}
   input[type="range"]{-webkit-appearance:none; appearance:none; height:4px; border-radius:999px; background:#2a2c30; outline:none}
   input[type="range"]::-webkit-slider-thumb{-webkit-appearance:none; appearance:none; width:14px; height:14px; border-radius:50%; background:var(--accent); border:none; box-shadow:0 0 0 3px rgba(91,209,154,.25)}
 
   /* Retry card */
   .retryWrap{display:flex; gap:10px; align-items:center}
+
+  /* SVG star color */
+  .stars{display:inline-flex; align-items:center; gap:4px}
 </style>
 </head>
 <body>
 <div class="wrap">
   <header>
-    <h1><a href="#/bands">Live Music Archive</a> <span class="crumb" id="crumb"></span></h1>
+    <h1><a href="#/bands">Setlist Streamer</a> <span class="crumb" id="crumb"></span></h1>
   </header>
 
   <!-- Bands toolbar -->
@@ -126,7 +136,9 @@
     <!-- Scrollable year dropdown -->
     <div class="pill dropdown" id="yearDrop" aria-label="Year">
       <button class="dropBtn" id="yearBtn">All years</button>
-      <div class="menu" id="yearMenu" role="listbox" aria-label="Year options"></div>
+      <div class="menu" id="yearMenu" role="listbox" aria-label="Year options">
+        <div class="item muted">Loading years…</div>
+      </div>
     </div>
 
     <div class="pill"><select id="sortConcerts" aria-label="Sort concerts">
@@ -192,7 +204,7 @@ const Router = (() => {
 })();
 addEventListener('hashchange', Router.route); addEventListener('DOMContentLoaded', Router.route);
 
-/* ------------ robust fetch with timeout/retries ------------ */
+/* ------------ robust fetch ------------ */
 async function fetchWithTimeout(url, {timeout=12000}={}){
   const ctrl = new AbortController();
   const id = setTimeout(()=>ctrl.abort(), timeout);
@@ -203,28 +215,7 @@ async function fetchWithTimeout(url, {timeout=12000}={}){
     return res;
   }catch(e){ clearTimeout(id); throw e; }
 }
-async function fetchJSONRetry(url, {retries=2, timeout=12000, backoff=1000}={}){
-  let attempt=0, lastErr=null;
-  while(attempt<=retries){
-    try{ const res = await fetchWithTimeout(url, {timeout}); return await res.json(); }
-    catch(err){ lastErr = err; await new Promise(r=>setTimeout(r, backoff*Math.pow(2, attempt))); attempt++; }
-  }
-  throw lastErr || new Error('Failed to fetch');
-}
-
-/* ------------ JSONP helper for fast facets (no CORS) ------------ */
-function fetchJSONP(url, {timeout=12000}={}){
-  return new Promise((resolve, reject)=>{
-    const cb = '__iajsonp_'+Math.random().toString(36).slice(2);
-    const s = document.createElement('script');
-    const t = setTimeout(()=>{ cleanup(); reject(new Error('JSONP timeout')); }, timeout);
-    function cleanup(){ clearTimeout(t); delete window[cb]; s.remove(); }
-    window[cb] = (data)=>{ cleanup(); resolve(data); };
-    s.src = url + (url.includes('?')?'&':'?') + 'callback=' + cb;
-    s.onerror = ()=>{ cleanup(); reject(new Error('JSONP error')); };
-    document.head.appendChild(s);
-  });
-}
+async function fetchJSON(url){ const r = await fetchWithTimeout(url); return r.json(); }
 
 /* ------------ IA helpers ------------ */
 const IA = {
@@ -241,19 +232,22 @@ const IA = {
     ['identifier','title','date','year','downloads','avg_rating','num_reviews','venue','coverage','creator','publicdate'].forEach(f=>u.searchParams.append('fl[]',f));
     u.searchParams.append('sort[]',sort); u.searchParams.set('rows',rows); u.searchParams.set('page',page); u.searchParams.set('output','json'); return u.toString();
   },
-  facetYearsJSONP({ bandId }){
+  yearsOnlyUrl({ bandId, rows=1000, page=1 }){
+    // super-light payload: we only fetch the year field
     const u=new URL('https://archive.org/advancedsearch.php');
     u.searchParams.set('q',`collection:(${bandId}) AND mediatype:(etree OR audio)`);
-    u.searchParams.set('rows','0'); u.searchParams.set('output','json');
-    u.searchParams.append('facet[]','year'); u.searchParams.set('facet_limit','10000'); u.searchParams.set('facet_mincount','1');
-    return fetchJSONP(u.toString());
+    u.searchParams.append('fl[]','year');
+    u.searchParams.set('rows',rows);
+    u.searchParams.set('page',page);
+    u.searchParams.set('output','json');
+    u.searchParams.append('sort[]','date asc');
+    return u.toString();
   },
   metaUrl:id=>`https://archive.org/metadata/${id}`,
-  imgUrl:id=>`https://archive.org/services/img/${id}`,
-  fetchJSON:(url)=>fetchJSONRetry(url, {retries:2, timeout:12000, backoff:1000})
+  imgUrl:id=>`https://archive.org/services/img/${id}`
 };
 
-/* ------------ helper: retry card ------------ */
+/* ------------ retry card ------------ */
 function showRetry(contentEl, message, retryFn){
   contentEl.className='grid';
   contentEl.innerHTML = `
@@ -266,6 +260,40 @@ function showRetry(contentEl, message, retryFn){
   $('#retryBtn')?.addEventListener('click', retryFn);
 }
 
+/* ------------ SVG stars (full/half/empty) ------------ */
+let _starUid = 0;
+function starSVG(type){
+  const id = 'g'+(++_starUid);
+  if(type==='full'){
+    return `<svg viewBox="0 0 24 24" width="14" height="14" aria-hidden="true">
+      <path d="M12 2.3l2.9 5.9 6.6 1-4.8 4.7 1.1 6.6L12 17.8 6.2 20.5 7.3 13.9 2.5 9.2l6.6-1z" fill="#ffcc33" stroke="#ffcc33" stroke-width="1"/>
+    </svg>`;
+  }
+  if(type==='half'){
+    return `<svg viewBox="0 0 24 24" width="14" height="14" aria-hidden="true">
+      <defs>
+        <linearGradient id="${id}" x1="0" x2="1" y1="0" y2="0">
+          <stop offset="50%" stop-color="#ffcc33"/>
+          <stop offset="50%" stop-color="transparent"/>
+        </linearGradient>
+      </defs>
+      <path d="M12 2.3l2.9 5.9 6.6 1-4.8 4.7 1.1 6.6L12 17.8 6.2 20.5 7.3 13.9 2.5 9.2l6.6-1z" fill="url(#${id})" stroke="#ffcc33" stroke-width="1"/>
+    </svg>`;
+  }
+  // empty
+  return `<svg viewBox="0 0 24 24" width="14" height="14" aria-hidden="true">
+    <path d="M12 2.3l2.9 5.9 6.6 1-4.8 4.7 1.1 6.6L12 17.8 6.2 20.5 7.3 13.9 2.5 9.2l6.6-1z" fill="none" stroke="#ffcc33" stroke-width="1"/>
+  </svg>`;
+}
+function renderStars(r){
+  const rating = Math.round((r||0)*2)/2;
+  let out = '';
+  for(let i=1;i<=5;i++){
+    out += rating>=i ? starSVG('full') : (rating>=i-0.5 ? starSVG('half') : starSVG('empty'));
+  }
+  return `<span class="stars" aria-label="${rating} out of 5 stars">${out}</span>`;
+}
+
 /* ------------ Bands page ------------ */
 async function showBands(){
   show($('#toolbar-bands'),true); show($('#toolbar-band'),false); show($('#toolbar-show'),false); show($('#showMeta'),false);
@@ -274,7 +302,7 @@ async function showBands(){
   let q='collection:(etree) AND mediatype:(collection)'; if(term) q+=` AND (title:(${term}) OR identifier:(${term}))`;
   const load = async ()=>{
     try{
-      const data=await IA.fetchJSON(IA.bandsUrl({q,sort,rows:120}));
+      const data=await fetchJSON(IA.bandsUrl({q,sort,rows:120}));
       const items=(data?.response?.docs||[]).map(d=>({id:d.identifier,title:d.title||d.identifier,downloads:d.downloads||0}));
       content.innerHTML = items.map(b=>`
         <div class="bandTile" data-id="${b.id}">
@@ -306,10 +334,8 @@ const YearDrop = (()=> {
   const btn  = document.getElementById('yearBtn');
   const menu = document.getElementById('yearMenu');
   let value = '';
-  let options = []; // [{value,label}]
-  function render(){
-    menu.innerHTML = options.map(o=>`<div class="item" data-value="${o.value}">${o.label}</div>`).join('');
-  }
+  let options = [{value:'', label:'All years'}];
+  function render(){ menu.innerHTML = options.map(o=>`<div class="item" data-value="${o.value}">${o.label}</div>`).join(''); }
   btn.addEventListener('click', (e)=>{ e.stopPropagation(); menu.classList.toggle('open'); });
   document.addEventListener('click', (e)=>{ if(!wrap.contains(e.target)) menu.classList.remove('open'); });
   menu.addEventListener('click', (e)=>{
@@ -319,24 +345,42 @@ const YearDrop = (()=> {
     menu.classList.remove('open');
     resetAndLoad({year:value});
   });
-  return {
-    setOptions(arr){ options = arr; render(); },
-    setValue(v){ value = v || ''; btn.textContent = (options.find(o=>String(o.value)===String(value))?.label) || 'All years'; },
-    getValue(){ return value; }
-  };
+  function setOptions(arr){ options = arr; render(); }
+  function setValue(v){ value=v||''; btn.textContent=(options.find(o=>String(o.value)===String(value))?.label)||'All years'; }
+  function getValue(){ return value; }
+  return {setOptions,setValue,getValue};
 })();
 
-function resolveSort(){
-  if(state.sortSel==='auto') return state.year ? 'date asc' : 'date desc';
-  return state.sortSel;
+/* Year counts: fast, robust and cached */
+async function buildYearCounts(bandId){
+  const cacheKey = 'years_'+bandId;
+  const cached = store.get(cacheKey,null);
+  const now = Date.now();
+  if(cached && (now - cached.ts) < 24*60*60*1000) return cached.years;
+
+  let counts = {};
+  let page=1, rows=1000, numFound=Infinity, got=0;
+  while(got < numFound && page<=30){ // safety cap
+    const data = await fetchJSON(IA.yearsOnlyUrl({bandId, rows, page}));
+    const resp = data?.response || {};
+    numFound = Number(resp.numFound || 0);
+    const docs = resp.docs || [];
+    for(const d of docs){ const y = d.year; if(y) counts[y] = (counts[y]||0)+1; }
+    got += docs.length; page++;
+  }
+  const yearsArr = Object.keys(counts).map(y=>({year:Number(y), count:counts[y]})).filter(o=>!isNaN(o.year)).sort((a,b)=>a.year-b.year);
+  store.set(cacheKey, {ts: now, years: yearsArr});
+  return yearsArr;
 }
+
+function resolveSort(){ return state.sortSel==='auto' ? (state.year ? 'date asc' : 'date desc') : state.sortSel; }
 
 async function loadPage(){
   const content=$('#content');
   const sortExpr = resolveSort();
   const url = IA.concertsUrl({bandId:currentBandId, sort:sortExpr, rows:state.rows, page:state.page, year:state.year, term:state.term});
   try{
-    const data = await IA.fetchJSON(url);
+    const data = await fetchJSON(url);
     const resp = data?.response || {};
     state.numFound = Number(resp.numFound || 0);
     state.list = state.list.concat(resp.docs || []);
@@ -362,26 +406,24 @@ async function showBand(params){
   $('#concertSearch').onchange=()=> resetAndLoad({term:($('#concertSearch').value||'').trim().toLowerCase()});
   $('#sortConcerts').onchange=()=> resetAndLoad({sortSel:$('#sortConcerts').value});
 
-  // 1) Load years fast via JSONP facet (scrollable list)
-  try{
-    const facet = await IA.facetYearsJSONP({bandId: currentBandId});
-    const y = facet?.response?.facets?.year || {};
-    const yearsArr = Object.keys(y).map(k=>({year:Number(k), count:y[k]})).filter(o=>!isNaN(o.year)).sort((a,b)=>a.year-b.year);
-    YearDrop.setOptions([{value:'', label:'All years'}, ...yearsArr.map(o=>({value:String(o.year), label:`${o.year} (${o.count.toLocaleString()})`}))]);
-    YearDrop.setValue('');
-  }catch(e){
-    console.warn('Facet JSONP failed; year list will appear after first page loads.');
-    YearDrop.setOptions([{value:'', label:'All years'}]); YearDrop.setValue('');
-  }
+  // Year counts (lightweight + cached)
+  (async ()=>{
+    try{
+      const years = await buildYearCounts(currentBandId);
+      YearDrop.setOptions([{value:'', label:'All years'}, ...years.map(o=>({value:String(o.year), label:`${o.year} (${o.count.toLocaleString()})`}))]);
+      YearDrop.setValue('');
+    }catch(e){
+      console.warn('Year counts failed; showing basic All years.');
+      YearDrop.setOptions([{value:'', label:'All years'}]); YearDrop.setValue('');
+    }
+  })();
 
-  // 2) Load first page of concerts immediately, then user can "Load more"
+  // First page
   resetAndLoad({year:'', term:'', sortSel:'auto'});
 }
 
 function renderConcerts(){
   const content=$('#content'); if(!content) return;
-  const year=YearDrop.getValue(); const term=state.term; const sortSel=state.sortSel;
-
   let list=state.list.slice();
   if(onlyFavConcerts){ const fav=favShows(); list=list.filter(d=>fav.includes(d.identifier)); }
 
@@ -389,9 +431,7 @@ function renderConcerts(){
 
   content.innerHTML = list.map(it=>{
     const dateStr = it.date ? new Date(it.date).toLocaleDateString() : (it.year||'');
-    const rating = Math.round((it.avg_rating||0)*2)/2; const reviews = it.num_reviews||0;
-    const stars = '★★★★★'.split('').map((s,i)=>{ const v=i+1; return `<span class="starGlyph">${rating>=v?'★':(rating>=v-0.5?'⯨':'☆')}</span>`; }).join('');
-    const favMark = isFav(it.identifier) ? '★' : '☆';
+    const reviews = it.num_reviews||0;
     const venueLine = [it.venue, it.coverage].filter(Boolean).join(', ');
     const viewsChip = `<span class="chip">${fmtCompact(it.downloads||0)} views</span>`;
     return `
@@ -401,17 +441,16 @@ function renderConcerts(){
           <div class="row">
             <span class="chip">${dateStr}</span>
             ${viewsChip}
-            <span class="stars">${stars}<span class="small">(${reviews})</span></span>
+            ${renderStars(it.avg_rating||0)} <span class="small">(${reviews})</span>
           </div>
           <div class="small">${venueLine}</div>
         </div>
         <div class="row">
-          <button class="btn ghost favToggle" title="Favorite">${favMark}</button>
+          <button class="btn ghost favToggle" title="Favorite">${isFav(it.identifier)?'★':'☆'}</button>
         </div>
       </div>`;
   }).join('');
 
-  // Add "Load more" if more pages exist (and we aren't filtering to favorites)
   if(!onlyFavConcerts && state.list.length < state.numFound){
     const more = document.createElement('div');
     more.className='card loadMore';
@@ -420,7 +459,6 @@ function renderConcerts(){
     $('#loadMoreBtn').onclick = ()=>{ state.page += 1; loadPage(); };
   }
 
-  // whole card navigates; star toggles favorite without navigation
   content.onclick = ev => {
     const favBtn = ev.target.closest('.favToggle');
     if (favBtn){
@@ -462,7 +500,7 @@ async function showShow(params){
   const content=$('#content'); content.className='tracks'; content.innerHTML=`<div class="card"><span class="small">Loading tracks…</span></div>`;
   const load = async ()=>{
     try{
-      const meta = await IA.fetchJSON(IA.metaUrl(currentShowId));
+      const meta = await fetchJSON(IA.metaUrl(currentShowId));
       setShowHeader(meta);
       const files = meta?.files||[];
 
@@ -499,18 +537,45 @@ async function showShow(params){
   load();
 }
 
-/* ------------ Player shared ------------ */
+/* ------------ Player & Media Session (logo artwork) ------------ */
 const A=$('#audio'); const P={ play:$('#P_play'), prev:$('#P_prev'), next:$('#P_next'), mute:$('#P_mute'), seek:$('#P_seek'), cur:$('#P_times .cur'), dur:$('#P_times .dur') };
 let queue=[]; let curIndex=-1;
 function setQueueFromTracks(){ queue = trackList.map(t=>t.url); }
-function playIndex(i){ if(!trackList.length) return; setQueueFromTracks(); curIndex=Math.max(0,Math.min(i,queue.length-1)); A.src=queue[curIndex]; A.play().catch(()=>{}); updateTrackHighlight(); }
+function updateMediaSession(title='Playing', artist='Setlist Streamer'){
+  try{
+    if(!('mediaSession' in navigator)) return;
+    navigator.mediaSession.metadata = new MediaMetadata({
+      title, artist, album: 'Live Music Archive',
+      artwork: [
+        { src: 'icons/logo-96.png',  sizes:'96x96',  type:'image/png' },
+        { src: 'icons/logo-192.png', sizes:'192x192', type:'image/png' },
+        { src: 'icons/logo-256.png', sizes:'256x256', type:'image/png' },
+        { src: 'icons/logo-512.png', sizes:'512x512', type:'image/png' }
+      ]
+    });
+  }catch(e){}
+}
+function playIndex(i){
+  if(!trackList.length) return;
+  setQueueFromTracks();
+  curIndex=Math.max(0,Math.min(i,queue.length-1));
+  A.src=queue[curIndex];
+  updateMediaSession(trackList[curIndex]?.title || 'Track');
+  A.play().catch(()=>{});
+  updateTrackHighlight();
+}
 function updateTrackHighlight(){ trackEls.forEach((el,idx)=>el.classList.toggle('playing', idx===curIndex)); }
 P.play?.addEventListener('click', ()=>{ if(A.paused) A.play(); else A.pause(); });
 P.prev?.addEventListener('click', ()=>{ if(curIndex>0) playIndex(curIndex-1); });
 P.next?.addEventListener('click', ()=>{ if(curIndex<queue.length-1) playIndex(curIndex+1); });
 P.mute?.addEventListener('click', ()=>{ A.muted=!A.muted; });
 P.seek?.addEventListener('input', ()=>{ if(!A.duration||isNaN(A.duration)) return; A.currentTime=(P.seek.value/1000)*A.duration; });
-A.addEventListener('timeupdate', ()=>{ if(A.duration&&!isNaN(A.duration)){ P.cur.textContent=fmtTime(A.currentTime); P.dur.textContent=' / '+fmtTime(A.duration); P.seek.value=Math.floor((A.currentTime/A.duration)*1000); if(curIndex>=0){ const pb=$('#pb-'+curIndex); if(pb) pb.style.width=`${(A.currentTime/A.duration)*100}%`; } }else{ P.cur.textContent='0:00'; P.dur.textContent=' / 0:00'; P.seek.value=0; } });
+A.addEventListener('timeupdate', ()=>{
+  if(A.duration&&!isNaN(A.duration)){
+    P.cur.textContent=fmtTime(A.currentTime); P.dur.textContent=' / '+fmtTime(A.duration); P.seek.value=Math.floor((A.currentTime/A.duration)*1000);
+    if(curIndex>=0){ const pb=$('#pb-'+curIndex); if(pb) pb.style.width=`${(A.currentTime/A.duration)*100}%`; }
+  }else{ P.cur.textContent='0:00'; P.dur.textContent=' / 0:00'; P.seek.value=0; }
+});
 A.addEventListener('play', ()=>{ P.play.textContent='⏸'; updateTrackHighlight(); });
 A.addEventListener('pause', ()=>{ P.play.textContent='▶️'; });
 A.addEventListener('ended', ()=>{ if(curIndex<queue.length-1) playIndex(curIndex+1); });
