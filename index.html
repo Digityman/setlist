@@ -6,15 +6,14 @@
 <title>Setlist Streamer</title>
 
 <!-- PWA + Icons -->
-<link rel="manifest" href="manifest.json">
+<link rel="manifest" href="manifest.json?v=3">
 <meta name="theme-color" content="#0f0f10">
-<!-- Favicon / app icons (put these files in /icons) -->
-<link rel="icon" type="image/png" sizes="32x32" href="icons/logo-32.png">
-<link rel="icon" type="image/png" sizes="192x192" href="icons/logo-192.png">
-<link rel="apple-touch-icon" sizes="180x180" href="icons/logo-180.png">
-<link rel="apple-touch-icon" sizes="192x192" href="icons/logo-192.png">
-<link rel="apple-touch-icon" sizes="512x512" href="icons/logo-512.png">
-<meta property="og:image" content="icons/logo-512.png">
+
+<!-- Favicons / app icons (make sure these exact files exist in /icons, all lowercase) -->
+<link rel="icon" href="icons/logo-32.png?v=3" sizes="32x32" type="image/png">
+<link rel="icon" href="icons/logo-192.png?v=3" sizes="192x192" type="image/png">
+<link rel="apple-touch-icon" href="icons/logo-180.png?v=3" sizes="180x180">
+<link rel="shortcut icon" href="icons/logo-32.png?v=3" type="image/png">
 
 <link rel="preconnect" href="https://archive.org">
 
@@ -103,7 +102,7 @@
   /* Retry card */
   .retryWrap{display:flex; gap:10px; align-items:center}
 
-  /* SVG star color */
+  /* SVG stars color wrapper */
   .stars{display:inline-flex; align-items:center; gap:4px}
 </style>
 </head>
@@ -233,7 +232,6 @@ const IA = {
     u.searchParams.append('sort[]',sort); u.searchParams.set('rows',rows); u.searchParams.set('page',page); u.searchParams.set('output','json'); return u.toString();
   },
   yearsOnlyUrl({ bandId, rows=1000, page=1 }){
-    // super-light payload: we only fetch the year field
     const u=new URL('https://archive.org/advancedsearch.php');
     u.searchParams.set('q',`collection:(${bandId}) AND mediatype:(etree OR audio)`);
     u.searchParams.append('fl[]','year');
@@ -280,7 +278,6 @@ function starSVG(type){
       <path d="M12 2.3l2.9 5.9 6.6 1-4.8 4.7 1.1 6.6L12 17.8 6.2 20.5 7.3 13.9 2.5 9.2l6.6-1z" fill="url(#${id})" stroke="#ffcc33" stroke-width="1"/>
     </svg>`;
   }
-  // empty
   return `<svg viewBox="0 0 24 24" width="14" height="14" aria-hidden="true">
     <path d="M12 2.3l2.9 5.9 6.6 1-4.8 4.7 1.1 6.6L12 17.8 6.2 20.5 7.3 13.9 2.5 9.2l6.6-1z" fill="none" stroke="#ffcc33" stroke-width="1"/>
   </svg>`;
@@ -351,7 +348,7 @@ const YearDrop = (()=> {
   return {setOptions,setValue,getValue};
 })();
 
-/* Year counts: fast, robust and cached */
+/* Year counts: lightweight + cached */
 async function buildYearCounts(bandId){
   const cacheKey = 'years_'+bandId;
   const cached = store.get(cacheKey,null);
@@ -360,7 +357,7 @@ async function buildYearCounts(bandId){
 
   let counts = {};
   let page=1, rows=1000, numFound=Infinity, got=0;
-  while(got < numFound && page<=30){ // safety cap
+  while(got < numFound && page<=30){
     const data = await fetchJSON(IA.yearsOnlyUrl({bandId, rows, page}));
     const resp = data?.response || {};
     numFound = Number(resp.numFound || 0);
@@ -406,7 +403,6 @@ async function showBand(params){
   $('#concertSearch').onchange=()=> resetAndLoad({term:($('#concertSearch').value||'').trim().toLowerCase()});
   $('#sortConcerts').onchange=()=> resetAndLoad({sortSel:$('#sortConcerts').value});
 
-  // Year counts (lightweight + cached)
   (async ()=>{
     try{
       const years = await buildYearCounts(currentBandId);
@@ -418,7 +414,6 @@ async function showBand(params){
     }
   })();
 
-  // First page
   resetAndLoad({year:'', term:'', sortSel:'auto'});
 }
 
@@ -547,10 +542,10 @@ function updateMediaSession(title='Playing', artist='Setlist Streamer'){
     navigator.mediaSession.metadata = new MediaMetadata({
       title, artist, album: 'Live Music Archive',
       artwork: [
-        { src: 'icons/logo-96.png',  sizes:'96x96',  type:'image/png' },
-        { src: 'icons/logo-192.png', sizes:'192x192', type:'image/png' },
-        { src: 'icons/logo-256.png', sizes:'256x256', type:'image/png' },
-        { src: 'icons/logo-512.png', sizes:'512x512', type:'image/png' }
+        { src: 'icons/logo-96.png?v=3',  sizes:'96x96',  type:'image/png' },
+        { src: 'icons/logo-192.png?v=3', sizes:'192x192', type:'image/png' },
+        { src: 'icons/logo-256.png?v=3', sizes:'256x256', type:'image/png' },
+        { src: 'icons/logo-512.png?v=3', sizes:'512x512', type:'image/png' }
       ]
     });
   }catch(e){}
