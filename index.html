@@ -25,7 +25,7 @@
   .toolbar{display:flex; gap:8px; padding:10px 12px; align-items:center; flex-wrap:wrap}
   .pill{background:var(--panel); border:1px solid var(--ring); border-radius:999px; padding:8px 12px; display:flex; align-items:center; gap:8px}
   select, input[type="search"]{background:transparent; color:var(--text); border:none; outline:none; font:14px system-ui; min-width:120px}
-  .btn{background:var(--btn); color:var(--text); border:1px solid var(--ring); border-radius:12px; padding:10px 12px; display:inline-flex; align-items:center; justify-content:center; gap:6px; min-width:40px; min-height:40px}
+  .btn{background:var(--btn); color:var(--text); border:1px solid var(--ring); border-radius:12px; padding:10px 12px; display:inline-flex; align-items:center; justify-content:center; gap:6px; min-width:40px; min-height:40px; cursor:pointer}
   .btn:active{transform:translateY(1px)}
   .ghost{background:transparent}
   .muted{color:var(--muted)}
@@ -75,6 +75,9 @@
   #P_back10, #P_fwd10{display:none!important}
   input[type="range"]{-webkit-appearance:none; appearance:none; height:4px; border-radius:999px; background:#2a2c30; outline:none}
   input[type="range"]::-webkit-slider-thumb{-webkit-appearance:none; appearance:none; width:14px; height:14px; border-radius:50%; background:var(--accent); border:none; box-shadow:0 0 0 3px rgba(91,209,154,.25)}
+
+  /* Retry card */
+  .retryWrap{display:flex; gap:10px; align-items:center}
 </style>
 </head>
 <body>
@@ -140,7 +143,6 @@
     <div class="seekWrap">
       <div id="P_times"><span class="cur">0:00</span><span class="dur"> / 0:00</span></div>
       <input id="P_seek" type="range" min="0" max="1000" value="0" step="1" aria-label="Seek">
-      <div class="sr" aria-hidden="true" id="P_seekVis"></div>
     </div>
     <button id="P_mute" class="btn" title="Mute">🔈</button>
   </div>
@@ -166,6 +168,36 @@ const Router = (() => {
 })();
 addEventListener('hashchange', Router.route); addEventListener('DOMContentLoaded', Router.route);
 
+/* ------------ robust fetch with timeout/retries ------------ */
+async function fetchWithTimeout(url, {timeout=12000}={}){
+  const ctrl = new AbortController();
+  const id = setTimeout(()=>ctrl.abort(), timeout);
+  try{
+    const res = await fetch(url, {cache:'no-store', signal: ctrl.signal});
+    clearTimeout(id);
+    if(!res.ok) throw new Error('HTTP '+res.status);
+    return res;
+  }catch(e){
+    clearTimeout(id);
+    throw e;
+  }
+}
+async function fetchJSONRetry(url, {retries=2, timeout=12000, backoff=1000}={}){
+  let attempt=0, lastErr=null;
+  while(attempt<=retries){
+    try{
+      const res = await fetchWithTimeout(url, {timeout});
+      return await res.json();
+    }catch(err){
+      lastErr = err;
+      // If aborted or network fail, try again with backoff
+      await new Promise(r=>setTimeout(r, backoff*Math.pow(2, attempt)));
+      attempt++;
+    }
+  }
+  throw lastErr || new Error('Failed to fetch');
+}
+
 /* ------------ IA helpers ------------ */
 const IA = {
   bandsUrl({ q='collection:(etree) AND mediatype:(collection)', sort='downloads desc', rows=120 }={}){
@@ -183,8 +215,21 @@ const IA = {
   },
   metaUrl:id=>`https://archive.org/metadata/${id}`,
   imgUrl:id=>`https://archive.org/services/img/${id}`,
-  async fetchJSON(url){ const r=await fetch(url,{cache:'no-store'}); if(!r.ok) throw new Error('Network '+r.status); return r.json(); }
+  fetchJSON:(url)=>fetchJSONRetry(url, {retries:2, timeout:12000, backoff:1000})
 };
+
+/* ------------ helper: show retry card ------------ */
+function showRetry(contentEl, message, retryFn){
+  contentEl.className='grid';
+  contentEl.innerHTML = `
+    <div class="card">
+      <div class="retryWrap">
+        <span class="small">${message}</span>
+        <button class="btn" id="retryBtn">Retry</button>
+      </div>
+    </div>`;
+  $('#retryBtn')?.addEventListener('click', retryFn);
+}
 
 /* ------------ Bands page ------------ */
 async function showBands(){
@@ -192,16 +237,24 @@ async function showBands(){
   const content=$('#content'); content.className='bandsGrid'; content.innerHTML=`<div class="card"><span class="small">Loading bands…</span></div>`;
   const sort=$('#sortSel')?.value||'downloads desc'; const term=($('#searchBox')?.value||'').trim();
   let q='collection:(etree) AND mediatype:(collection)'; if(term) q+=` AND (title:(${term}) OR identifier:(${term}))`;
-  try{
-    const data=await IA.fetchJSON(IA.bandsUrl({q,sort,rows:120})); const items=(data?.response?.docs||[]).map(d=>({id:d.identifier,title:d.title||d.identifier,downloads:d.downloads||0}));
-    content.innerHTML = items.map(b=>`
-      <div class="bandTile" data-id="${b.id}">
-        <img src="${IA.imgUrl(b.id)}" alt="${b.title}">
-        <div class="bandTitle">${b.title}</div>
-        <div class="bandViews">${b.downloads.toLocaleString()} views</div>
-      </div>`).join('');
-    content.onclick = ev => { const tile=ev.target.closest('.bandTile'); if(!tile) return; location.hash='#/band/'+encodeURIComponent(tile.dataset.id); };
-  }catch(e){ console.error(e); content.className='grid'; content.innerHTML=`<div class="card"><span class="small">Failed to load bands.</span></div>`; }
+  const load = async ()=>{
+    try{
+      const data=await IA.fetchJSON(IA.bandsUrl({q,sort,rows:120}));
+      const items=(data?.response?.docs||[]).map(d=>({id:d.identifier,title:d.title||d.identifier,downloads:d.downloads||0}));
+      content.innerHTML = items.map(b=>`
+        <div class="bandTile" data-id="${b.id}">
+          <img src="${IA.imgUrl(b.id)}" alt="${b.title}">
+          <div class="bandTitle">${b.title}</div>
+          <div class="bandViews">${b.downloads.toLocaleString()} views</div>
+        </div>`).join('');
+      content.onclick = ev => { const tile=ev.target.closest('.bandTile'); if(!tile) return; location.hash='#/band/'+encodeURIComponent(tile.dataset.id); };
+    }catch(e){
+      console.error(e);
+      const msg = navigator.onLine ? 'Network error while loading bands.' : 'You appear to be offline.';
+      showRetry(content, msg, load);
+    }
+  };
+  load();
 }
 
 /* ------------ Concerts page (pagination, full-year list) ------------ */
@@ -232,16 +285,20 @@ async function showBand(params){
 
   const content=$('#content'); content.className='grid'; content.innerHTML=`<div class="card"><span class="small">Loading concerts (paging all years)…</span></div>`;
 
-  try{
-    allConcerts = await fetchAllConcerts(currentBandId);
-
-    // build year counts (ascending)
-    const counts={}; for(const d of allConcerts){ if(d.year) counts[d.year]=(counts[d.year]||0)+1; }
-    const years = Object.keys(counts).map(y=>({year:Number(y), count:counts[y]})).sort((a,b)=>a.year-b.year);
-    $('#yearSel').innerHTML = `<option value="">All years</option>` + years.map(y=>`<option value="${y.year}">${y.year} (${y.count.toLocaleString()})</option>`).join('');
-
-    renderConcerts();
-  }catch(e){ console.error(e); content.innerHTML=`<div class="card"><span class="small">Failed to load concerts.</span></div>`; }
+  const load = async ()=>{
+    try{
+      allConcerts = await fetchAllConcerts(currentBandId);
+      const counts={}; for(const d of allConcerts){ if(d.year) counts[d.year]=(counts[d.year]||0)+1; }
+      const years = Object.keys(counts).map(y=>({year:Number(y), count:counts[y]})).sort((a,b)=>a.year-b.year);
+      $('#yearSel').innerHTML = `<option value="">All years</option>` + years.map(y=>`<option value="${y.year}">${y.year} (${y.count.toLocaleString()})</option>`).join('');
+      renderConcerts();
+    }catch(e){
+      console.error(e);
+      const msg = navigator.onLine ? 'Network error while loading concerts.' : 'You appear to be offline.';
+      showRetry(content, msg, load);
+    }
+  };
+  load();
 }
 
 function renderConcerts(){
@@ -256,7 +313,6 @@ function renderConcerts(){
   });
   if(onlyFavConcerts){ const fav=favShows(); list=list.filter(d=>fav.includes(d.identifier)); }
 
-  // sort logic
   let sortExpr = sortSel; if (sortSel==='auto'){ sortExpr = year ? 'date asc' : 'date desc'; }
   const dir = sortExpr.endsWith('asc') ? 1 : -1; const key = sortExpr.split(' ')[0];
   list.sort((a,b)=>{
@@ -291,7 +347,7 @@ function renderConcerts(){
       </div>`;
   }).join('');
 
-  // Whole card navigates; star toggles favorite without navigation
+  // whole card navigates; star toggles favorite without navigation
   content.onclick = ev => {
     const favBtn = ev.target.closest('.favToggle');
     if (favBtn){
@@ -331,36 +387,43 @@ async function showShow(params){
   $('#favShowBtn').onclick = () => toggleFav(currentShowId); updateFavBtn();
 
   const content=$('#content'); content.className='tracks'; content.innerHTML=`<div class="card"><span class="small">Loading tracks…</span></div>`;
-  try{
-    const meta = await IA.fetchJSON(IA.metaUrl(currentShowId));
-    setShowHeader(meta);
-    const files = meta?.files||[];
+  const load = async ()=>{
+    try{
+      const meta = await IA.fetchJSON(IA.metaUrl(currentShowId));
+      setShowHeader(meta);
+      const files = meta?.files||[];
 
-    let playable = files.filter(f => /\.mp3$/i.test(f.name||'') || (f.format||'').toLowerCase().includes('mp3'));
-    if (playable.length===0){ playable = files.filter(f => /\.(ogg|flac)$/i.test(f.name||'') || /(ogg|flac)/.test((f.format||'').toLowerCase())); }
+      let playable = files.filter(f => /\.mp3$/i.test(f.name||'') || (f.format||'').toLowerCase().includes('mp3'));
+      if (playable.length===0){ playable = files.filter(f => /\.(ogg|flac)$/i.test(f.name||'') || /(ogg|flac)/.test((f.format||'').toLowerCase())); }
 
-    playable.sort((a,b)=>{ const an=extractTrackNo(a), bn=extractTrackNo(b); if (an!==bn) return an-bn; return naturalCmp(a.name||'', b.name||''); });
+      playable.sort((a,b)=>{ const an=extractTrackNo(a), bn=extractTrackNo(b); if (an!==bn) return an-bn; return naturalCmp(a.name||'', b.name||''); });
 
-    const seen=new Set(); trackList=[];
-    for (const f of playable){
-      const title = cleanTitle(f.title || f.name || '');
-      const key = title.toLowerCase(); if (seen.has(key)) continue; seen.add(key);
-      const url = `https://archive.org/download/${currentShowId}/${encodeURIComponent(f.name)}`;
-      trackList.push({ url, title, length: f.length || '' });
+      const seen=new Set(); trackList=[];
+      for (const f of playable){
+        const title = cleanTitle(f.title || f.name || '');
+        const key = title.toLowerCase(); if (seen.has(key)) continue; seen.add(key);
+        const url = `https://archive.org/download/${currentShowId}/${encodeURIComponent(f.name)}`;
+        trackList.push({ url, title, length: f.length || '' });
+      }
+
+      if (!trackList.length){ content.innerHTML=`<div class="card"><span class="small">No playable files found.</span></div>`; return; }
+
+      content.innerHTML = trackList.map((t,i)=>`
+        <div class="track" data-i="${i}">
+          <div class="tleft"><div class="tnum">${i+1}</div><div class="tname">${t.title}</div></div>
+          <div class="tlen">${t.length}</div>
+          <div class="progressBar" id="pb-${i}"></div>
+        </div>`).join('');
+
+      trackEls = $$('.track');
+      content.onclick = ev => { const tr=ev.target.closest('.track'); if(!tr) return; playIndex(Number(tr.dataset.i)); };
+    }catch(e){
+      console.error(e);
+      const msg = navigator.onLine ? 'Network error while loading tracks.' : 'You appear to be offline.';
+      showRetry(content, msg, load);
     }
-
-    if (!trackList.length){ content.innerHTML=`<div class="card"><span class="small">No playable files found.</span></div>`; return; }
-
-    content.innerHTML = trackList.map((t,i)=>`
-      <div class="track" data-i="${i}">
-        <div class="tleft"><div class="tnum">${i+1}</div><div class="tname">${t.title}</div></div>
-        <div class="tlen">${t.length}</div>
-        <div class="progressBar" id="pb-${i}"></div>
-      </div>`).join('');
-
-    trackEls = $$('.track');
-    content.onclick = ev => { const tr=ev.target.closest('.track'); if(!tr) return; playIndex(Number(tr.dataset.i)); };
-  }catch(e){ console.error(e); content.innerHTML=`<div class="card"><span class="small">Failed to load track list.</span></div>`; }
+  };
+  load();
 }
 
 /* ------------ Player shared ------------ */
