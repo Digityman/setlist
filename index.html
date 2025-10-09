@@ -25,9 +25,16 @@
   a{color:inherit; text-decoration:none}
 
   .wrap{min-height:100%; display:flex; flex-direction:column}
-  header{padding:14px 16px; display:flex; align-items:center; gap:10px; background:var(--panel); position:sticky; top:0; z-index:3; box-shadow:0 1px 0 #000 inset, 0 1px 0 rgba(255,255,255,.03)}
+  header{
+    padding:12px 12px; display:flex; align-items:center; gap:10px;
+    background:var(--panel); position:sticky; top:0; z-index:3;
+    box-shadow:0 1px 0 #000 inset, 0 1px 0 rgba(255,255,255,.03)
+  }
   header h1{font-size:18px; margin:0; white-space:nowrap}
   header .crumb{opacity:.75}
+  .spacer{flex:1}
+  .headerActions{display:flex; gap:8px; align-items:center}
+  .headerActions .btn{min-height:32px; min-width:32px; padding:6px 10px; border-radius:10px}
 
   /* Toolbars */
   .toolbar{display:flex; gap:8px; padding:10px 12px; align-items:center; flex-wrap:wrap}
@@ -81,20 +88,10 @@
   .track.playing::before{content:""; position:absolute; left:0; top:0; bottom:0; width:6px; background:var(--warn); border-radius:12px 0 0 12px}
   .progressBar{position:absolute; left:0; bottom:0; height:3px; background:var(--warn); border-radius:0 0 12px 12px; width:0%}
 
-  .showMeta{display:flex; gap:8px; flex-wrap:wrap; align-items:center; padding:2px 12px 8px}
-  .showTitle{font-weight:600}
-
-  .player{position:fixed; left:0; right:0; bottom:0; background:var(--panel); border-top:1px solid var(--ring); padding:10px; z-index:5}
-  .playerCompact .controls{display:flex; align-items:center; gap:8px; flex-wrap:nowrap; overflow:hidden}
-  .playerCompact .btn{padding:6px 8px; min-height:40px; min-width:40px; border-radius:12px; font-size:14px}
-  .playerCompact .seekWrap{display:grid; grid-template-columns:auto 1fr auto; align-items:center; gap:8px; min-width:160px; margin-left:auto}
-  .playerCompact #P_times{min-width:84px; font-size:12px; text-align:right}
-  .playerCompact #P_times .dur{opacity:.8; margin-left:2px}
-  .playerCompact #P_seek{width:100%; max-width:180px}
-  input[type="range"]{-webkit-appearance:none; appearance:none; height:4px; border-radius:999px; background:#2a2c30; outline:none}
-  input[type="range"]::-webkit-slider-thumb{-webkit-appearance:none; appearance:none; width:14px; height:14px; border-radius:50%; background:var(--accent); border:none; box-shadow:0 0 0 3px rgba(91,209,154,.25)}
-
-  .retryWrap{display:flex; gap:10px; align-items:center}
+  /* Show header meta (now includes Favorite button on the right of chips) */
+  .showMeta{display:flex; gap:8px; flex-wrap:wrap; align-items:center; padding:4px 12px 8px}
+  .showTitle{font-weight:600; margin-right:6px}
+  .showMeta .end{margin-left:auto; display:flex; align-items:center}
   .stars{display:inline-flex; align-items:center; gap:4px}
 </style>
 </head>
@@ -102,6 +99,8 @@
 <div class="wrap">
   <header>
     <h1><a href="#/bands">Setlist Streamer</a> <span class="crumb" id="crumb"></span></h1>
+    <div class="spacer"></div>
+    <div id="headerActions" class="headerActions"></div>
   </header>
 
   <!-- Bands toolbar -->
@@ -145,17 +144,14 @@
     <button id="resetConcerts" class="btn ghost muted">Reset</button>
   </div>
 
-  <!-- Tracks toolbar -->
-  <div class="toolbar" id="toolbar-show" style="display:none;">
-    <button class="btn ghost" id="backToConcerts" title="Back">← Concerts</button>
-    <button class="btn" id="favShowBtn" title="Favorite">☆ Favorite</button>
-  </div>
-
-  <!-- Show header metadata -->
+  <!-- Show header metadata (title + date/location chips + Favorite on right) -->
   <div id="showMeta" class="showMeta" style="display:none;">
     <span class="showTitle" id="showTitle"></span>
     <span class="chip" id="showDate" style="display:none;"></span>
     <span class="chip" id="showLoc"  style="display:none;"></span>
+    <div class="end">
+      <button class="btn" id="favShowBtn" title="Favorite">☆ Favorite</button>
+    </div>
   </div>
 
   <div id="content" class="grid" aria-live="polite"></div>
@@ -190,10 +186,27 @@ const Router = (() => {
   const routes={};
   function on(n,f){routes[n]=f}
   function parse(){ const raw=location.hash.replace(/^#\/?/,''); const [name,...rest]=raw.split('/').filter(Boolean); return {name:name||'bands', params:rest}; }
-  function route(){ const r=parse(); (routes[r.name]||routes['bands'])(r.params); $('#crumb').textContent = r.name==='band'?'— Concerts':(r.name==='show'?'— Tracks':'— Bands'); }
+  function route(){ const r=parse(); (routes[r.name]||routes['bands'])(r.params);
+    $('#crumb').textContent = r.name==='band'?'— Concerts':(r.name==='show'?'— Tracks':'— Bands');
+    setHeaderActions(r.name);
+  }
   return {on,route};
 })();
 addEventListener('hashchange', Router.route); addEventListener('DOMContentLoaded', Router.route);
+
+function setHeaderActions(routeName){
+  const actions = $('#headerActions'); if(!actions) return;
+  actions.innerHTML = '';
+  if(routeName==='show'){
+    const btn = document.createElement('button');
+    btn.className = 'btn ghost';
+    btn.id = 'backTop';
+    btn.title = 'Back';
+    btn.textContent = '← Concerts';
+    btn.onclick = () => history.back();
+    actions.appendChild(btn);
+  }
+}
 
 /* ------------ robust fetch ------------ */
 async function fetchWithTimeout(url, {timeout=12000}={}){
@@ -250,11 +263,8 @@ const IA = {
   facetYearsJSONP({ bandId }){
     const u=new URL('https://archive.org/advancedsearch.php');
     u.searchParams.set('q',`collection:(${bandId}) AND mediatype:(etree OR audio)`);
-    u.searchParams.set('rows','0');
-    u.searchParams.set('output','json');
-    u.searchParams.append('facet[]','year');
-    u.searchParams.set('facet_limit','10000');
-    u.searchParams.set('facet_mincount','1');
+    u.searchParams.set('rows','0'); u.searchParams.set('output','json');
+    u.searchParams.append('facet[]','year'); u.searchParams.set('facet_limit','10000'); u.searchParams.set('facet_mincount','1');
     return fetchJSONP(u.toString(), {timeout:12000});
   },
   metaUrl:id=>`https://archive.org/metadata/${id}`,
@@ -309,7 +319,7 @@ function renderStars(r){
 
 /* ------------ Bands page ------------ */
 async function showBands(){
-  show($('#toolbar-bands'),true); show($('#toolbar-band'),false); show($('#toolbar-show'),false); show($('#showMeta'),false);
+  show($('#toolbar-bands'),true); show($('#toolbar-band'),false); show($('#showMeta'),false);
   const content=$('#content'); content.className='bandsGrid'; content.innerHTML=`<div class="card"><span class="small">Loading bands…</span></div>`;
   const sort=$('#sortSel')?.value||'downloads desc'; const term=($('#searchBox')?.value||'').trim();
   let q='collection:(etree) AND mediatype:(collection)'; if(term) q+=` AND (title:(${term}) OR identifier:(${term}))`;
@@ -333,7 +343,7 @@ async function showBands(){
   load();
 }
 
-/* ------------ Concerts page (robust year list + incremental results) ------------ */
+/* ------------ Concerts page ------------ */
 let currentBandId=''; 
 let state={year:'', term:'', sortSel:'auto', page:1, numFound:0, rows:200, list:[]};
 let onlyFavConcerts=false;
@@ -364,69 +374,54 @@ const YearDrop = (()=> {
   return {setOptions,setValue,getValue};
 })();
 
-/* Progressive year counts */
-function updateYearMenuProgress(counts){
-  const yearsArr = Object.keys(counts).map(y=>({year:Number(y), count:counts[y]})).filter(o=>!isNaN(o.year)).sort((a,b)=>a.year-b.year);
-  if(yearsArr.length){
-    YearDrop.setOptions([{value:'', label:'All years'}, ...yearsArr.map(o=>({value:String(o.year), label:`${o.year} (${o.count.toLocaleString()})`}))]);
-    YearDrop.setValue(YearDrop.getValue()); // keep selection text in sync
-  }
-}
+function resolveSort(){ return state.sortSel==='auto' ? (state.year ? 'date asc' : 'date desc') : state.sortSel; }
 
-async function buildYearCounts(bandId){
-  // 1) Fast path: facet via JSONP (bypasses CORS)
+async function fetchYearsFacet(bandId){
   try{
     const facet = await IA.facetYearsJSONP({bandId});
     const y = facet?.response?.facets?.year || {};
     const counts = {};
     for(const k in y){ if(!isNaN(+k)) counts[k] = y[k]; }
-    if(Object.keys(counts).length){
-      updateYearMenuProgress(counts);
-      return;
-    }
-  }catch(e){
-    console.warn('Facet JSONP failed, falling back to paging.', e);
-  }
-
-  // 2) Fallback: page lightweight `year` docs, updating the menu as we go.
-  const cacheKey = 'years_'+bandId;
-  const cached = store.get(cacheKey,null);
-  const now = Date.now();
-  if(cached && (now - cached.ts) < 24*60*60*1000){
-    const counts = {};
-    for(const y of cached.years) counts[y.year] = y.count;
+    return counts;
+  }catch(e){ return null; }
+}
+async function buildYearCounts(bandId){
+  // Try facet first
+  let counts = await fetchYearsFacet(bandId);
+  if(counts && Object.keys(counts).length){
     updateYearMenuProgress(counts);
+    storeYears(bandId, counts);
     return;
   }
-
-  const counts = {};
-  let page=1, rows=1200, numFound=Infinity, got=0, failures=0;
-  while(got < numFound && page<=120){ // up to 144k docs
-    try{
-      const data = await fetchJSON(IA.yearsOnlyUrl({bandId, rows, page}));
-      const resp = data?.response || {};
-      numFound = Number(resp.numFound || 0);
-      const docs = resp.docs || [];
-      for(const d of docs){
-        const y = Array.isArray(d.year) ? d.year[0] : d.year;
-        if(y) counts[y] = (counts[y]||0)+1;
-      }
-      got += docs.length; page++;
-      // Update UI every couple pages so GD shows progress quickly
-      if(page % 2 === 0) updateYearMenuProgress(counts);
-    }catch(e){
-      console.warn('Year page fetch failed, continuing', e);
-      failures++;
-      if(failures>=5) break; // give up after several consecutive problems
-      page++; // try the next page anyway
+  // Fallback: page lightweight docs
+  counts = {};
+  let page=1, rows=1200, numFound=Infinity, got=0;
+  while(got < numFound && page<=120){
+    const data = await fetchJSON(IA.yearsOnlyUrl({bandId, rows, page}));
+    const resp = data?.response || {};
+    numFound = Number(resp.numFound || 0);
+    const docs = resp.docs || [];
+    for(const d of docs){
+      const y = Array.isArray(d.year) ? d.year[0] : d.year;
+      if(y) counts[y] = (counts[y]||0)+1;
     }
+    got += docs.length; page++;
+    if(page % 2 === 0) updateYearMenuProgress(counts);
   }
   updateYearMenuProgress(counts);
-  const yearsArr = Object.keys(counts).map(y=>({year:Number(y), count:counts[y]})).filter(o=>!isNaN(o.year)).sort((a,b)=>a.year-b.year);
-  if(yearsArr.length) store.set(cacheKey, {ts: now, years: yearsArr});
+  storeYears(bandId, counts);
 }
-
-function resolveSort(){ return state.sortSel==='auto' ? (state.year ? 'date asc' : 'date desc') : state.sortSel; }
+function updateYearMenuProgress(counts){
+  const yearsArr = Object.keys(counts).map(y=>({year:Number(y), count:counts[y]})).filter(o=>!isNaN(o.year)).sort((a,b)=>a.year-b.year);
+  if(yearsArr.length){
+    YearDrop.setOptions([{value:'', label:'All years'}, ...yearsArr.map(o=>({value:String(o.year), label:`${o.year} (${o.count.toLocaleString()})`}))]);
+    YearDrop.setValue(YearDrop.getValue());
+  }
+}
+function storeYears(bandId, counts){
+  const yearsArr = Object.keys(counts).map(y=>({year:Number(y), count:counts[y]})).filter(o=>!isNaN(o.year)).sort((a,b)=>a.year-b.year);
+  store.set('years_'+bandId, {ts: Date.now(), years: yearsArr});
+}
 
 async function loadPage(){
   const content=$('#content');
@@ -451,7 +446,7 @@ function resetAndLoad(patch={}){
 }
 
 async function showBand(params){
-  show($('#toolbar-bands'),false); show($('#toolbar-band'),true); show($('#toolbar-show'),false); show($('#showMeta'),false);
+  show($('#toolbar-bands'),false); show($('#toolbar-band'),true); show($('#showMeta'),false);
   currentBandId = decodeURIComponent((params||[])[0]||''); $('#backToBands').onclick=()=>location.hash='#/bands';
 
   $('#favConcertsToggle').onclick=()=>{ onlyFavConcerts=!onlyFavConcerts; renderConcerts(); $('#favConcertsToggle').textContent = onlyFavConcerts?'★ Favorites':'☆ Favorites'; };
@@ -459,11 +454,12 @@ async function showBand(params){
   $('#concertSearch').onchange=()=> resetAndLoad({term:($('#concertSearch').value||'').trim().toLowerCase()});
   $('#sortConcerts').onchange=()=> resetAndLoad({sortSel:$('#sortConcerts').value});
 
-  // Kick off year building (shows progress for huge collections like GratefulDead)
-  YearDrop.setOptions([{value:'', label:'All years'}, {value:'', label:'Loading years…'}]);
-  buildYearCounts(currentBandId);
+  // years (facet first, fallback to paging; cached)
+  const cached = store.get('years_'+currentBandId,null);
+  if(cached){ const counts={}; for(const y of cached.years) counts[y.year]=y.count; updateYearMenuProgress(counts); }
+  else { YearDrop.setOptions([{value:'', label:'All years'}, {value:'', label:'Loading years…'}]); }
+  buildYearCounts(currentBandId).catch(()=>{});
 
-  // First page
   resetAndLoad({year:'', term:'', sortSel:'auto'});
 }
 
@@ -537,18 +533,19 @@ function naturalCmp(a,b){ return a.localeCompare(b,undefined,{numeric:true,sensi
 function extractTrackNo(f){ const n1=Number(f.track||f.trackno||''); if(!isNaN(n1)&&n1>0) return n1; const m=/(\d+)[^\d]*\.(mp3|ogg|flac)$/i.exec(f.name||''); if(m) return Number(m[1]); return Infinity; }
 
 async function showShow(params){
-  show($('#toolbar-bands'),false); show($('#toolbar-band'),false); show($('#toolbar-show'),true);
+  // Hide band toolbar; show show meta; put Back button in top header via setHeaderActions()
+  show($('#toolbar-bands'),false); show($('#toolbar-band'),false);
+
   currentShowId = decodeURIComponent((params||[])[0]||'');
-  $('#backToConcerts').onclick = () => history.back();
-  $('#favShowBtn').onclick = () => toggleFav(currentShowId); updateFavBtn();
 
   const content=$('#content'); content.className='tracks'; content.innerHTML=`<div class="card"><span class="small">Loading tracks…</span></div>`;
   const load = async ()=>{
     try{
       const meta = await fetchJSON(IA.metaUrl(currentShowId));
       setShowHeader(meta);
-      const files = meta?.files||[];
+      $('#favShowBtn').onclick = () => toggleFav(currentShowId); updateFavBtn();
 
+      const files = meta?.files||[];
       let playable = files.filter(f => /\.mp3$/i.test(f.name||'') || (f.format||'').toLowerCase().includes('mp3'));
       if (playable.length===0){ playable = files.filter(f => /\.(ogg|flac)$/i.test(f.name||'') || /(ogg|flac)/.test((f.format||'').toLowerCase())); }
 
