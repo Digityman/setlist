@@ -10,7 +10,7 @@
 <style>
   :root{
     --bg:#0f0f10; --panel:#161719; --text:#e9e9ea; --muted:#a6a6ac; --accent:#5bd19a;
-    --btn:#232428; --ring:#2b2d31;
+    --btn:#232428; --ring:#2b2d31; --warn:#ffd54a;
   }
   html,body{height:100%}
   body{margin:0; background:var(--bg); color:var(--text); font:14px/1.4 system-ui,-apple-system,Segoe UI,Roboto,Arial,sans-serif}
@@ -24,7 +24,7 @@
   header h1{font-size:18px; margin:0; white-space:nowrap}
   header .crumb{opacity:.75}
 
-  /* Toolbar */
+  /* Toolbars */
   .toolbar{display:flex; gap:8px; padding:10px 12px; align-items:center; flex-wrap:wrap}
   .pill{
     background:var(--panel); border:1px solid var(--ring); border-radius:999px; padding:8px 12px; display:flex; align-items:center; gap:8px;
@@ -40,30 +40,47 @@
   .ghost{background:transparent}
   .muted{color:var(--muted)}
 
-  /* Bands grid with thumbnails */
+  /* Bands grid — smaller tiles so ≥5 per row */
   .bandsGrid{
     display:grid;
-    grid-template-columns: repeat(auto-fill, minmax(140px, 1fr));
+    grid-template-columns: repeat(auto-fill, minmax(100px, 1fr)); /* <= makes 5–8 per row depending on width */
     gap:10px;
     padding:0 12px 120px;
   }
   .bandTile{
-    background:var(--panel); border:1px solid var(--ring); border-radius:14px; padding:10px;
-    display:flex; flex-direction:column; gap:8px; cursor:pointer;
+    background:var(--panel); border:1px solid var(--ring); border-radius:14px; padding:8px;
+    display:flex; flex-direction:column; gap:6px; cursor:pointer;
   }
   .bandTile img{
     width:100%; aspect-ratio:1/1; object-fit:cover; border-radius:10px; background:#0c0c0d;
   }
-  .bandTitle{font-weight:600}
-  .bandViews{font-size:12px; color:var(--muted)}
+  .bandTitle{font-weight:600; font-size:13px}
+  .bandViews{font-size:11px; color:var(--muted)}
 
-  /* List cards (used on concerts) */
+  /* Generic list cards (concerts) */
   .grid{display:grid; grid-template-columns:1fr; gap:6px; padding:0 12px 120px}
   .card{
     background:var(--panel); border:1px solid var(--ring); border-radius:14px; padding:12px; display:flex; justify-content:space-between; align-items:center;
   }
   .card h3{margin:0; font-size:15px}
   .small{font-size:12px; color:var(--muted)}
+
+  /* Track list styles (Show page) */
+  .tracks{display:grid; gap:6px; padding:0 12px 120px}
+  .track{
+    position:relative; background:var(--panel); border:1px solid var(--ring); border-radius:12px; padding:10px 12px; display:flex; align-items:center; gap:10px;
+  }
+  .track .playBtn{min-width:36px; min-height:36px; border-radius:10px}
+  .track .meta{display:flex; flex-direction:column}
+  .track .title{font-size:14px}
+  .track .len{font-size:12px; color:var(--muted)}
+  .track.playing{box-shadow:0 0 0 2px rgba(255,213,74,.25) inset}
+  .track.playing::before{
+    content:""; position:absolute; left:0; top:0; bottom:0; width:6px; background:var(--warn); border-radius:12px 0 0 12px;
+  }
+  .progressBar{
+    position:absolute; left:0; bottom:0; height:3px; background:var(--warn); border-radius:0 0 12px 12px; width:0%;
+  }
 
   /* Player */
   .player{
@@ -98,9 +115,9 @@
 <div class="wrap">
   <header>
     <h1><a href="#/bands">Live Music Archive</a> <span class="crumb" id="crumb"></span></h1>
-    <span id="routeInfo" class="small muted"></span>
   </header>
 
+  <!-- Bands toolbar -->
   <div class="toolbar" id="toolbar-bands">
     <div class="pill">
       <select id="sortSel" aria-label="Sort">
@@ -125,7 +142,7 @@
     <button id="resetBtn" class="btn ghost muted">Reset</button>
   </div>
 
-  <!-- Band toolbar (shows on band route) -->
+  <!-- Band (concerts) toolbar -->
   <div class="toolbar" id="toolbar-band" style="display:none;">
     <button class="btn ghost" id="backToBands" title="Back">← Bands</button>
     <div class="pill">
@@ -136,6 +153,13 @@
     <div class="pill sp" style="min-width:160px;">
       <input id="concertSearch" type="search" placeholder="Search concerts" style="width:100%;">
     </div>
+  </div>
+
+  <!-- Show (tracklist) toolbar -->
+  <div class="toolbar" id="toolbar-show" style="display:none;">
+    <button class="btn ghost" id="backToConcerts" title="Back">← Concerts</button>
+    <button class="btn" id="favShowBtn" title="Favorite">☆ Favorite</button>
+    <a id="openOnIA" class="btn ghost" target="_blank" rel="noopener">Archive.org</a>
   </div>
 
   <div id="content" class="grid" aria-live="polite"></div>
@@ -163,7 +187,7 @@
 
 <script>
 /* ------------------------------
-   Utilities
+   Utilities & Local Storage
 ------------------------------ */
 const $ = s => document.querySelector(s);
 const $$ = s => Array.from(document.querySelectorAll(s));
@@ -175,8 +199,13 @@ const fmtTime = secs => {
 };
 function show(el, on=true){ if(!el) return; el.style.display = on ? '' : 'none'; }
 
+const store = {
+  get(key, fallback){ try{ return JSON.parse(localStorage.getItem(key)) ?? fallback; }catch{ return fallback; } },
+  set(key, val){ localStorage.setItem(key, JSON.stringify(val)); }
+};
+
 /* ------------------------------
-   Router (minimal, safe)
+   Router
 ------------------------------ */
 const Router = (() => {
   const routes = {};
@@ -188,10 +217,8 @@ const Router = (() => {
   }
   function route(){
     const r = parse();
-    const handler = routes[r.name] || routes['bands'];
-    if (typeof handler === 'function') handler(r.params);
-    const crumb = $('#crumb');
-    crumb.textContent = r.name === 'band' ? '— Concerts' : '— Bands';
+    (routes[r.name] || routes['bands'])(r.params);
+    $('#crumb').textContent = r.name === 'band' ? '— Concerts' : (r.name === 'show' ? '— Tracks' : '— Bands');
   }
   return { on, route };
 })();
@@ -215,8 +242,7 @@ const IA = {
     u.searchParams.set('output', 'json');
     return u.toString();
   },
-  concertsUrl({ bandId, sort = 'date desc', rows = 200, year = '', term = '' }){
-    // Search shows within a band's collection; filter by year if provided.
+  concertsUrl({ bandId, sort = 'date desc', rows = 500, year = '', term = '' }){
     let q = `collection:(${bandId}) AND mediatype:(etree OR audio)`;
     if (year) q += ` AND year:(${year})`;
     if (term) q += ` AND (title:(${term}) OR date:(${term}))`;
@@ -234,6 +260,19 @@ const IA = {
     u.searchParams.set('output', 'json');
     return u.toString();
   },
+  concertsYearsUrl({ bandId }){
+    // facet by year to get complete list with counts
+    const u = new URL('https://archive.org/advancedsearch.php');
+    const q = `collection:(${bandId}) AND mediatype:(etree OR audio)`;
+    u.searchParams.set('q', q);
+    u.searchParams.set('rows', 0);
+    u.searchParams.set('page', 1);
+    u.searchParams.set('output', 'json');
+    u.searchParams.append('facet[]','year');
+    u.searchParams.set('facet_limit','10000');
+    u.searchParams.set('facet_mincount','1');
+    return u.toString();
+  },
   metaUrl(id){ return `https://archive.org/metadata/${id}`; },
   imgUrl(id){ return `https://archive.org/services/img/${id}`; },
   async fetchJSON(url){
@@ -244,11 +283,12 @@ const IA = {
 };
 
 /* ------------------------------
-   Bands screen (with images)
+   Bands screen (with small images)
 ------------------------------ */
 async function showBands(){
   show($('#toolbar-bands'), true);
   show($('#toolbar-band'), false);
+  show($('#toolbar-show'), false);
 
   const content = $('#content');
   if (!content) return;
@@ -265,7 +305,7 @@ async function showBands(){
   if (term) q += ` AND (title:(${term}) OR identifier:(${term}))`;
 
   try{
-    const data = await IA.fetchJSON(IA.bandsUrl({ q, sort, rows: 100 }));
+    const data = await IA.fetchJSON(IA.bandsUrl({ q, sort, rows: 120 }));
     const items = (data?.response?.docs || []).map(d => ({
       id: d.identifier, title: d.title || d.identifier, downloads: d.downloads || 0
     }));
@@ -297,7 +337,7 @@ async function showBands(){
 }
 
 /* ------------------------------
-   Band screen (concert list + Year filter)
+   Band screen (concert list + all-year facet)
 ------------------------------ */
 let currentBandId = '';
 let currentConcerts = [];
@@ -305,6 +345,7 @@ let currentConcerts = [];
 async function showBand(params){
   show($('#toolbar-bands'), false);
   show($('#toolbar-band'), true);
+  show($('#toolbar-show'), false);
 
   const [idRaw] = params || [];
   const id = decodeURIComponent(idRaw || '');
@@ -315,21 +356,38 @@ async function showBand(params){
   const content = $('#content');
   if (!content) return;
   content.className = 'grid';
-  content.innerHTML = `
-    <div class="card"><span class="small muted">Loading concerts for <b>${id}</b>…</span></div>
-  `;
+  content.innerHTML = `<div class="card"><span class="small muted">Loading concerts for <b>${id}</b>…</span></div>`;
 
   try{
-    // initial fetch (no year filter)
-    const data = await IA.fetchJSON(IA.concertsUrl({ bandId:id, sort:'date desc', rows:500 }));
+    // Get years facet (complete list + counts)
+    let yearsFacet = [];
+    try{
+      const facetData = await IA.fetchJSON(IA.concertsYearsUrl({ bandId:id }));
+      const facet = facetData?.response?.facets?.year;
+      if (facet && typeof facet === 'object'){
+        yearsFacet = Object.entries(facet)
+          .map(([year,count]) => ({year:Number(year), count:Number(count)}))
+          .filter(y => !isNaN(y.year)).sort((a,b)=>b.year-a.year);
+      }
+    }catch(e){ console.warn('Year facet failed, will build from docs later'); }
+
+    // initial list page (no filter)
+    const data = await IA.fetchJSON(IA.concertsUrl({ bandId:id, sort:'date desc', rows:1000 }));
     const docs = (data?.response?.docs || []);
     currentConcerts = docs;
 
-    // Build Year options (desc)
-    const years = [...new Set(docs.map(d => d.year).filter(Boolean))]
-      .map(Number).filter(n => !isNaN(n)).sort((a,b)=>b-a);
+    // If facet failed, fall back to counts from docs
+    if (yearsFacet.length === 0){
+      const counts = {};
+      for (const d of docs){ if (d.year) counts[d.year] = (counts[d.year]||0)+1; }
+      yearsFacet = Object.keys(counts).map(y => ({year:Number(y), count:counts[y]}))
+        .sort((a,b)=>b.year-a.year);
+    }
+
+    // Build Year options (desc with counts)
     const yearSel = $('#yearSel');
-    yearSel.innerHTML = `<option value="">All years</option>` + years.map(y=>`<option value="${y}">${y}</option>`).join('');
+    yearSel.innerHTML = `<option value="">All years</option>` + yearsFacet
+      .map(y=>`<option value="${y.year}">${y.year} (${y.count.toLocaleString()})</option>`).join('');
     yearSel.onchange = () => renderConcerts();
     $('#concertSearch').onchange = () => renderConcerts();
 
@@ -364,25 +422,114 @@ function renderConcerts(){
           <div class="small muted">${date} • ${Number(it.downloads||0).toLocaleString()} views</div>
         </div>
         <div style="display:flex; gap:8px;">
-          <button class="btn playShow">Play</button>
-          <a class="btn ghost" href="https://archive.org/details/${it.identifier}" target="_blank" rel="noopener">Open</a>
+          <button class="btn detailsBtn">Details</button>
         </div>
       </div>
     `;
   }).join('');
 
-  content.onclick = async (ev) => {
+  content.onclick = (ev) => {
     const card = ev.target.closest('.card');
     if (!card) return;
-    if (ev.target.classList.contains('playShow')) {
+    if (ev.target.classList.contains('detailsBtn')) {
       const id = card.getAttribute('data-id');
-      await playFirstMp3(id);
+      location.hash = '#/show/' + encodeURIComponent(id);
     }
   };
 }
 
 /* ------------------------------
-   Player logic (no ±10s buttons)
+   Show page (tracklist, progress, favorite)
+------------------------------ */
+let currentShowId = '';
+let trackEls = [];
+let trackList = []; // {url,title,length}
+
+function isFav(id){
+  const favs = store.get('favShows', []);
+  return favs.includes(id);
+}
+function toggleFav(id){
+  const favs = store.get('favShows', []);
+  const i = favs.indexOf(id);
+  if (i >= 0) favs.splice(i,1); else favs.push(id);
+  store.set('favShows', favs);
+  updateFavBtn();
+}
+function updateFavBtn(){
+  const btn = $('#favShowBtn');
+  if (!btn) return;
+  btn.textContent = isFav(currentShowId) ? '★ Favorited' : '☆ Favorite';
+}
+
+async function showShow(params){
+  show($('#toolbar-bands'), false);
+  show($('#toolbar-band'), false);
+  show($('#toolbar-show'), true);
+
+  const [idRaw] = params || [];
+  const id = decodeURIComponent(idRaw || '');
+  currentShowId = id;
+
+  $('#backToConcerts').onclick = () => history.back();
+  $('#openOnIA').href = `https://archive.org/details/${encodeURIComponent(id)}`;
+  $('#favShowBtn').onclick = () => toggleFav(id);
+  updateFavBtn();
+
+  const content = $('#content');
+  content.className = 'tracks';
+  content.innerHTML = `<div class="card"><span class="small muted">Loading tracks…</span></div>`;
+
+  try{
+    const meta = await IA.fetchJSON(IA.metaUrl(id));
+    const files = meta?.files || [];
+    // prioritize MP3; fallback to OGG/FLAC streams that are HTTP accessible
+    const playable = files.filter(f => {
+      const fmt = (f.format||'').toLowerCase();
+      const name = (f.name||'').toLowerCase();
+      return name.endsWith('.mp3') || fmt.includes('mp3') ||
+             name.endsWith('.ogg') || fmt.includes('ogg') ||
+             name.endsWith('.flac') || fmt.includes('flac');
+    });
+
+    trackList = playable.map((f,idx) => {
+      const url = `https://archive.org/download/${id}/${encodeURIComponent(f.name)}`;
+      const title = f.title || f.name || `Track ${idx+1}`;
+      const length = f.length ? f.length : '';
+      return { url, title, length };
+    });
+
+    if (!trackList.length){
+      content.innerHTML = `<div class="card"><span class="small">No playable files found.</span></div>`;
+      return;
+    }
+
+    content.innerHTML = trackList.map((t,i)=>`
+      <div class="track" data-i="${i}">
+        <button class="btn playBtn">${i===0?'▶️':'▶️'}</button>
+        <div class="meta">
+          <div class="title">${t.title}</div>
+          <div class="len">${t.length}</div>
+        </div>
+        <div class="progressBar" id="pb-${i}"></div>
+      </div>
+    `).join('');
+
+    trackEls = $$('.track');
+    content.onclick = (ev) => {
+      const tr = ev.target.closest('.track');
+      if (!tr) return;
+      const i = Number(tr.getAttribute('data-i'));
+      playIndex(i);
+    };
+  }catch(e){
+    console.error(e);
+    content.innerHTML = `<div class="card"><span class="small">Failed to load track list.</span></div>`;
+  }
+}
+
+/* ------------------------------
+   Player logic (shared)
 ------------------------------ */
 const A = $('#audio');
 const P = {
@@ -398,29 +545,28 @@ const P = {
 let queue = [];
 let curIndex = -1;
 
-async function playFirstMp3(identifier){
-  try{
-    const meta = await IA.fetchJSON(IA.metaUrl(identifier));
-    const files = meta?.files || [];
-    const mp3 = files.find(f => (f.format||'').toLowerCase().includes('mp3') && f.name && f.name.endsWith('.mp3'));
-    if (!mp3) throw new Error('No MP3 found');
-    const url = `https://archive.org/download/${identifier}/${encodeURIComponent(mp3.name)}`;
-    queue = [url]; curIndex = 0;
-    A.src = url; A.play().catch(()=>{});
-  }catch(e){
-    console.warn('Could not play show:', e);
-  }
+function setQueueFromTracks(){
+  queue = trackList.map(t => t.url);
 }
 
-function load(i){
+function playIndex(i){
+  if (!trackList.length) return;
+  setQueueFromTracks();
   curIndex = Math.max(0, Math.min(i, queue.length-1));
   A.src = queue[curIndex];
   A.play().catch(()=>{});
+  updateTrackHighlight();
+}
+
+function updateTrackHighlight(){
+  trackEls.forEach((el,idx)=>{
+    el.classList.toggle('playing', idx===curIndex);
+  });
 }
 
 P.play?.addEventListener('click', () => { if (A.paused) A.play(); else A.pause(); });
-P.prev?.addEventListener('click', () => load(Math.max(0, curIndex-1)));
-P.next?.addEventListener('click', () => load(Math.min(queue.length-1, curIndex+1)));
+P.prev?.addEventListener('click', () => { if (curIndex>0) playIndex(curIndex-1); });
+P.next?.addEventListener('click', () => { if (curIndex<queue.length-1) playIndex(curIndex+1); });
 P.mute?.addEventListener('click', () => { A.muted = !A.muted; });
 
 P.seek?.addEventListener('input', () => {
@@ -434,6 +580,12 @@ A.addEventListener('timeupdate', () => {
     P.cur.textContent = fmtTime(A.currentTime);
     P.dur.textContent = ' / ' + fmtTime(A.duration);
     P.seek.value = Math.floor((A.currentTime / A.duration) * 1000);
+
+    // per-track progress bar on Show page
+    if (curIndex>=0){
+      const pb = document.getElementById('pb-'+curIndex);
+      if (pb) pb.style.width = `${(A.currentTime/A.duration)*100}%`;
+    }
   } else {
     P.cur.textContent = '0:00';
     P.dur.textContent = ' / 0:00';
@@ -441,17 +593,21 @@ A.addEventListener('timeupdate', () => {
   }
 });
 
-A.addEventListener('play',  () => { P.play.textContent = '⏸'; });
+A.addEventListener('play',  () => { P.play.textContent = '⏸'; updateTrackHighlight(); });
 A.addEventListener('pause', () => { P.play.textContent = '▶️'; });
+A.addEventListener('ended', () => {
+  if (curIndex < queue.length-1) playIndex(curIndex+1);
+});
 
 /* ------------------------------
-   Wire routes
+   Route wiring
 ------------------------------ */
 Router.on('bands', showBands);
 Router.on('band', showBand);
+Router.on('show', showShow);
 
 /* ------------------------------
-   Filters for bands
+   Bands filters
 ------------------------------ */
 $('#sortSel')?.addEventListener('change', showBands);
 $('#searchBox')?.addEventListener('change', showBands);
