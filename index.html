@@ -8,8 +8,6 @@
 <!-- PWA + Icons -->
 <link rel="manifest" href="manifest.json?v=3">
 <meta name="theme-color" content="#0f0f10">
-
-<!-- Favicons / app icons (make sure these exact files exist in /icons, all lowercase) -->
 <link rel="icon" href="icons/logo-32.png?v=3" sizes="32x32" type="image/png">
 <link rel="icon" href="icons/logo-192.png?v=3" sizes="192x192" type="image/png">
 <link rel="apple-touch-icon" href="icons/logo-180.png?v=3" sizes="180x180">
@@ -70,7 +68,6 @@
   .small{font-size:12px; color:var(--muted)}
   .favToggle{min-width:40px}
 
-  /* Load more card */
   .loadMore{justify-content:center}
 
   /* Track list */
@@ -84,11 +81,9 @@
   .track.playing::before{content:""; position:absolute; left:0; top:0; bottom:0; width:6px; background:var(--warn); border-radius:12px 0 0 12px}
   .progressBar{position:absolute; left:0; bottom:0; height:3px; background:var(--warn); border-radius:0 0 12px 12px; width:0%}
 
-  /* Show header meta */
   .showMeta{display:flex; gap:8px; flex-wrap:wrap; align-items:center; padding:2px 12px 8px}
   .showTitle{font-weight:600}
 
-  /* Player — slightly bigger buttons */
   .player{position:fixed; left:0; right:0; bottom:0; background:var(--panel); border-top:1px solid var(--ring); padding:10px; z-index:5}
   .playerCompact .controls{display:flex; align-items:center; gap:8px; flex-wrap:nowrap; overflow:hidden}
   .playerCompact .btn{padding:6px 8px; min-height:40px; min-width:40px; border-radius:12px; font-size:14px}
@@ -99,10 +94,7 @@
   input[type="range"]{-webkit-appearance:none; appearance:none; height:4px; border-radius:999px; background:#2a2c30; outline:none}
   input[type="range"]::-webkit-slider-thumb{-webkit-appearance:none; appearance:none; width:14px; height:14px; border-radius:50%; background:var(--accent); border:none; box-shadow:0 0 0 3px rgba(91,209,154,.25)}
 
-  /* Retry card */
   .retryWrap{display:flex; gap:10px; align-items:center}
-
-  /* SVG stars color wrapper */
   .stars{display:inline-flex; align-items:center; gap:4px}
 </style>
 </head>
@@ -216,6 +208,20 @@ async function fetchWithTimeout(url, {timeout=12000}={}){
 }
 async function fetchJSON(url){ const r = await fetchWithTimeout(url); return r.json(); }
 
+/* ------------ JSONP helper (for facet, bypasses CORS) ------------ */
+function fetchJSONP(url, {timeout=12000}={}){
+  return new Promise((resolve, reject)=>{
+    const cb = '__iajsonp_'+Math.random().toString(36).slice(2);
+    const s = document.createElement('script');
+    const t = setTimeout(()=>{ cleanup(); reject(new Error('JSONP timeout')); }, timeout);
+    function cleanup(){ clearTimeout(t); delete window[cb]; s.remove(); }
+    window[cb] = (data)=>{ cleanup(); resolve(data); };
+    s.src = url + (url.includes('?')?'&':'?') + 'callback=' + cb;
+    s.onerror = ()=>{ cleanup(); reject(new Error('JSONP error')); };
+    document.head.appendChild(s);
+  });
+}
+
 /* ------------ IA helpers ------------ */
 const IA = {
   bandsUrl({ q='collection:(etree) AND mediatype:(collection)', sort='downloads desc', rows=120 }={}){
@@ -231,7 +237,7 @@ const IA = {
     ['identifier','title','date','year','downloads','avg_rating','num_reviews','venue','coverage','creator','publicdate'].forEach(f=>u.searchParams.append('fl[]',f));
     u.searchParams.append('sort[]',sort); u.searchParams.set('rows',rows); u.searchParams.set('page',page); u.searchParams.set('output','json'); return u.toString();
   },
-  yearsOnlyUrl({ bandId, rows=1000, page=1 }){
+  yearsOnlyUrl({ bandId, rows=1200, page=1 }){
     const u=new URL('https://archive.org/advancedsearch.php');
     u.searchParams.set('q',`collection:(${bandId}) AND mediatype:(etree OR audio)`);
     u.searchParams.append('fl[]','year');
@@ -240,6 +246,16 @@ const IA = {
     u.searchParams.set('output','json');
     u.searchParams.append('sort[]','date asc');
     return u.toString();
+  },
+  facetYearsJSONP({ bandId }){
+    const u=new URL('https://archive.org/advancedsearch.php');
+    u.searchParams.set('q',`collection:(${bandId}) AND mediatype:(etree OR audio)`);
+    u.searchParams.set('rows','0');
+    u.searchParams.set('output','json');
+    u.searchParams.append('facet[]','year');
+    u.searchParams.set('facet_limit','10000');
+    u.searchParams.set('facet_mincount','1');
+    return fetchJSONP(u.toString(), {timeout:12000});
   },
   metaUrl:id=>`https://archive.org/metadata/${id}`,
   imgUrl:id=>`https://archive.org/services/img/${id}`
@@ -317,7 +333,7 @@ async function showBands(){
   load();
 }
 
-/* ------------ Concerts page (fast years + incremental list) ------------ */
+/* ------------ Concerts page (robust year list + incremental results) ------------ */
 let currentBandId=''; 
 let state={year:'', term:'', sortSel:'auto', page:1, numFound:0, rows:200, list:[]};
 let onlyFavConcerts=false;
@@ -348,26 +364,66 @@ const YearDrop = (()=> {
   return {setOptions,setValue,getValue};
 })();
 
-/* Year counts: lightweight + cached */
+/* Progressive year counts */
+function updateYearMenuProgress(counts){
+  const yearsArr = Object.keys(counts).map(y=>({year:Number(y), count:counts[y]})).filter(o=>!isNaN(o.year)).sort((a,b)=>a.year-b.year);
+  if(yearsArr.length){
+    YearDrop.setOptions([{value:'', label:'All years'}, ...yearsArr.map(o=>({value:String(o.year), label:`${o.year} (${o.count.toLocaleString()})`}))]);
+    YearDrop.setValue(YearDrop.getValue()); // keep selection text in sync
+  }
+}
+
 async function buildYearCounts(bandId){
+  // 1) Fast path: facet via JSONP (bypasses CORS)
+  try{
+    const facet = await IA.facetYearsJSONP({bandId});
+    const y = facet?.response?.facets?.year || {};
+    const counts = {};
+    for(const k in y){ if(!isNaN(+k)) counts[k] = y[k]; }
+    if(Object.keys(counts).length){
+      updateYearMenuProgress(counts);
+      return;
+    }
+  }catch(e){
+    console.warn('Facet JSONP failed, falling back to paging.', e);
+  }
+
+  // 2) Fallback: page lightweight `year` docs, updating the menu as we go.
   const cacheKey = 'years_'+bandId;
   const cached = store.get(cacheKey,null);
   const now = Date.now();
-  if(cached && (now - cached.ts) < 24*60*60*1000) return cached.years;
-
-  let counts = {};
-  let page=1, rows=1000, numFound=Infinity, got=0;
-  while(got < numFound && page<=30){
-    const data = await fetchJSON(IA.yearsOnlyUrl({bandId, rows, page}));
-    const resp = data?.response || {};
-    numFound = Number(resp.numFound || 0);
-    const docs = resp.docs || [];
-    for(const d of docs){ const y = d.year; if(y) counts[y] = (counts[y]||0)+1; }
-    got += docs.length; page++;
+  if(cached && (now - cached.ts) < 24*60*60*1000){
+    const counts = {};
+    for(const y of cached.years) counts[y.year] = y.count;
+    updateYearMenuProgress(counts);
+    return;
   }
+
+  const counts = {};
+  let page=1, rows=1200, numFound=Infinity, got=0, failures=0;
+  while(got < numFound && page<=120){ // up to 144k docs
+    try{
+      const data = await fetchJSON(IA.yearsOnlyUrl({bandId, rows, page}));
+      const resp = data?.response || {};
+      numFound = Number(resp.numFound || 0);
+      const docs = resp.docs || [];
+      for(const d of docs){
+        const y = Array.isArray(d.year) ? d.year[0] : d.year;
+        if(y) counts[y] = (counts[y]||0)+1;
+      }
+      got += docs.length; page++;
+      // Update UI every couple pages so GD shows progress quickly
+      if(page % 2 === 0) updateYearMenuProgress(counts);
+    }catch(e){
+      console.warn('Year page fetch failed, continuing', e);
+      failures++;
+      if(failures>=5) break; // give up after several consecutive problems
+      page++; // try the next page anyway
+    }
+  }
+  updateYearMenuProgress(counts);
   const yearsArr = Object.keys(counts).map(y=>({year:Number(y), count:counts[y]})).filter(o=>!isNaN(o.year)).sort((a,b)=>a.year-b.year);
-  store.set(cacheKey, {ts: now, years: yearsArr});
-  return yearsArr;
+  if(yearsArr.length) store.set(cacheKey, {ts: now, years: yearsArr});
 }
 
 function resolveSort(){ return state.sortSel==='auto' ? (state.year ? 'date asc' : 'date desc') : state.sortSel; }
@@ -403,17 +459,11 @@ async function showBand(params){
   $('#concertSearch').onchange=()=> resetAndLoad({term:($('#concertSearch').value||'').trim().toLowerCase()});
   $('#sortConcerts').onchange=()=> resetAndLoad({sortSel:$('#sortConcerts').value});
 
-  (async ()=>{
-    try{
-      const years = await buildYearCounts(currentBandId);
-      YearDrop.setOptions([{value:'', label:'All years'}, ...years.map(o=>({value:String(o.year), label:`${o.year} (${o.count.toLocaleString()})`}))]);
-      YearDrop.setValue('');
-    }catch(e){
-      console.warn('Year counts failed; showing basic All years.');
-      YearDrop.setOptions([{value:'', label:'All years'}]); YearDrop.setValue('');
-    }
-  })();
+  // Kick off year building (shows progress for huge collections like GratefulDead)
+  YearDrop.setOptions([{value:'', label:'All years'}, {value:'', label:'Loading years…'}]);
+  buildYearCounts(currentBandId);
 
+  // First page
   resetAndLoad({year:'', term:'', sortSel:'auto'});
 }
 
