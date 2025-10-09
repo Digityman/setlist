@@ -45,7 +45,7 @@
   .ghost{background:transparent}
   .muted{color:var(--muted)}
   .chip{background:var(--panel); border:1px solid var(--ring); border-radius:999px; padding:6px 10px; font-size:12px; color:var(--muted)}
-  .pillBtn{background:var(--panel); border:1px solid var(--ring); border-radius:999px; padding:6px 10px; font-size:12px; cursor:pointer}
+  .pillBtn{background:var(--panel); border:1px solid var(--ring); border-radius:999px; padding:6px 10px; font-size:12px; cursor:pointer; color:var(--text)}
 
   /* Custom dropdown (scrollable) */
   .dropdown{position:relative; min-width:150px}
@@ -75,7 +75,6 @@
   .row{display:flex; gap:8px; align-items:center; flex-wrap:wrap}
   .small{font-size:12px; color:var(--muted)}
   .favToggle{min-width:40px}
-
   .loadMore{justify-content:center}
 
   /* Track list */
@@ -122,16 +121,9 @@
 
   <!-- Concerts toolbar -->
   <div class="toolbar" id="toolbar-band" style="display:none;">
-    <button class="btn ghost" id="backToBands" title="Back">← Bands</button>
+    <!-- Back moved to header; removed from here -->
 
-    <!-- Scrollable year dropdown -->
-    <div class="pill dropdown" id="yearDrop" aria-label="Year">
-      <button class="dropBtn" id="yearBtn">All years</button>
-      <div class="menu" id="yearMenu" role="listbox" aria-label="Year options">
-        <div class="item muted">Loading years…</div>
-      </div>
-    </div>
-
+    <!-- Sort first -->
     <div class="pill"><select id="sortConcerts" aria-label="Sort concerts">
       <option value="auto" selected>Auto</option>
       <option value="date asc">Date ↑</option>
@@ -140,7 +132,17 @@
       <option value="downloads desc">Views ↓</option>
     </select></div>
 
+    <!-- Year dropdown now between Sort and Text filter -->
+    <div class="pill dropdown" id="yearDrop" aria-label="Year">
+      <button class="dropBtn" id="yearBtn">All years</button>
+      <div class="menu" id="yearMenu" role="listbox" aria-label="Year options">
+        <div class="item muted">Loading years…</div>
+      </div>
+    </div>
+
+    <!-- Text filter -->
     <div class="pill" style="flex:1 1 160px;"><input id="concertSearch" type="search" placeholder="Filter (venue/city/title)" style="width:100%"></div>
+
     <button id="favConcertsToggle" class="btn" title="Show only favorites">☆ Favorites</button>
     <button id="resetConcerts" class="btn ghost muted">Reset</button>
   </div>
@@ -201,10 +203,16 @@ function setHeaderActions(routeName){
   if(routeName==='show'){
     const btn = document.createElement('button');
     btn.className = 'btn ghost';
-    btn.id = 'backTop';
     btn.title = 'Back';
     btn.textContent = '← Concerts';
     btn.onclick = () => history.back();
+    actions.appendChild(btn);
+  } else if (routeName==='band'){
+    const btn = document.createElement('button');
+    btn.className = 'btn ghost';
+    btn.title = 'Back';
+    btn.textContent = '← Bands';
+    btn.onclick = () => { location.hash = '#/bands'; };
     actions.appendChild(btn);
   }
 }
@@ -222,16 +230,16 @@ async function fetchWithTimeout(url, {timeout=12000}={}){
 }
 async function fetchJSON(url){ const r = await fetchWithTimeout(url); return r.json(); }
 
-/* ------------ JSONP helper (for facet, bypasses CORS) ------------ */
+/* ------------ JSONP helper (silent fallback) ------------ */
 function fetchJSONP(url, {timeout=12000}={}){
-  return new Promise((resolve, reject)=>{
+  return new Promise((resolve)=>{
     const cb = '__iajsonp_'+Math.random().toString(36).slice(2);
     const s = document.createElement('script');
-    const t = setTimeout(()=>{ cleanup(); resolve(null); }, timeout); // silent fallback
+    const t = setTimeout(()=>{ cleanup(); resolve(null); }, timeout);
     function cleanup(){ clearTimeout(t); delete window[cb]; s.remove(); }
     window[cb] = (data)=>{ cleanup(); resolve(data); };
     s.src = url + (url.includes('?')?'&':'?') + 'callback=' + cb;
-    s.onerror = ()=>{ cleanup(); resolve(null); }; // silent fallback
+    s.onerror = ()=>{ cleanup(); resolve(null); };
     document.head.appendChild(s);
   });
 }
@@ -435,7 +443,7 @@ function resetAndLoad(patch={}){
 
 async function showBand(params){
   show($('#toolbar-bands'),false); show($('#toolbar-band'),true); show($('#showMeta'),false);
-  currentBandId = decodeURIComponent((params||[])[0]||''); $('#backToBands').onclick=()=>location.hash='#/bands';
+  currentBandId = decodeURIComponent((params||[])[0]||'');
 
   $('#favConcertsToggle').onclick=()=>{ onlyFavConcerts=!onlyFavConcerts; renderConcerts(); $('#favConcertsToggle').textContent = onlyFavConcerts?'★ Favorites':'☆ Favorites'; };
   $('#resetConcerts').onclick=()=>{ onlyFavConcerts=false; YearDrop.setValue(''); $('#concertSearch').value=''; $('#sortConcerts').value='auto'; $('#favConcertsToggle').textContent='☆ Favorites'; resetAndLoad({year:'', term:'', sortSel:'auto'}); };
