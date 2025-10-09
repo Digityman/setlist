@@ -41,7 +41,7 @@
   .muted{color:var(--muted)}
   .chip{background:var(--panel); border:1px solid var(--ring); border-radius:999px; padding:6px 10px; font-size:12px; color:var(--muted)}
 
-  /* Bands grid — keep 3 per row look */
+  /* Bands grid — keep your current look (≈3 per row) */
   .bandsGrid{display:grid; grid-template-columns: repeat(auto-fill, minmax(140px, 1fr)); gap:10px; padding:0 12px 120px}
   .bandTile{background:var(--panel); border:1px solid var(--ring); border-radius:14px; padding:8px; display:flex; flex-direction:column; gap:6px; cursor:pointer}
   .bandTile img{width:100%; aspect-ratio:1/1; object-fit:cover; border-radius:10px; background:#0c0c0d}
@@ -56,7 +56,7 @@
   .small{font-size:12px; color:var(--muted)}
   .stars{display:inline-flex; align-items:center; gap:6px}
   .starGlyph{color:#ffcc33}
-  .favStar{font-size:16px}
+  .favToggle{min-width:40px}
 
   /* Track list */
   .tracks{display:grid; gap:6px; padding:0 12px 120px}
@@ -72,7 +72,6 @@
   /* Show header meta */
   .showMeta{display:flex; gap:8px; flex-wrap:wrap; align-items:center; padding:2px 12px 8px}
   .showTitle{font-weight:600}
-  .sep{opacity:.25}
 
   /* Player */
   .player{position:fixed; left:0; right:0; bottom:0; background:var(--panel); border-top:1px solid var(--ring); padding:10px; z-index:5}
@@ -162,6 +161,7 @@
 const $ = s => document.querySelector(s);
 const $$ = s => Array.from(document.querySelectorAll(s));
 const fmtTime = secs => { secs = Math.max(0, Math.floor(secs||0)); const m=Math.floor(secs/60), s=secs%60; return m+":"+String(s).padStart(2,"0"); };
+const fmtCompact = n => { n=Number(n||0); if(n>=1e9) return (n/1e9).toFixed(1)+'B'; if(n>=1e6) return (n/1e6).toFixed(1)+'M'; if(n>=1e3) return (n/1e3).toFixed(1)+'K'; return String(n); };
 function show(el,on=true){ if(!el) return; el.style.display=on?'':'none'; }
 const store = { get(k,f){ try{return JSON.parse(localStorage.getItem(k))??f;}catch{return f;}}, set(k,v){ localStorage.setItem(k,JSON.stringify(v)); } };
 
@@ -183,18 +183,12 @@ const IA = {
     ['identifier','title','downloads'].forEach(f=>u.searchParams.append('fl[]',f));
     u.searchParams.append('sort[]',sort); u.searchParams.set('rows',rows); u.searchParams.set('page',1); u.searchParams.set('output','json'); return u.toString();
   },
-  concertsUrl({ bandId, sort='date desc', rows=1000, year='', term='' }){
+  concertsUrl({ bandId, sort='date desc', rows=500, page=1, year='', term='' }){
     let q=`collection:(${bandId}) AND mediatype:(etree OR audio)`; if(year) q+=` AND year:(${year})`;
     if(term) q+=` AND (title:(${term}) OR date:(${term}) OR venue:(${term}) OR coverage:(${term}))`;
     const u=new URL('https://archive.org/advancedsearch.php'); u.searchParams.set('q',q);
     ['identifier','title','date','year','downloads','avg_rating','num_reviews','venue','coverage','creator','publicdate'].forEach(f=>u.searchParams.append('fl[]',f));
-    u.searchParams.append('sort[]',sort); u.searchParams.set('rows',rows); u.searchParams.set('page',1); u.searchParams.set('output','json'); return u.toString();
-  },
-  concertsYearsUrl({ bandId }){
-    const u=new URL('https://archive.org/advancedsearch.php');
-    const q=`collection:(${bandId}) AND mediatype:(etree OR audio)`;
-    u.searchParams.set('q',q); u.searchParams.set('rows',0); u.searchParams.set('page',1); u.searchParams.set('output','json');
-    u.searchParams.append('facet[]','year'); u.searchParams.set('facet_limit','10000'); u.searchParams.set('facet_mincount','1'); return u.toString();
+    u.searchParams.append('sort[]',sort); u.searchParams.set('rows',rows); u.searchParams.set('page',page); u.searchParams.set('output','json'); return u.toString();
   },
   metaUrl:id=>`https://archive.org/metadata/${id}`,
   imgUrl:id=>`https://archive.org/services/img/${id}`,
@@ -219,11 +213,24 @@ async function showBands(){
   }catch(e){ console.error(e); content.className='grid'; content.innerHTML=`<div class="card"><span class="small">Failed to load bands.</span></div>`; }
 }
 
-/* ------------ Concerts page ------------ */
-let currentBandId=''; let currentConcerts=[]; let onlyFavConcerts=false;
+/* ------------ Concerts page (no facets; full pagination) ------------ */
+let currentBandId=''; let allConcerts=[]; let onlyFavConcerts=false;
 
 function favShows(){ return store.get('favShows',[]); }
 function isFav(id){ return favShows().includes(id); }
+
+async function fetchAllConcerts(bandId){
+  const rows=500;
+  let page=1, got=[], numFound=Infinity;
+  while(got.length < numFound && page <= 20){ // safety cap
+    const data = await IA.fetchJSON(IA.concertsUrl({bandId, sort:'date desc', rows, page}));
+    const resp = data?.response || {};
+    numFound = Number(resp.numFound || got.length);
+    got = got.concat(resp.docs || []);
+    page++;
+  }
+  return got;
+}
 
 async function showBand(params){
   show($('#toolbar-bands'),false); show($('#toolbar-band'),true); show($('#toolbar-show'),false); show($('#showMeta'),false);
@@ -232,28 +239,17 @@ async function showBand(params){
   $('#resetConcerts').onclick=()=>{ onlyFavConcerts=false; $('#yearSel').value=''; $('#concertSearch').value=''; $('#sortConcerts').value='auto'; $('#favConcertsToggle').textContent='☆ Favorites'; renderConcerts(); };
   $('#concertSearch').onchange=renderConcerts; $('#yearSel').onchange=renderConcerts; $('#sortConcerts').onchange=renderConcerts;
 
-  const content=$('#content'); content.className='grid'; content.innerHTML=`<div class="card"><span class="small">Loading concerts…</span></div>`;
+  const content=$('#content'); content.className='grid'; content.innerHTML=`<div class="card"><span class="small">Loading concerts (paging all years)…</span></div>`;
 
   try{
-    // facet for complete years list (ascending)
-    let yearsFacet=[];
-    try{
-      const facetData=await IA.fetchJSON(IA.concertsYearsUrl({bandId:currentBandId}));
-      const facet=facetData?.response?.facets?.year; if(facet){ yearsFacet=Object.entries(facet).map(([y,c])=>({year:Number(y),count:Number(c)})).filter(x=>!isNaN(x.year)).sort((a,b)=>a.year-b.year); }
-    }catch(e){ console.warn('Facet failed; will compute from docs.'); }
+    allConcerts = await fetchAllConcerts(currentBandId);
 
-    // get shows (initial)
-    const data=await IA.fetchJSON(IA.concertsUrl({bandId:currentBandId,sort:'date desc',rows:1000}));
-    currentConcerts=(data?.response?.docs||[]);
-
-    // fallback for years if needed
-    if(yearsFacet.length===0){
-      const counts={}; for(const d of currentConcerts){ if(d.year) counts[d.year]=(counts[d.year]||0)+1; }
-      yearsFacet=Object.keys(counts).map(y=>({year:Number(y),count:counts[y]})).sort((a,b)=>a.year-b.year);
-    }
-
-    // build year select (ascending)
-    const yearSel=$('#yearSel'); yearSel.innerHTML = `<option value="">All years</option>` + yearsFacet.map(y=>`<option value="${y.year}">${y.year} (${y.count.toLocaleString()})</option>`).join('');
+    // build year counts (ascending)
+    const counts={};
+    for(const d of allConcerts){ if(d.year) counts[d.year]=(counts[d.year]||0)+1; }
+    const years = Object.keys(counts).map(y=>({year:Number(y), count:counts[y]})).sort((a,b)=>a.year-b.year);
+    const yearSel=$('#yearSel');
+    yearSel.innerHTML = `<option value="">All years</option>` + years.map(y=>`<option value="${y.year}">${y.year} (${y.count.toLocaleString()})</option>`).join('');
 
     renderConcerts();
   }catch(e){ console.error(e); content.innerHTML=`<div class="card"><span class="small">Failed to load concerts.</span></div>`; }
@@ -263,8 +259,7 @@ function renderConcerts(){
   const content=$('#content'); if(!content) return;
   const year=$('#yearSel')?.value||''; const term=($('#concertSearch')?.value||'').trim().toLowerCase(); const sortSel=$('#sortConcerts')?.value||'auto';
 
-  // filter
-  let list=currentConcerts.slice();
+  let list=allConcerts.slice();
   if(year) list=list.filter(d=>String(d.year)===String(year));
   if(term) list=list.filter(d=>{
     const t=(d.title||'').toLowerCase(); const v=(d.venue||'').toLowerCase(); const c=(d.coverage||'').toLowerCase(); const dt=(d.date||'').toLowerCase();
@@ -280,7 +275,6 @@ function renderConcerts(){
   list.sort((a,b)=>{
     if(key==='avg_rating'){ return ((a.avg_rating||0)-(b.avg_rating||0))*dir; }
     if(key==='downloads'){ return ((a.downloads||0)-(b.downloads||0))*dir; }
-    // date
     return (new Date(a.date||a.publicdate||0) - new Date(b.date||b.publicdate||0))*dir;
   });
 
@@ -291,17 +285,18 @@ function renderConcerts(){
     const rating = Math.round((it.avg_rating||0)*2)/2; // halves
     const reviews = it.num_reviews||0;
     const stars = '★★★★★'.split('').map((s,i)=>{
-      const v = i+1;
-      return `<span class="starGlyph">${rating>=v?'★':(rating>=v-0.5?'⯨':'☆')}</span>`;
+      const v=i+1; return `<span class="starGlyph">${rating>=v?'★':(rating>=v-0.5?'⯨':'☆')}</span>`;
     }).join('');
     const favMark = isFav(it.identifier) ? '★' : '☆';
     const venueLine = [it.venue, it.coverage].filter(Boolean).join(', ');
+    const viewsChip = `<span class="chip">${fmtCompact(it.downloads||0)} views</span>`;
     return `
       <div class="card" data-id="${it.identifier}">
         <div>
           <h3>${it.title || it.identifier}</h3>
           <div class="row">
             <span class="chip">${dateStr}</span>
+            ${viewsChip}
             <span class="stars">${stars}<span class="small">(${reviews})</span></span>
           </div>
           <div class="small">${venueLine}</div>
@@ -325,7 +320,7 @@ function renderConcerts(){
 }
 
 /* ------------ Show (tracks) ------------ */
-let currentShowId=''; let trackEls=[]; let trackList=[]; let currentShowMeta=null;
+let currentShowId=''; let trackEls=[]; let trackList=[];
 
 function toggleFav(id){ const fav=favShows(); const i=fav.indexOf(id); if(i>=0) fav.splice(i,1); else fav.push(id); store.set('favShows',fav); updateFavBtn(); }
 function updateFavBtn(){ const btn=$('#favShowBtn'); if(!btn) return; btn.textContent = favShows().includes(currentShowId)?'★ Favorited':'☆ Favorite'; }
@@ -339,23 +334,15 @@ function setShowHeader(meta){
   if(date){ $('#showDate').textContent = new Date(date).toLocaleDateString(); show($('#showDate'),true);} else show($('#showDate'),false);
   if(location){ $('#showLoc').textContent = location; show($('#showLoc'),true);} else show($('#showLoc'),false);
 }
-
 function cleanTitle(name){
-  let t = name.replace(/\.(mp3|ogg|flac)$/i,'');        // drop extension
-  t = t.replace(/[_-]+/g,' ').replace(/\s+/g,' ').trim();
-  t = t.replace(/^(\d+)[\s.\-_]+/,'');                  // leading track number codes
-  return t;
+  let t = name.replace(/\.(mp3|ogg|flac)$/i,''); t = t.replace(/[_-]+/g,' ').replace(/\s+/g,' ').trim(); t = t.replace(/^(\d+)[\s.\-_]+/,''); return t;
 }
 function naturalCmp(a,b){ return a.localeCompare(b,undefined,{numeric:true,sensitivity:'base'}); }
-
 function extractTrackNo(f){
-  const n1 = Number(f.track || f.trackno || '');
-  if (!isNaN(n1) && n1>0) return n1;
-  const m = /(\d+)[^\d]*\.(mp3|ogg|flac)$/i.exec(f.name||'');
-  if (m) return Number(m[1]);
+  const n1 = Number(f.track || f.trackno || ''); if (!isNaN(n1) && n1>0) return n1;
+  const m = /(\d+)[^\d]*\.(mp3|ogg|flac)$/i.exec(f.name||''); if (m) return Number(m[1]);
   return Infinity;
 }
-
 async function showShow(params){
   show($('#toolbar-bands'),false); show($('#toolbar-band'),false); show($('#toolbar-show'),true);
   currentShowId = decodeURIComponent((params||[])[0]||'');
@@ -365,24 +352,17 @@ async function showShow(params){
   const content=$('#content'); content.className='tracks'; content.innerHTML=`<div class="card"><span class="small">Loading tracks…</span></div>`;
   try{
     const meta = await IA.fetchJSON(IA.metaUrl(currentShowId));
-    currentShowMeta = meta; setShowHeader(meta);
-
+    setShowHeader(meta);
     const files = meta?.files||[];
 
-    // Prefer MP3; if none, fall back to OGG/FLAC
+    // Prefer MP3; fallback to OGG/FLAC only if no MP3s exist
     let playable = files.filter(f => /\.mp3$/i.test(f.name||'') || (f.format||'').toLowerCase().includes('mp3'));
     if (playable.length===0){
       playable = files.filter(f => /\.(ogg|flac)$/i.test(f.name||'') || /(ogg|flac)/.test((f.format||'').toLowerCase()));
     }
 
-    // Sort by track number, then by natural name
-    playable.sort((a,b)=>{
-      const an=extractTrackNo(a), bn=extractTrackNo(b);
-      if (an!==bn) return an-bn;
-      return naturalCmp(a.name||'', b.name||'');
-    });
-
-    // De-duplicate by normalized title
+    // Sort & de-dupe
+    playable.sort((a,b)=>{ const an=extractTrackNo(a), bn=extractTrackNo(b); if (an!==bn) return an-bn; return naturalCmp(a.name||'', b.name||''); });
     const seen=new Set();
     trackList = [];
     for (const f of playable){
@@ -414,7 +394,6 @@ async function showShow(params){
 /* ------------ Player shared ------------ */
 const A=$('#audio'); const P={ play:$('#P_play'), prev:$('#P_prev'), next:$('#P_next'), mute:$('#P_mute'), seek:$('#P_seek'), cur:$('#P_times .cur'), dur:$('#P_times .dur') };
 let queue=[]; let curIndex=-1;
-
 function setQueueFromTracks(){ queue = trackList.map(t=>t.url); }
 function playIndex(i){ if(!trackList.length) return; setQueueFromTracks(); curIndex=Math.max(0,Math.min(i,queue.length-1)); A.src=queue[curIndex]; A.play().catch(()=>{}); updateTrackHighlight(); }
 function updateTrackHighlight(){ trackEls.forEach((el,idx)=>el.classList.toggle('playing', idx===curIndex)); }
@@ -445,7 +424,7 @@ $('#sortSel')?.addEventListener('change', showBands);
 $('#searchBox')?.addEventListener('change', showBands);
 $('#resetBtn')?.addEventListener('click', ()=>{ $('#sortSel').value='downloads desc'; $('#searchBox').value=''; location.hash='#/bands'; showBands(); });
 
-/* ------------ sw ------------ */
+/* ------------ optional SW ------------ */
 if('serviceWorker' in navigator){ navigator.serviceWorker.register('sw.js').catch(console.warn); }
 </script>
 </body>
