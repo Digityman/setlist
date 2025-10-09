@@ -31,7 +31,21 @@
   .muted{color:var(--muted)}
   .chip{background:var(--panel); border:1px solid var(--ring); border-radius:999px; padding:6px 10px; font-size:12px; color:var(--muted)}
 
-  /* Bands grid — tightened so ~5 per row */
+  /* Custom dropdown (scrollable) */
+  .dropdown{position:relative; min-width:150px}
+  .dropBtn{background:transparent; border:none; color:var(--text); font:14px; cursor:pointer; padding:0}
+  .menu{
+    position:absolute; top:110%; left:0; right:0;
+    background:var(--panel); border:1px solid var(--ring); border-radius:12px;
+    box-shadow:0 8px 24px rgba(0,0,0,.45);
+    display:none; max-height:280px; /* ~8-9 rows */
+    overflow:auto; z-index:50;
+  }
+  .menu.open{display:block}
+  .menu .item{padding:9px 12px; cursor:pointer; white-space:nowrap}
+  .menu .item:hover{background:#202124}
+
+  /* Bands grid — ≈5 per row */
   .bandsGrid{display:grid; grid-template-columns: repeat(auto-fill, minmax(80px, 1fr)); gap:8px; padding:0 12px 120px}
   .bandTile{background:var(--panel); border:1px solid var(--ring); border-radius:12px; padding:6px; display:flex; flex-direction:column; gap:6px; cursor:pointer}
   .bandTile img{width:100%; aspect-ratio:1/1; object-fit:cover; border-radius:8px; background:#0c0c0d}
@@ -64,14 +78,14 @@
   .showMeta{display:flex; gap:8px; flex-wrap:wrap; align-items:center; padding:2px 12px 8px}
   .showTitle{font-weight:600}
 
-  /* Player */
+  /* Player — slightly bigger buttons */
   .player{position:fixed; left:0; right:0; bottom:0; background:var(--panel); border-top:1px solid var(--ring); padding:10px; z-index:5}
-  .playerCompact .controls{display:flex; align-items:center; gap:6px; flex-wrap:nowrap; overflow:hidden}
-  .playerCompact .btn{padding:4px 6px; min-height:32px; min-width:32px; border-radius:10px; font-size:13px}
-  .playerCompact .seekWrap{display:grid; grid-template-columns:auto 1fr auto; align-items:center; gap:6px; min-width:140px; margin-left:auto}
-  .playerCompact #P_times{min-width:76px; font-size:12px; text-align:right}
+  .playerCompact .controls{display:flex; align-items:center; gap:8px; flex-wrap:nowrap; overflow:hidden}
+  .playerCompact .btn{padding:6px 8px; min-height:40px; min-width:40px; border-radius:12px; font-size:14px}
+  .playerCompact .seekWrap{display:grid; grid-template-columns:auto 1fr auto; align-items:center; gap:8px; min-width:160px; margin-left:auto}
+  .playerCompact #P_times{min-width:84px; font-size:12px; text-align:right}
   .playerCompact #P_times .dur{opacity:.8; margin-left:2px}
-  .playerCompact #P_seek{width:100%; max-width:160px}
+  .playerCompact #P_seek{width:100%; max-width:180px}
   #P_back10, #P_fwd10{display:none!important}
   input[type="range"]{-webkit-appearance:none; appearance:none; height:4px; border-radius:999px; background:#2a2c30; outline:none}
   input[type="range"]::-webkit-slider-thumb{-webkit-appearance:none; appearance:none; width:14px; height:14px; border-radius:50%; background:var(--accent); border:none; box-shadow:0 0 0 3px rgba(91,209,154,.25)}
@@ -105,7 +119,13 @@
   <!-- Concerts toolbar -->
   <div class="toolbar" id="toolbar-band" style="display:none;">
     <button class="btn ghost" id="backToBands" title="Back">← Bands</button>
-    <div class="pill"><select id="yearSel" aria-label="Year"><option value="">All years</option></select></div>
+
+    <!-- Scrollable year dropdown -->
+    <div class="pill dropdown" id="yearDrop" aria-label="Year">
+      <button class="dropBtn" id="yearBtn">All years</button>
+      <div class="menu" id="yearMenu" role="listbox" aria-label="Year options"></div>
+    </div>
+
     <div class="pill"><select id="sortConcerts" aria-label="Sort concerts">
       <option value="auto" selected>Auto</option>
       <option value="date asc">Date ↑</option>
@@ -113,6 +133,7 @@
       <option value="avg_rating desc">Reviews ↓</option>
       <option value="downloads desc">Views ↓</option>
     </select></div>
+
     <div class="pill" style="flex:1 1 160px;"><input id="concertSearch" type="search" placeholder="Filter (venue/city/title)" style="width:100%"></div>
     <button id="favConcertsToggle" class="btn" title="Show only favorites">☆ Favorites</button>
     <button id="resetConcerts" class="btn ghost muted">Reset</button>
@@ -190,7 +211,6 @@ async function fetchJSONRetry(url, {retries=2, timeout=12000, backoff=1000}={}){
       return await res.json();
     }catch(err){
       lastErr = err;
-      // If aborted or network fail, try again with backoff
       await new Promise(r=>setTimeout(r, backoff*Math.pow(2, attempt)));
       attempt++;
     }
@@ -218,7 +238,7 @@ const IA = {
   fetchJSON:(url)=>fetchJSONRetry(url, {retries:2, timeout:12000, backoff:1000})
 };
 
-/* ------------ helper: show retry card ------------ */
+/* ------------ helper: retry card ------------ */
 function showRetry(contentEl, message, retryFn){
   contentEl.className='grid';
   contentEl.innerHTML = `
@@ -263,6 +283,32 @@ let currentBandId=''; let allConcerts=[]; let onlyFavConcerts=false;
 function favShows(){ return store.get('favShows',[]); }
 function isFav(id){ return favShows().includes(id); }
 
+/* Scrollable Year dropdown controller */
+const YearDrop = (()=> {
+  const wrap = document.getElementById('yearDrop');
+  const btn  = document.getElementById('yearBtn');
+  const menu = document.getElementById('yearMenu');
+  let value = '';
+  let options = []; // [{value,label}]
+  function render(){
+    menu.innerHTML = options.map(o=>`<div class="item" data-value="${o.value}">${o.label}</div>`).join('');
+  }
+  btn.addEventListener('click', (e)=>{ e.stopPropagation(); menu.classList.toggle('open'); });
+  document.addEventListener('click', (e)=>{ if(!wrap.contains(e.target)) menu.classList.remove('open'); });
+  menu.addEventListener('click', (e)=>{
+    const it = e.target.closest('.item'); if(!it) return;
+    value = it.dataset.value || '';
+    btn.textContent = (options.find(o=>String(o.value)===String(value))?.label) || 'All years';
+    menu.classList.remove('open');
+    renderConcerts();
+  });
+  return {
+    setOptions(arr){ options = arr; render(); },
+    setValue(v){ value = v || ''; btn.textContent = (options.find(o=>String(o.value)===String(value))?.label) || 'All years'; },
+    getValue(){ return value; }
+  };
+})();
+
 async function fetchAllConcerts(bandId){
   const rows=500;
   let page=1, got=[], numFound=Infinity;
@@ -280,17 +326,21 @@ async function showBand(params){
   show($('#toolbar-bands'),false); show($('#toolbar-band'),true); show($('#toolbar-show'),false); show($('#showMeta'),false);
   currentBandId = decodeURIComponent((params||[])[0]||''); $('#backToBands').onclick=()=>location.hash='#/bands';
   $('#favConcertsToggle').onclick=()=>{ onlyFavConcerts=!onlyFavConcerts; renderConcerts(); $('#favConcertsToggle').textContent = onlyFavConcerts?'★ Favorites':'☆ Favorites'; };
-  $('#resetConcerts').onclick=()=>{ onlyFavConcerts=false; $('#yearSel').value=''; $('#concertSearch').value=''; $('#sortConcerts').value='auto'; $('#favConcertsToggle').textContent='☆ Favorites'; renderConcerts(); };
-  $('#concertSearch').onchange=renderConcerts; $('#yearSel').onchange=renderConcerts; $('#sortConcerts').onchange=renderConcerts;
+  $('#resetConcerts').onclick=()=>{ onlyFavConcerts=false; YearDrop.setValue(''); $('#concertSearch').value=''; $('#sortConcerts').value='auto'; $('#favConcertsToggle').textContent='☆ Favorites'; renderConcerts(); };
+  $('#concertSearch').onchange=renderConcerts; $('#sortConcerts').onchange=renderConcerts;
 
   const content=$('#content'); content.className='grid'; content.innerHTML=`<div class="card"><span class="small">Loading concerts (paging all years)…</span></div>`;
 
   const load = async ()=>{
     try{
       allConcerts = await fetchAllConcerts(currentBandId);
+
+      // Build year list (ascending)
       const counts={}; for(const d of allConcerts){ if(d.year) counts[d.year]=(counts[d.year]||0)+1; }
       const years = Object.keys(counts).map(y=>({year:Number(y), count:counts[y]})).sort((a,b)=>a.year-b.year);
-      $('#yearSel').innerHTML = `<option value="">All years</option>` + years.map(y=>`<option value="${y.year}">${y.year} (${y.count.toLocaleString()})</option>`).join('');
+      YearDrop.setOptions([{value:'', label:'All years'}, ...years.map(y=>({value:String(y.year), label:`${y.year} (${y.count.toLocaleString()})`}))]);
+      YearDrop.setValue('');
+
       renderConcerts();
     }catch(e){
       console.error(e);
@@ -303,7 +353,7 @@ async function showBand(params){
 
 function renderConcerts(){
   const content=$('#content'); if(!content) return;
-  const year=$('#yearSel')?.value||''; const term=($('#concertSearch')?.value||'').trim().toLowerCase(); const sortSel=$('#sortConcerts')?.value||'auto';
+  const year=YearDrop.getValue(); const term=($('#concertSearch')?.value||'').trim().toLowerCase(); const sortSel=$('#sortConcerts')?.value||'auto';
 
   let list=allConcerts.slice();
   if(year) list=list.filter(d=>String(d.year)===String(year));
