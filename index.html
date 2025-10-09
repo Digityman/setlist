@@ -47,9 +47,9 @@
   .chip{background:var(--panel); border:1px solid var(--ring); border-radius:999px; padding:6px 10px; font-size:12px; color:var(--muted)}
   .pillBtn{background:var(--panel); border:1px solid var(--ring); border-radius:999px; padding:6px 10px; font-size:12px; cursor:pointer; color:var(--text)}
 
-  /* Custom dropdown (scrollable) */
-  .dropdown{position:relative; min-width:150px}
-  .dropBtn{background:transparent; border:none; color:var(--text); font:14px; cursor:pointer; padding:0}
+  /* Custom dropdown (scrollable, full-pill clickable) */
+  .dropdown{position:relative; min-width:150px; cursor:pointer}
+  .dropBtn{background:transparent; border:none; color:var(--text); font:14px; width:100%; text-align:left; padding:0; pointer-events:none}
   .menu{
     position:absolute; top:110%; left:0; right:0;
     background:var(--panel); border:1px solid var(--ring); border-radius:12px;
@@ -121,18 +121,19 @@
 
   <!-- Concerts toolbar -->
   <div class="toolbar" id="toolbar-band" style="display:none;">
-    <!-- Back moved to header; removed from here -->
+    <!-- Sort (custom dropdown) -->
+    <div class="pill dropdown" id="sortDrop" aria-label="Sort">
+      <button class="dropBtn" id="sortBtn">Sort</button>
+      <div class="menu" id="sortMenu" role="listbox" aria-label="Sort options">
+        <div class="item" data-value="auto">Auto</div>
+        <div class="item" data-value="date asc">Date ↑</div>
+        <div class="item" data-value="date desc">Date ↓</div>
+        <div class="item" data-value="avg_rating desc">Reviews ↓</div>
+        <div class="item" data-value="downloads desc">Views ↓</div>
+      </div>
+    </div>
 
-    <!-- Sort first -->
-    <div class="pill"><select id="sortConcerts" aria-label="Sort concerts">
-      <option value="auto" selected>Auto</option>
-      <option value="date asc">Date ↑</option>
-      <option value="date desc">Date ↓</option>
-      <option value="avg_rating desc">Reviews ↓</option>
-      <option value="downloads desc">Views ↓</option>
-    </select></div>
-
-    <!-- Year dropdown now between Sort and Text filter -->
+    <!-- Year (custom dropdown) -->
     <div class="pill dropdown" id="yearDrop" aria-label="Year">
       <button class="dropBtn" id="yearBtn">All years</button>
       <div class="menu" id="yearMenu" role="listbox" aria-label="Year options">
@@ -359,6 +360,41 @@ let onlyFavConcerts=false;
 function favShows(){ return store.get('favShows',[]); }
 function isFav(id){ return favShows().includes(id); }
 
+/* Sort dropdown controller */
+const SortDrop = (()=> {
+  const wrap = document.getElementById('sortDrop');
+  const btn  = document.getElementById('sortBtn');
+  const menu = document.getElementById('sortMenu');
+  let value = 'auto';
+  let options = [
+    {value:'auto', label:'Auto'},
+    {value:'date asc', label:'Date ↑'},
+    {value:'date desc', label:'Date ↓'},
+    {value:'avg_rating desc', label:'Reviews ↓'},
+    {value:'downloads desc', label:'Views ↓'},
+  ];
+  function render(){ menu.innerHTML = options.map(o=>`<div class="item" data-value="${o.value}">${o.label}</div>`).join(''); }
+  function open(){ menu.classList.add('open'); }
+  function close(){ menu.classList.remove('open'); }
+  wrap.addEventListener('click', (e)=>{ if(e.target.closest('.item')) return; menu.classList.toggle('open'); });
+  document.addEventListener('click', (e)=>{ if(!wrap.contains(e.target)) close(); });
+  menu.addEventListener('click', (e)=>{
+    const it = e.target.closest('.item'); if(!it) return;
+    setValue(it.dataset.value, false);
+    close();
+    onChange?.(value);
+  });
+  function setValue(v, placeholder=false){
+    value = v||'auto';
+    btn.textContent = placeholder && value==='auto' ? 'Sort'
+      : (options.find(o=>o.value===value)?.label || 'Sort');
+  }
+  let onChange = null;
+  function subscribe(fn){ onChange = fn; }
+  render(); setValue('auto', true);
+  return {getValue:()=>value, setValue, subscribe, open, close};
+})();
+
 /* Scrollable Year dropdown controller */
 const YearDrop = (()=> {
   const wrap = document.getElementById('yearDrop');
@@ -367,19 +403,22 @@ const YearDrop = (()=> {
   let value = '';
   let options = [{value:'', label:'All years'}];
   function render(){ menu.innerHTML = options.map(o=>`<div class="item" data-value="${o.value}">${o.label}</div>`).join(''); }
-  btn.addEventListener('click', (e)=>{ e.stopPropagation(); menu.classList.toggle('open'); });
-  document.addEventListener('click', (e)=>{ if(!wrap.contains(e.target)) menu.classList.remove('open'); });
+  function open(){ menu.classList.add('open'); }
+  function close(){ menu.classList.remove('open'); }
+  wrap.addEventListener('click', (e)=>{ if(e.target.closest('.item')) return; menu.classList.toggle('open'); });
+  document.addEventListener('click', (e)=>{ if(!wrap.contains(e.target)) close(); });
   menu.addEventListener('click', (e)=>{
     const it = e.target.closest('.item'); if(!it) return;
     value = it.dataset.value || '';
     btn.textContent = (options.find(o=>String(o.value)===String(value))?.label) || 'All years';
-    menu.classList.remove('open');
+    close();
     resetAndLoad({year:value});
   });
   function setOptions(arr){ options = arr; render(); }
   function setValue(v){ value=v||''; btn.textContent=(options.find(o=>String(o.value)===String(value))?.label)||'All years'; }
   function getValue(){ return value; }
-  return {setOptions,setValue,getValue};
+  render();
+  return {setOptions,setValue,getValue, open, close};
 })();
 
 function resolveSort(){ return state.sortSel==='auto' ? (state.year ? 'date asc' : 'date desc') : state.sortSel; }
@@ -445,10 +484,13 @@ async function showBand(params){
   show($('#toolbar-bands'),false); show($('#toolbar-band'),true); show($('#showMeta'),false);
   currentBandId = decodeURIComponent((params||[])[0]||'');
 
+  // Sort dropdown wiring
+  SortDrop.subscribe((val)=> resetAndLoad({sortSel:val}));
+  SortDrop.setValue('auto', true);
+
   $('#favConcertsToggle').onclick=()=>{ onlyFavConcerts=!onlyFavConcerts; renderConcerts(); $('#favConcertsToggle').textContent = onlyFavConcerts?'★ Favorites':'☆ Favorites'; };
-  $('#resetConcerts').onclick=()=>{ onlyFavConcerts=false; YearDrop.setValue(''); $('#concertSearch').value=''; $('#sortConcerts').value='auto'; $('#favConcertsToggle').textContent='☆ Favorites'; resetAndLoad({year:'', term:'', sortSel:'auto'}); };
+  $('#resetConcerts').onclick=()=>{ onlyFavConcerts=false; YearDrop.setValue(''); $('#concertSearch').value=''; SortDrop.setValue('auto', true); $('#favConcertsToggle').textContent='☆ Favorites'; resetAndLoad({year:'', term:'', sortSel:'auto'}); };
   $('#concertSearch').onchange=()=> resetAndLoad({term:($('#concertSearch').value||'').trim().toLowerCase()});
-  $('#sortConcerts').onchange=()=> resetAndLoad({sortSel:$('#sortConcerts').value});
 
   // Years (cached or build)
   const cached = store.get('years_'+currentBandId,null);
