@@ -5,15 +5,16 @@
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover"/>
 <title>Live Music Archive — Mobile Player</title>
 <link rel="preconnect" href="https://archive.org">
+<link rel="manifest" href="manifest.json">
 <style>
   :root{
     --bg:#0f0f10; --panel:#161719; --text:#e9e9ea; --muted:#a6a6ac; --accent:#5bd19a;
     --btn:#232428; --btnHi:#2c2e33; --ring:#2b2d31;
   }
   html,body{height:100%}
-  body{
-    margin:0; background:var(--bg); color:var(--text); font:14px/1.4 system-ui, -apple-system, Segoe UI, Roboto, Arial, sans-serif;
-  }
+  body{margin:0; background:var(--bg); color:var(--text); font:14px/1.4 system-ui,-apple-system,Segoe UI,Roboto,Arial,sans-serif}
+  a{color:inherit; text-decoration:none}
+
   .wrap{min-height:100%; display:flex; flex-direction:column}
   header{
     padding:14px 16px; display:flex; align-items:center; gap:10px; background:var(--panel); position:sticky; top:0; z-index:3;
@@ -22,7 +23,6 @@
   header h1{font-size:18px; margin:0; white-space:nowrap}
   header .crumb{opacity:.75}
 
-  /* Toolbar */
   .toolbar{display:flex; gap:8px; padding:10px 12px; align-items:center; flex-wrap:wrap}
   .pill{
     background:var(--panel); border:1px solid var(--ring); border-radius:999px; padding:8px 12px; display:flex; align-items:center; gap:8px;
@@ -38,7 +38,6 @@
   .ghost{background:transparent}
   .muted{color:var(--muted)}
 
-  /* List */
   .grid{display:grid; grid-template-columns:1fr; gap:6px; padding:0 12px 110px}
   .card{
     background:var(--panel); border:1px solid var(--ring); border-radius:14px; padding:12px; display:flex; justify-content:space-between; align-items:center;
@@ -47,26 +46,21 @@
   .small{font-size:12px; color:var(--muted)}
   .tap{cursor:pointer}
 
-  /* Player */
   .player{
     position:fixed; left:0; right:0; bottom:0; background:var(--panel);
     border-top:1px solid var(--ring); padding:10px; z-index:5;
   }
-  .playerCompact .controls{
-    display:flex; align-items:center; gap:6px; flex-wrap:nowrap; overflow:hidden;
-  }
+  .playerCompact .controls{display:flex; align-items:center; gap:6px; flex-wrap:nowrap; overflow:hidden}
   .playerCompact .btn{padding:4px 6px; min-height:32px; min-width:32px; border-radius:10px; font-size:13px}
   .playerCompact .seekWrap{
-    display:grid; grid-template-columns:auto 1fr auto; align-items:center; gap:6px; min-width:140px;
-    margin-left:auto;
+    display:grid; grid-template-columns:auto 1fr auto; align-items:center; gap:6px; min-width:140px; margin-left:auto;
   }
   .playerCompact #P_times{min-width:76px; font-size:12px; text-align:right}
   .playerCompact #P_times .dur{opacity:.8; margin-left:2px}
   .playerCompact #P_seek{width:100%; max-width:160px}
-  /* If you also render a visual progress track, clamp it. */
   .playerCompact #P_seekVis{left:10px; right:120px; max-width:160px}
 
-  /* Hide +/-10s buttons entirely */
+  /* Hide +/-10s buttons entirely (we no longer use them) */
   #P_back10, #P_fwd10{ display:none !important; }
 
   input[type="range"]{
@@ -76,7 +70,6 @@
     -webkit-appearance:none; appearance:none; width:14px; height:14px; border-radius:50%; background:var(--accent); border:none; box-shadow:0 0 0 3px rgba(91,209,154,.25);
   }
 
-  /* Utility */
   .sp{flex:1 1 auto}
   .sr{position:absolute;clip:rect(1px,1px,1px,1px);padding:0;border:0;height:1px;width:1px;overflow:hidden}
 </style>
@@ -84,7 +77,7 @@
 <body>
 <div class="wrap">
   <header>
-    <h1>Live Music Archive <span class="crumb">— Bands</span></h1>
+    <h1><a href="#/bands">Live Music Archive</a> <span class="crumb">— Bands</span></h1>
     <span id="routeInfo" class="small muted"></span>
   </header>
 
@@ -204,9 +197,7 @@ async function showBands(){
   const content = $('#content');
   if (!content) return;
 
-  content.innerHTML = `
-    <div class="card"><span class="small muted">Loading top bands…</span></div>
-  `;
+  content.innerHTML = `<div class="card"><span class="small muted">Loading top bands…</span></div>`;
 
   const sortSel = $('#sortSel');
   const searchBox = $('#searchBox');
@@ -215,10 +206,7 @@ async function showBands(){
   const term = (searchBox?.value || '').trim();
 
   let q = 'collection:(etree) AND mediatype:(collection)';
-  if (term) {
-    // search in title OR identifier
-    q += ` AND (title:(${term}) OR identifier:(${term}))`;
-  }
+  if (term) q += ` AND (title:(${term}) OR identifier:(${term}))`;
 
   try{
     const data = await IA.fetchJSON(IA.bandsUrl({ q, sort, rows: 100 }));
@@ -241,36 +229,29 @@ async function showBands(){
       </div>
     `).join('');
 
-    // Attach taps
     content.addEventListener('click', ev => {
       const card = ev.target.closest('.card.tap');
       if (!card) return;
       const id = card.getAttribute('data-id');
       if (!id) return;
       location.hash = '#/band/' + encodeURIComponent(id);
-    }, { once:true }); // re-bound on next render
+    }, { once:true });
+
   }catch(err){
     console.error(err);
-    content.innerHTML = `
-      <div class="card"><span class="small">Failed to load bands. Check network/CORS.</span></div>
-    `;
+    content.innerHTML = `<div class="card"><span class="small">Failed to load bands. Check network/CORS.</span></div>`;
   }
 }
 
 /* ------------------------------
-   Band screen (very light)
-   Just shows the band id and a stub list item so the route works.
+   Band screen (stub for now)
 ------------------------------ */
 async function showBand(params){
   const [id] = params || [];
   const content = $('#content');
-  if (!content){
-    return;
-  }
-  if (!id){
-    location.hash = '#/bands';
-    return;
-  }
+  if (!content) return;
+  if (!id){ location.hash = '#/bands'; return; }
+
   content.innerHTML = `
     <div class="card">
       <div>
@@ -299,12 +280,11 @@ const P = {
   next: $('#P_next'),
   mute: $('#P_mute'),
   seek: $('#P_seek'),
-  times: $('#P_times'),
   cur: $('#P_times .cur'),
   dur: $('#P_times .dur')
 };
 
-// Demo source so controls are alive; you can swap this when wiring setlists
+// Demo source so controls are alive; swap when wiring setlists
 A.src = 'https://archive.org/download/testmp3testfile/mpthreetest.mp3';
 A.preload = 'metadata';
 
@@ -317,9 +297,7 @@ function load(i){
   A.play().catch(()=>{ /* ignore autoplay block */ });
 }
 
-P.play?.addEventListener('click', () => {
-  if (A.paused) A.play(); else A.pause();
-});
+P.play?.addEventListener('click', () => { if (A.paused) A.play(); else A.pause(); });
 P.prev?.addEventListener('click', () => load(Math.max(0, curIndex-1)));
 P.next?.addEventListener('click', () => load(Math.min(demoQueue.length-1, curIndex+1)));
 P.mute?.addEventListener('click', () => { A.muted = !A.muted; });
@@ -359,9 +337,13 @@ $('#resetBtn')?.addEventListener('click', () => {
 });
 
 /* ------------------------------
-   Service worker note
-   (We intentionally do NOT register a no-op fetch handler.)
+   Service worker registration
+   (only if you actually want it)
 ------------------------------ */
+if ('serviceWorker' in navigator) {
+  // Optional: register, but our sw.js doesn’t add a no-op fetch handler.
+  navigator.serviceWorker.register('sw.js').catch(console.warn);
+}
 </script>
 </body>
 </html>
