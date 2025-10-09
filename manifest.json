@@ -1,14 +1,20 @@
 {
   "name": "Setlist Streamer",
   "short_name": "Setlist",
-  "description": "Browse bands and stream fan-taped concerts from the Internet Archive.",
-  "start_url": "/setlist/index.html",
-  "scope": "/setlist/",
+  "start_url": "index.html",
   "display": "standalone",
-  "background_color": "#000000",
-  "theme_color": "#000000",
+  "theme_color": "#0f0f10",
+  "background_color": "#0f0f10",
   "icons": [
-    { "src": "/setlist/icons/icon-192.png", "sizes": "192x192", "type": "image/png" },
-    { "src": "/setlist/icons/icon-512.png", "sizes": "512x512", "type": "image/png" }
+    { "src": "icons/logo-32.png",  "sizes": "32x32",   "type": "image/png" },
+    { "src": "icons/logo-48.png",  "sizes": "48x48",   "type": "image/png" },
+    { "src": "icons/logo-72.png",  "sizes": "72x72",   "type": "image/png" },
+    { "src": "icons/logo-96.png",  "sizes": "96x96",   "type": "image/png" },
+    { "src": "icons/logo-128.png", "sizes": "128x128", "type": "image/png" },
+    { "src": "icons/logo-180.png", "sizes": "180x180", "type": "image/png", "purpose": "any apple-touch-icon" },
+    { "src": "icons/logo-192.png", "sizes": "192x192", "type": "image/png" },
+    { "src": "icons/logo-256.png", "sizes": "256x256", "type": "image/png" },
+    { "src": "icons/logo-384.png", "sizes": "384x384", "type": "image/png" },
+    { "src": "icons/logo-512.png", "sizes": "512x512", "type": "image/png" }
   ]
 }
