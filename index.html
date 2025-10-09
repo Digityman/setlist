@@ -39,81 +39,52 @@
   .btn:active{transform:translateY(1px)}
   .ghost{background:transparent}
   .muted{color:var(--muted)}
+  .chip{background:var(--panel); border:1px solid var(--ring); border-radius:999px; padding:6px 10px; font-size:12px; color:var(--muted)}
 
-  /* Bands grid — leave layout as-is (you said it's good) */
-  .bandsGrid{
-    display:grid;
-    grid-template-columns: repeat(auto-fill, minmax(140px, 1fr));
-    gap:10px;
-    padding:0 12px 120px;
-  }
-  .bandTile{
-    background:var(--panel); border:1px solid var(--ring); border-radius:14px; padding:8px;
-    display:flex; flex-direction:column; gap:6px; cursor:pointer;
-  }
-  .bandTile img{
-    width:100%; aspect-ratio:1/1; object-fit:cover; border-radius:10px; background:#0c0c0d;
-  }
+  /* Bands grid — keep 3 per row look */
+  .bandsGrid{display:grid; grid-template-columns: repeat(auto-fill, minmax(140px, 1fr)); gap:10px; padding:0 12px 120px}
+  .bandTile{background:var(--panel); border:1px solid var(--ring); border-radius:14px; padding:8px; display:flex; flex-direction:column; gap:6px; cursor:pointer}
+  .bandTile img{width:100%; aspect-ratio:1/1; object-fit:cover; border-radius:10px; background:#0c0c0d}
   .bandTitle{font-weight:600; font-size:13px}
   .bandViews{font-size:11px; color:var(--muted)}
 
-  /* Generic list cards (concerts) */
-  .grid{display:grid; grid-template-columns:1fr; gap:6px; padding:0 12px 120px}
-  .card{
-    background:var(--panel); border:1px solid var(--ring); border-radius:14px; padding:12px; display:flex; justify-content:space-between; align-items:center;
-  }
-  .card h3{margin:0; font-size:15px}
+  /* Concert list */
+  .grid{display:grid; grid-template-columns:1fr; gap:8px; padding:0 12px 120px}
+  .card{background:var(--panel); border:1px solid var(--ring); border-radius:14px; padding:12px; display:flex; justify-content:space-between; align-items:center}
+  .card h3{margin:0 0 6px 0; font-size:15px}
+  .row{display:flex; gap:8px; align-items:center; flex-wrap:wrap}
   .small{font-size:12px; color:var(--muted)}
+  .stars{display:inline-flex; align-items:center; gap:6px}
+  .starGlyph{color:#ffcc33}
+  .favStar{font-size:16px}
 
-  /* Track list styles (Show page) */
+  /* Track list */
   .tracks{display:grid; gap:6px; padding:0 12px 120px}
-  .track{
-    position:relative; background:var(--panel); border:1px solid var(--ring); border-radius:12px; padding:10px 12px; display:flex; align-items:center; gap:10px;
-  }
-  .track .playBtn{min-width:36px; min-height:36px; border-radius:10px}
-  .track .meta{display:flex; flex-direction:column}
-  .track .title{font-size:14px}
-  .track .len{font-size:12px; color:var(--muted)}
+  .track{position:relative; background:var(--panel); border:1px solid var(--ring); border-radius:12px; padding:10px 12px; display:flex; align-items:center; justify-content:space-between; gap:10px}
+  .tleft{display:flex; gap:10px; align-items:center}
+  .tnum{width:18px; text-align:right; color:var(--muted); font-size:12px}
+  .tname{font-size:14px}
+  .tlen{font-size:12px; color:var(--muted)}
   .track.playing{box-shadow:0 0 0 2px rgba(255,213,74,.25) inset}
-  .track.playing::before{
-    content:""; position:absolute; left:0; top:0; bottom:0; width:6px; background:var(--warn); border-radius:12px 0 0 12px;
-  }
-  .progressBar{
-    position:absolute; left:0; bottom:0; height:3px; background:var(--warn); border-radius:0 0 12px 12px; width:0%;
-  }
+  .track.playing::before{content:""; position:absolute; left:0; top:0; bottom:0; width:6px; background:var(--warn); border-radius:12px 0 0 12px}
+  .progressBar{position:absolute; left:0; bottom:0; height:3px; background:var(--warn); border-radius:0 0 12px 12px; width:0%}
 
-  /* Show header meta pills */
-  .showMeta{display:flex; gap:8px; flex-wrap:wrap; align-items:center; padding:0 12px 6px}
+  /* Show header meta */
+  .showMeta{display:flex; gap:8px; flex-wrap:wrap; align-items:center; padding:2px 12px 8px}
   .showTitle{font-weight:600}
-  .chip{background:var(--panel); border:1px solid var(--ring); border-radius:999px; padding:6px 10px; font-size:12px; color:var(--muted)}
+  .sep{opacity:.25}
 
   /* Player */
-  .player{
-    position:fixed; left:0; right:0; bottom:0; background:var(--panel);
-    border-top:1px solid var(--ring); padding:10px; z-index:5;
-  }
+  .player{position:fixed; left:0; right:0; bottom:0; background:var(--panel); border-top:1px solid var(--ring); padding:10px; z-index:5}
   .playerCompact .controls{display:flex; align-items:center; gap:6px; flex-wrap:nowrap; overflow:hidden}
   .playerCompact .btn{padding:4px 6px; min-height:32px; min-width:32px; border-radius:10px; font-size:13px}
-  .playerCompact .seekWrap{
-    display:grid; grid-template-columns:auto 1fr auto; align-items:center; gap:6px; min-width:140px; margin-left:auto;
-  }
+  .playerCompact .seekWrap{display:grid; grid-template-columns:auto 1fr auto; align-items:center; gap:6px; min-width:140px; margin-left:auto}
   .playerCompact #P_times{min-width:76px; font-size:12px; text-align:right}
   .playerCompact #P_times .dur{opacity:.8; margin-left:2px}
   .playerCompact #P_seek{width:100%; max-width:160px}
-  .playerCompact #P_seekVis{left:10px; right:120px; max-width:160px}
-
-  /* Hide +/-10s buttons entirely */
-  #P_back10, #P_fwd10{ display:none !important; }
-
-  input[type="range"]{
-    -webkit-appearance:none; appearance:none; height:4px; border-radius:999px; background:#2a2c30; outline:none;
-  }
-  input[type="range"]::-webkit-slider-thumb{
-    -webkit-appearance:none; appearance:none; width:14px; height:14px; border-radius:50%; background:var(--accent); border:none; box-shadow:0 0 0 3px rgba(91,209,154,.25);
-  }
-
-  .sp{flex:1 1 auto}
-  .sr{position:absolute;clip:rect(1px,1px,1px,1px);padding:0;border:0;height:1px;width:1px;overflow:hidden}
+  #P_back10, #P_fwd10{display:none!important}
+  input[type="range"]{-webkit-appearance:none; appearance:none; height:4px; border-radius:999px; background:#2a2c30; outline:none}
+  input[type="range"]::-webkit-slider-thumb{-webkit-appearance:none; appearance:none; width:14px; height:14px; border-radius:50%; background:var(--accent); border:none; box-shadow:0 0 0 3px rgba(91,209,154,.25)}
 </style>
 </head>
 <body>
@@ -124,48 +95,40 @@
 
   <!-- Bands toolbar -->
   <div class="toolbar" id="toolbar-bands">
-    <div class="pill">
-      <select id="sortSel" aria-label="Sort">
-        <option value="downloads desc" selected>Views ↓</option>
-        <option value="downloads asc">Views ↑</option>
-        <option value="title asc">Title A→Z</option>
-        <option value="title desc">Title Z→A</option>
-      </select>
-    </div>
-
-    <div class="pill">
-      <select id="subjectSel" aria-label="Subject">
-        <option value="all" selected>All subjects</option>
-      </select>
-    </div>
-
-    <div class="pill sp" style="min-width:160px;">
-      <input id="searchBox" type="search" placeholder="e.g., Grateful Dead, bluegrass" style="width:100%;">
-    </div>
-
+    <div class="pill"><select id="sortSel" aria-label="Sort">
+      <option value="downloads desc" selected>Views ↓</option>
+      <option value="downloads asc">Views ↑</option>
+      <option value="title asc">Title A→Z</option>
+      <option value="title desc">Title Z→A</option>
+    </select></div>
+    <div class="pill"><select id="subjectSel" aria-label="Subject">
+      <option value="all" selected>All subjects</option>
+    </select></div>
+    <div class="pill" style="flex:1 1 160px;"><input id="searchBox" type="search" placeholder="e.g., Grateful Dead, bluegrass" style="width:100%"></div>
     <button id="favToggle" class="btn">☆ Favorites</button>
     <button id="resetBtn" class="btn ghost muted">Reset</button>
   </div>
 
-  <!-- Band (concerts) toolbar -->
+  <!-- Concerts toolbar -->
   <div class="toolbar" id="toolbar-band" style="display:none;">
     <button class="btn ghost" id="backToBands" title="Back">← Bands</button>
-    <div class="pill">
-      <select id="yearSel" aria-label="Year">
-        <option value="">All years</option>
-      </select>
-    </div>
-    <div class="pill sp" style="min-width:160px;">
-      <input id="concertSearch" type="search" placeholder="Search concerts" style="width:100%;">
-    </div>
+    <div class="pill"><select id="yearSel" aria-label="Year"><option value="">All years</option></select></div>
+    <div class="pill"><select id="sortConcerts" aria-label="Sort concerts">
+      <option value="auto" selected>Auto</option>
+      <option value="date asc">Date ↑</option>
+      <option value="date desc">Date ↓</option>
+      <option value="avg_rating desc">Reviews ↓</option>
+      <option value="downloads desc">Views ↓</option>
+    </select></div>
+    <div class="pill" style="flex:1 1 160px;"><input id="concertSearch" type="search" placeholder="Filter (venue/city/title)" style="width:100%"></div>
     <button id="favConcertsToggle" class="btn" title="Show only favorites">☆ Favorites</button>
+    <button id="resetConcerts" class="btn ghost muted">Reset</button>
   </div>
 
-  <!-- Show (tracklist) toolbar -->
+  <!-- Tracks toolbar -->
   <div class="toolbar" id="toolbar-show" style="display:none;">
     <button class="btn ghost" id="backToConcerts" title="Back">← Concerts</button>
     <button class="btn" id="favShowBtn" title="Favorite">☆ Favorite</button>
-    <!-- No Archive.org link per request -->
   </div>
 
   <!-- Show header metadata -->
@@ -184,492 +147,306 @@
     <button id="P_prev" class="btn" title="Previous">⏮</button>
     <button id="P_play" class="btn" title="Play/Pause">▶️</button>
     <button id="P_next" class="btn" title="Next">⏭</button>
-
     <div class="seekWrap">
-      <div id="P_times">
-        <span class="cur">0:00</span><span class="dur"> / 0:00</span>
-      </div>
+      <div id="P_times"><span class="cur">0:00</span><span class="dur"> / 0:00</span></div>
       <input id="P_seek" type="range" min="0" max="1000" value="0" step="1" aria-label="Seek">
       <div class="sr" aria-hidden="true" id="P_seekVis"></div>
     </div>
-
     <button id="P_mute" class="btn" title="Mute">🔈</button>
   </div>
   <audio id="audio"></audio>
 </div>
 
 <script>
-/* ------------------------------
-   Utilities & Local Storage
------------------------------- */
+/* ------------ utils/store ------------ */
 const $ = s => document.querySelector(s);
 const $$ = s => Array.from(document.querySelectorAll(s));
-const fmtTime = secs => {
-  secs = Math.max(0, Math.floor(secs || 0));
-  const m = Math.floor(secs / 60);
-  const s = secs % 60;
-  return m + ":" + String(s).padStart(2, "0");
-};
-function show(el, on=true){ if(!el) return; el.style.display = on ? '' : 'none'; }
+const fmtTime = secs => { secs = Math.max(0, Math.floor(secs||0)); const m=Math.floor(secs/60), s=secs%60; return m+":"+String(s).padStart(2,"0"); };
+function show(el,on=true){ if(!el) return; el.style.display=on?'':'none'; }
+const store = { get(k,f){ try{return JSON.parse(localStorage.getItem(k))??f;}catch{return f;}}, set(k,v){ localStorage.setItem(k,JSON.stringify(v)); } };
 
-const store = {
-  get(key, fallback){ try{ return JSON.parse(localStorage.getItem(key)) ?? fallback; }catch{ return fallback; } },
-  set(key, val){ localStorage.setItem(key, JSON.stringify(val)); }
-};
-
-/* ------------------------------
-   Router
------------------------------- */
+/* ------------ router ------------ */
 const Router = (() => {
-  const routes = {};
-  function on(name, fn){ routes[name] = fn; }
-  function parse(){
-    const raw = location.hash.replace(/^#\/?/, '');
-    const [name, ...rest] = raw.split('/').filter(Boolean);
-    return { name: name || 'bands', params: rest };
-  }
-  function route(){
-    const r = parse();
-    (routes[r.name] || routes['bands'])(r.params);
-    $('#crumb').textContent = r.name === 'band' ? '— Concerts' : (r.name === 'show' ? '— Tracks' : '— Bands');
-  }
-  return { on, route };
+  const routes={};
+  function on(n,f){routes[n]=f}
+  function parse(){ const raw=location.hash.replace(/^#\/?/,''); const [name,...rest]=raw.split('/').filter(Boolean); return {name:name||'bands', params:rest}; }
+  function route(){ const r=parse(); (routes[r.name]||routes['bands'])(r.params); $('#crumb').textContent = r.name==='band'?'— Concerts':(r.name==='show'?'— Tracks':'— Bands'); }
+  return {on,route};
 })();
+addEventListener('hashchange', Router.route); addEventListener('DOMContentLoaded', Router.route);
 
-window.addEventListener('hashchange', Router.route);
-document.addEventListener('DOMContentLoaded', Router.route);
-
-/* ------------------------------
-   Archive.org helpers
------------------------------- */
+/* ------------ IA helpers ------------ */
 const IA = {
-  bandsUrl({ q = 'collection:(etree) AND mediatype:(collection)', sort = 'downloads desc', rows = 100, page = 1 } = {}){
-    const u = new URL('https://archive.org/advancedsearch.php');
-    u.searchParams.set('q', q);
-    u.searchParams.append('fl[]', 'identifier');
-    u.searchParams.append('fl[]', 'title');
-    u.searchParams.append('fl[]', 'downloads');
-    u.searchParams.append('sort[]', sort);
-    u.searchParams.set('rows', rows);
-    u.searchParams.set('page', page);
-    u.searchParams.set('output', 'json');
-    return u.toString();
+  bandsUrl({ q='collection:(etree) AND mediatype:(collection)', sort='downloads desc', rows=120 }={}){
+    const u=new URL('https://archive.org/advancedsearch.php');
+    u.searchParams.set('q',q);
+    ['identifier','title','downloads'].forEach(f=>u.searchParams.append('fl[]',f));
+    u.searchParams.append('sort[]',sort); u.searchParams.set('rows',rows); u.searchParams.set('page',1); u.searchParams.set('output','json'); return u.toString();
   },
-  concertsUrl({ bandId, sort = 'date desc', rows = 1000, year = '', term = '' }){
-    let q = `collection:(${bandId}) AND mediatype:(etree OR audio)`;
-    if (year) q += ` AND year:(${year})`;
-    if (term) q += ` AND (title:(${term}) OR date:(${term}))`;
-
-    const u = new URL('https://archive.org/advancedsearch.php');
-    u.searchParams.set('q', q);
-    u.searchParams.append('fl[]','identifier');
-    u.searchParams.append('fl[]','title');
-    u.searchParams.append('fl[]','date');
-    u.searchParams.append('fl[]','year');
-    u.searchParams.append('fl[]','downloads');
-    u.searchParams.append('sort[]', sort);
-    u.searchParams.set('rows', rows);
-    u.searchParams.set('page', 1);
-    u.searchParams.set('output', 'json');
-    return u.toString();
+  concertsUrl({ bandId, sort='date desc', rows=1000, year='', term='' }){
+    let q=`collection:(${bandId}) AND mediatype:(etree OR audio)`; if(year) q+=` AND year:(${year})`;
+    if(term) q+=` AND (title:(${term}) OR date:(${term}) OR venue:(${term}) OR coverage:(${term}))`;
+    const u=new URL('https://archive.org/advancedsearch.php'); u.searchParams.set('q',q);
+    ['identifier','title','date','year','downloads','avg_rating','num_reviews','venue','coverage','creator','publicdate'].forEach(f=>u.searchParams.append('fl[]',f));
+    u.searchParams.append('sort[]',sort); u.searchParams.set('rows',rows); u.searchParams.set('page',1); u.searchParams.set('output','json'); return u.toString();
   },
   concertsYearsUrl({ bandId }){
-    // facet by year to get complete list with counts
-    const u = new URL('https://archive.org/advancedsearch.php');
-    const q = `collection:(${bandId}) AND mediatype:(etree OR audio)`;
-    u.searchParams.set('q', q);
-    u.searchParams.set('rows', 0);
-    u.searchParams.set('page', 1);
-    u.searchParams.set('output', 'json');
-    u.searchParams.append('facet[]','year');
-    u.searchParams.set('facet_limit','10000');
-    u.searchParams.set('facet_mincount','1');
-    return u.toString();
+    const u=new URL('https://archive.org/advancedsearch.php');
+    const q=`collection:(${bandId}) AND mediatype:(etree OR audio)`;
+    u.searchParams.set('q',q); u.searchParams.set('rows',0); u.searchParams.set('page',1); u.searchParams.set('output','json');
+    u.searchParams.append('facet[]','year'); u.searchParams.set('facet_limit','10000'); u.searchParams.set('facet_mincount','1'); return u.toString();
   },
-  metaUrl(id){ return `https://archive.org/metadata/${id}`; },
-  imgUrl(id){ return `https://archive.org/services/img/${id}`; },
-  async fetchJSON(url){
-    const res = await fetch(url, { cache: 'no-store' });
-    if (!res.ok) throw new Error('Network ' + res.status);
-    return res.json();
-  }
+  metaUrl:id=>`https://archive.org/metadata/${id}`,
+  imgUrl:id=>`https://archive.org/services/img/${id}`,
+  async fetchJSON(url){ const r=await fetch(url,{cache:'no-store'}); if(!r.ok) throw new Error('Network '+r.status); return r.json(); }
 };
 
-/* ------------------------------
-   Bands screen (images)
------------------------------- */
+/* ------------ Bands page ------------ */
 async function showBands(){
-  show($('#toolbar-bands'), true);
-  show($('#toolbar-band'), false);
-  show($('#toolbar-show'), false);
-  show($('#showMeta'), false);
-
-  const content = $('#content');
-  if (!content) return;
-  content.className = 'bandsGrid';
-  content.innerHTML = `<div class="card"><span class="small muted">Loading top bands…</span></div>`;
-
-  const sortSel = $('#sortSel');
-  const searchBox = $('#searchBox');
-
-  const sort = sortSel?.value || 'downloads desc';
-  const term = (searchBox?.value || '').trim();
-
-  let q = 'collection:(etree) AND mediatype:(collection)';
-  if (term) q += ` AND (title:(${term}) OR identifier:(${term}))`;
-
+  show($('#toolbar-bands'),true); show($('#toolbar-band'),false); show($('#toolbar-show'),false); show($('#showMeta'),false);
+  const content=$('#content'); content.className='bandsGrid'; content.innerHTML=`<div class="card"><span class="small">Loading bands…</span></div>`;
+  const sort=$('#sortSel')?.value||'downloads desc'; const term=($('#searchBox')?.value||'').trim();
+  let q='collection:(etree) AND mediatype:(collection)'; if(term) q+=` AND (title:(${term}) OR identifier:(${term}))`;
   try{
-    const data = await IA.fetchJSON(IA.bandsUrl({ q, sort, rows: 120 }));
-    const items = (data?.response?.docs || []).map(d => ({
-      id: d.identifier, title: d.title || d.identifier, downloads: d.downloads || 0
-    }));
-
-    if (!items.length){
-      content.innerHTML = `<div class="card"><span class="small">No results.</span></div>`;
-      return;
-    }
-
-    content.innerHTML = items.map(b => `
+    const data=await IA.fetchJSON(IA.bandsUrl({q,sort,rows:120})); const items=(data?.response?.docs||[]).map(d=>({id:d.identifier,title:d.title||d.identifier,downloads:d.downloads||0}));
+    content.innerHTML = items.map(b=>`
       <div class="bandTile" data-id="${b.id}">
         <img src="${IA.imgUrl(b.id)}" alt="${b.title}">
         <div class="bandTitle">${b.title}</div>
         <div class="bandViews">${b.downloads.toLocaleString()} views</div>
-      </div>
-    `).join('');
-
-    content.onclick = (ev) => {
-      const tile = ev.target.closest('.bandTile');
-      if (!tile) return;
-      const id = tile.getAttribute('data-id');
-      location.hash = '#/band/' + encodeURIComponent(id);
-    };
-  }catch(err){
-    console.error(err);
-    content.className = 'grid';
-    content.innerHTML = `<div class="card"><span class="small">Failed to load bands. Check network/CORS.</span></div>`;
-  }
+      </div>`).join('');
+    content.onclick = ev => { const tile=ev.target.closest('.bandTile'); if(!tile) return; location.hash='#/band/'+encodeURIComponent(tile.dataset.id); };
+  }catch(e){ console.error(e); content.className='grid'; content.innerHTML=`<div class="card"><span class="small">Failed to load bands.</span></div>`; }
 }
 
-/* ------------------------------
-   Band screen (concert list + all-year facet + favorites filter)
------------------------------- */
-let currentBandId = '';
-let currentConcerts = [];
-let onlyFavConcerts = false;
+/* ------------ Concerts page ------------ */
+let currentBandId=''; let currentConcerts=[]; let onlyFavConcerts=false;
 
-function isFav(id){
-  const favs = store.get('favShows', []);
-  return favs.includes(id);
-}
+function favShows(){ return store.get('favShows',[]); }
+function isFav(id){ return favShows().includes(id); }
 
 async function showBand(params){
-  show($('#toolbar-bands'), false);
-  show($('#toolbar-band'), true);
-  show($('#toolbar-show'), false);
-  show($('#showMeta'), false);
+  show($('#toolbar-bands'),false); show($('#toolbar-band'),true); show($('#toolbar-show'),false); show($('#showMeta'),false);
+  currentBandId = decodeURIComponent((params||[])[0]||''); $('#backToBands').onclick=()=>location.hash='#/bands';
+  $('#favConcertsToggle').onclick=()=>{ onlyFavConcerts=!onlyFavConcerts; renderConcerts(); $('#favConcertsToggle').textContent = onlyFavConcerts?'★ Favorites':'☆ Favorites'; };
+  $('#resetConcerts').onclick=()=>{ onlyFavConcerts=false; $('#yearSel').value=''; $('#concertSearch').value=''; $('#sortConcerts').value='auto'; $('#favConcertsToggle').textContent='☆ Favorites'; renderConcerts(); };
+  $('#concertSearch').onchange=renderConcerts; $('#yearSel').onchange=renderConcerts; $('#sortConcerts').onchange=renderConcerts;
 
-  const [idRaw] = params || [];
-  const id = decodeURIComponent(idRaw || '');
-  currentBandId = id;
-
-  $('#backToBands').onclick = () => location.hash = '#/bands';
-  const favBtn = $('#favConcertsToggle');
-  favBtn.onclick = () => { onlyFavConcerts = !onlyFavConcerts; renderConcerts(); updateFavConcertsBtn(); };
-  function updateFavConcertsBtn(){ favBtn.textContent = onlyFavConcerts ? '★ Favorites' : '☆ Favorites'; }
-  updateFavConcertsBtn();
-
-  const content = $('#content');
-  if (!content) return;
-  content.className = 'grid';
-  content.innerHTML = `<div class="card"><span class="small muted">Loading concerts for <b>${id}</b>…</span></div>`;
+  const content=$('#content'); content.className='grid'; content.innerHTML=`<div class="card"><span class="small">Loading concerts…</span></div>`;
 
   try{
-    // Get years facet (complete list + counts)
-    let yearsFacet = [];
+    // facet for complete years list (ascending)
+    let yearsFacet=[];
     try{
-      const facetData = await IA.fetchJSON(IA.concertsYearsUrl({ bandId:id }));
-      const facet = facetData?.response?.facets?.year;
-      if (facet && typeof facet === 'object'){
-        yearsFacet = Object.entries(facet)
-          .map(([year,count]) => ({year:Number(year), count:Number(count)}))
-          .filter(y => !isNaN(y.year)).sort((a,b)=>b.year-a.year);
-      }
-    }catch(e){ console.warn('Year facet failed, will build from docs later'); }
+      const facetData=await IA.fetchJSON(IA.concertsYearsUrl({bandId:currentBandId}));
+      const facet=facetData?.response?.facets?.year; if(facet){ yearsFacet=Object.entries(facet).map(([y,c])=>({year:Number(y),count:Number(c)})).filter(x=>!isNaN(x.year)).sort((a,b)=>a.year-b.year); }
+    }catch(e){ console.warn('Facet failed; will compute from docs.'); }
 
-    // initial list page (no filter)
-    const data = await IA.fetchJSON(IA.concertsUrl({ bandId:id, sort:'date desc', rows:1000 }));
-    const docs = (data?.response?.docs || []);
-    currentConcerts = docs;
+    // get shows (initial)
+    const data=await IA.fetchJSON(IA.concertsUrl({bandId:currentBandId,sort:'date desc',rows:1000}));
+    currentConcerts=(data?.response?.docs||[]);
 
-    // If facet failed, fall back to counts from docs
-    if (yearsFacet.length === 0){
-      const counts = {};
-      for (const d of docs){ if (d.year) counts[d.year] = (counts[d.year]||0)+1; }
-      yearsFacet = Object.keys(counts).map(y => ({year:Number(y), count:counts[y]}))
-        .sort((a,b)=>b.year-a.year);
+    // fallback for years if needed
+    if(yearsFacet.length===0){
+      const counts={}; for(const d of currentConcerts){ if(d.year) counts[d.year]=(counts[d.year]||0)+1; }
+      yearsFacet=Object.keys(counts).map(y=>({year:Number(y),count:counts[y]})).sort((a,b)=>a.year-b.year);
     }
 
-    // Build Year options (desc with counts)
-    const yearSel = $('#yearSel');
-    yearSel.innerHTML = `<option value="">All years</option>` + yearsFacet
-      .map(y=>`<option value="${y.year}">${y.year} (${y.count.toLocaleString()})</option>`).join('');
-    yearSel.onchange = () => renderConcerts();
-    $('#concertSearch').onchange = () => renderConcerts();
+    // build year select (ascending)
+    const yearSel=$('#yearSel'); yearSel.innerHTML = `<option value="">All years</option>` + yearsFacet.map(y=>`<option value="${y.year}">${y.year} (${y.count.toLocaleString()})</option>`).join('');
 
     renderConcerts();
-  }catch(err){
-    console.error(err);
-    content.innerHTML = `<div class="card"><span class="small">Failed to load concerts.</span></div>`;
-  }
+  }catch(e){ console.error(e); content.innerHTML=`<div class="card"><span class="small">Failed to load concerts.</span></div>`; }
 }
 
 function renderConcerts(){
-  const content = $('#content');
-  if (!content) return;
-  const year = $('#yearSel')?.value || '';
-  const term = ($('#concertSearch')?.value || '').trim().toLowerCase();
+  const content=$('#content'); if(!content) return;
+  const year=$('#yearSel')?.value||''; const term=($('#concertSearch')?.value||'').trim().toLowerCase(); const sortSel=$('#sortConcerts')?.value||'auto';
 
-  let list = currentConcerts.slice();
-  if (year) list = list.filter(d => String(d.year) === String(year));
-  if (term) list = list.filter(d => (d.title||'').toLowerCase().includes(term) || (d.date||'').toLowerCase().includes(term));
-  if (onlyFavConcerts){
-    const favs = store.get('favShows', []);
-    list = list.filter(d => favs.includes(d.identifier));
-  }
+  // filter
+  let list=currentConcerts.slice();
+  if(year) list=list.filter(d=>String(d.year)===String(year));
+  if(term) list=list.filter(d=>{
+    const t=(d.title||'').toLowerCase(); const v=(d.venue||'').toLowerCase(); const c=(d.coverage||'').toLowerCase(); const dt=(d.date||'').toLowerCase();
+    return t.includes(term)||v.includes(term)||c.includes(term)||dt.includes(term);
+  });
+  if(onlyFavConcerts){ const fav=favShows(); list=list.filter(d=>fav.includes(d.identifier)); }
 
-  if (!list.length){
-    content.innerHTML = `<div class="card"><span class="small">No concerts found.</span></div>`;
-    return;
-  }
+  // sort logic
+  let sortExpr = sortSel;
+  if (sortSel==='auto'){ sortExpr = year ? 'date asc' : 'date desc'; }
+  const dir = sortExpr.endsWith('asc') ? 1 : -1;
+  const key = sortExpr.split(' ')[0];
+  list.sort((a,b)=>{
+    if(key==='avg_rating'){ return ((a.avg_rating||0)-(b.avg_rating||0))*dir; }
+    if(key==='downloads'){ return ((a.downloads||0)-(b.downloads||0))*dir; }
+    // date
+    return (new Date(a.date||a.publicdate||0) - new Date(b.date||b.publicdate||0))*dir;
+  });
 
-  content.innerHTML = list.map(it => {
-    const date = it.date ? new Date(it.date).toLocaleDateString() : (it.year || '');
-    const star = isFav(it.identifier) ? '★' : '☆';
+  if(!list.length){ content.innerHTML=`<div class="card"><span class="small">No concerts found.</span></div>`; return; }
+
+  content.innerHTML = list.map(it=>{
+    const dateStr = it.date ? new Date(it.date).toLocaleDateString() : (it.year||'');
+    const rating = Math.round((it.avg_rating||0)*2)/2; // halves
+    const reviews = it.num_reviews||0;
+    const stars = '★★★★★'.split('').map((s,i)=>{
+      const v = i+1;
+      return `<span class="starGlyph">${rating>=v?'★':(rating>=v-0.5?'⯨':'☆')}</span>`;
+    }).join('');
+    const favMark = isFav(it.identifier) ? '★' : '☆';
+    const venueLine = [it.venue, it.coverage].filter(Boolean).join(', ');
     return `
       <div class="card" data-id="${it.identifier}">
         <div>
           <h3>${it.title || it.identifier}</h3>
-          <div class="small muted">${date} • ${Number(it.downloads||0).toLocaleString()} views</div>
+          <div class="row">
+            <span class="chip">${dateStr}</span>
+            <span class="stars">${stars}<span class="small">(${reviews})</span></span>
+          </div>
+          <div class="small">${venueLine}</div>
         </div>
-        <div style="display:flex; gap:8px; align-items:center;">
-          <span class="small" title="Favorited">${star}</span>
+        <div class="row">
           <button class="btn detailsBtn">Details</button>
+          <button class="btn ghost favToggle" title="Favorite">${favMark}</button>
         </div>
-      </div>
-    `;
+      </div>`;
   }).join('');
 
-  content.onclick = (ev) => {
-    const card = ev.target.closest('.card');
-    if (!card) return;
+  content.onclick = ev => {
+    const card = ev.target.closest('.card'); if(!card) return;
     if (ev.target.classList.contains('detailsBtn')) {
-      const id = card.getAttribute('data-id');
-      location.hash = '#/show/' + encodeURIComponent(id);
+      location.hash = '#/show/' + encodeURIComponent(card.dataset.id);
+    } else if (ev.target.classList.contains('favToggle')) {
+      const id = card.dataset.id; const fav=favShows(); const i=fav.indexOf(id);
+      if(i>=0) fav.splice(i,1); else fav.push(id); store.set('favShows',fav); renderConcerts();
     }
   };
 }
 
-/* ------------------------------
-   Show page (tracklist, progress, favorite, metadata header)
------------------------------- */
-let currentShowId = '';
-let trackEls = [];
-let trackList = []; // {url,title,length}
-let currentShowMeta = null;
+/* ------------ Show (tracks) ------------ */
+let currentShowId=''; let trackEls=[]; let trackList=[]; let currentShowMeta=null;
 
-function toggleFav(id){
-  const favs = store.get('favShows', []);
-  const i = favs.indexOf(id);
-  if (i >= 0) favs.splice(i,1); else favs.push(id);
-  store.set('favShows', favs);
-  updateFavBtn();
-}
-
-function updateFavBtn(){
-  const btn = $('#favShowBtn');
-  if (!btn) return;
-  const favs = store.get('favShows', []);
-  btn.textContent = favs.includes(currentShowId) ? '★ Favorited' : '☆ Favorite';
-}
-
+function toggleFav(id){ const fav=favShows(); const i=fav.indexOf(id); if(i>=0) fav.splice(i,1); else fav.push(id); store.set('favShows',fav); updateFavBtn(); }
+function updateFavBtn(){ const btn=$('#favShowBtn'); if(!btn) return; btn.textContent = favShows().includes(currentShowId)?'★ Favorited':'☆ Favorite'; }
 function setShowHeader(meta){
   const title = meta?.metadata?.title || currentShowId;
   const date  = meta?.metadata?.date || '';
   const venue = meta?.metadata?.venue || '';
-  const coverage = meta?.metadata?.coverage || ''; // often City, State
-  const location = [venue, coverage].filter(Boolean).join(' • ');
+  const coverage = meta?.metadata?.coverage || '';
+  const location = [venue, coverage].filter(Boolean).join(', ');
+  $('#showTitle').textContent = title; show($('#showMeta'),true);
+  if(date){ $('#showDate').textContent = new Date(date).toLocaleDateString(); show($('#showDate'),true);} else show($('#showDate'),false);
+  if(location){ $('#showLoc').textContent = location; show($('#showLoc'),true);} else show($('#showLoc'),false);
+}
 
-  $('#showTitle').textContent = title;
-  show($('#showMeta'), true);
-  if (date){ $('#showDate').textContent = new Date(date).toLocaleDateString(); show($('#showDate'), true); }
-  else show($('#showDate'), false);
-  if (location){ $('#showLoc').textContent = location; show($('#showLoc'), true); }
-  else show($('#showLoc'), false);
+function cleanTitle(name){
+  let t = name.replace(/\.(mp3|ogg|flac)$/i,'');        // drop extension
+  t = t.replace(/[_-]+/g,' ').replace(/\s+/g,' ').trim();
+  t = t.replace(/^(\d+)[\s.\-_]+/,'');                  // leading track number codes
+  return t;
+}
+function naturalCmp(a,b){ return a.localeCompare(b,undefined,{numeric:true,sensitivity:'base'}); }
+
+function extractTrackNo(f){
+  const n1 = Number(f.track || f.trackno || '');
+  if (!isNaN(n1) && n1>0) return n1;
+  const m = /(\d+)[^\d]*\.(mp3|ogg|flac)$/i.exec(f.name||'');
+  if (m) return Number(m[1]);
+  return Infinity;
 }
 
 async function showShow(params){
-  show($('#toolbar-bands'), false);
-  show($('#toolbar-band'), false);
-  show($('#toolbar-show'), true);
-
-  const [idRaw] = params || [];
-  const id = decodeURIComponent(idRaw || '');
-  currentShowId = id;
-
+  show($('#toolbar-bands'),false); show($('#toolbar-band'),false); show($('#toolbar-show'),true);
+  currentShowId = decodeURIComponent((params||[])[0]||'');
   $('#backToConcerts').onclick = () => history.back();
-  $('#favShowBtn').onclick = () => toggleFav(id);
-  updateFavBtn();
+  $('#favShowBtn').onclick = () => toggleFav(currentShowId); updateFavBtn();
 
-  const content = $('#content');
-  content.className = 'tracks';
-  content.innerHTML = `<div class="card"><span class="small muted">Loading tracks…</span></div>`;
-
+  const content=$('#content'); content.className='tracks'; content.innerHTML=`<div class="card"><span class="small">Loading tracks…</span></div>`;
   try{
-    const meta = await IA.fetchJSON(IA.metaUrl(id));
-    currentShowMeta = meta;
-    setShowHeader(meta);
+    const meta = await IA.fetchJSON(IA.metaUrl(currentShowId));
+    currentShowMeta = meta; setShowHeader(meta);
 
-    const files = meta?.files || [];
-    const playable = files.filter(f => {
-      const fmt = (f.format||'').toLowerCase();
-      const name = (f.name||'').toLowerCase();
-      return name.endsWith('.mp3') || fmt.includes('mp3') ||
-             name.endsWith('.ogg') || fmt.includes('ogg') ||
-             name.endsWith('.flac') || fmt.includes('flac');
-    });
+    const files = meta?.files||[];
 
-    trackList = playable.map((f,idx) => {
-      const url = `https://archive.org/download/${id}/${encodeURIComponent(f.name)}`;
-      const title = f.title || f.name || `Track ${idx+1}`;
-      const length = f.length ? f.length : '';
-      return { url, title, length };
-    });
-
-    if (!trackList.length){
-      content.innerHTML = `<div class="card"><span class="small">No playable files found.</span></div>`;
-      return;
+    // Prefer MP3; if none, fall back to OGG/FLAC
+    let playable = files.filter(f => /\.mp3$/i.test(f.name||'') || (f.format||'').toLowerCase().includes('mp3'));
+    if (playable.length===0){
+      playable = files.filter(f => /\.(ogg|flac)$/i.test(f.name||'') || /(ogg|flac)/.test((f.format||'').toLowerCase()));
     }
+
+    // Sort by track number, then by natural name
+    playable.sort((a,b)=>{
+      const an=extractTrackNo(a), bn=extractTrackNo(b);
+      if (an!==bn) return an-bn;
+      return naturalCmp(a.name||'', b.name||'');
+    });
+
+    // De-duplicate by normalized title
+    const seen=new Set();
+    trackList = [];
+    for (const f of playable){
+      const title = cleanTitle(f.title || f.name || '');
+      const key = title.toLowerCase();
+      if (seen.has(key)) continue;
+      seen.add(key);
+      const url = `https://archive.org/download/${currentShowId}/${encodeURIComponent(f.name)}`;
+      trackList.push({ url, title, length: f.length || '' });
+    }
+
+    if (!trackList.length){ content.innerHTML=`<div class="card"><span class="small">No playable files found.</span></div>`; return; }
 
     content.innerHTML = trackList.map((t,i)=>`
       <div class="track" data-i="${i}">
-        <button class="btn playBtn">▶️</button>
-        <div class="meta">
-          <div class="title">${t.title}</div>
-          <div class="len">${t.length}</div>
+        <div class="tleft">
+          <div class="tnum">${i+1}</div>
+          <div class="tname">${t.title}</div>
         </div>
+        <div class="tlen">${t.length}</div>
         <div class="progressBar" id="pb-${i}"></div>
-      </div>
-    `).join('');
+      </div>`).join('');
 
     trackEls = $$('.track');
-    content.onclick = (ev) => {
-      const tr = ev.target.closest('.track');
-      if (!tr) return;
-      const i = Number(tr.getAttribute('data-i'));
-      playIndex(i);
-    };
-  }catch(e){
-    console.error(e);
-    content.innerHTML = `<div class="card"><span class="small">Failed to load track list.</span></div>`;
-  }
+    content.onclick = ev => { const tr=ev.target.closest('.track'); if(!tr) return; playIndex(Number(tr.dataset.i)); };
+  }catch(e){ console.error(e); content.innerHTML=`<div class="card"><span class="small">Failed to load track list.</span></div>`; }
 }
 
-/* ------------------------------
-   Player logic (shared)
------------------------------- */
-const A = $('#audio');
-const P = {
-  play: $('#P_play'),
-  prev: $('#P_prev'),
-  next: $('#P_next'),
-  mute: $('#P_mute'),
-  seek: $('#P_seek'),
-  cur: $('#P_times .cur'),
-  dur: $('#P_times .dur')
-};
+/* ------------ Player shared ------------ */
+const A=$('#audio'); const P={ play:$('#P_play'), prev:$('#P_prev'), next:$('#P_next'), mute:$('#P_mute'), seek:$('#P_seek'), cur:$('#P_times .cur'), dur:$('#P_times .dur') };
+let queue=[]; let curIndex=-1;
 
-let queue = [];
-let curIndex = -1;
+function setQueueFromTracks(){ queue = trackList.map(t=>t.url); }
+function playIndex(i){ if(!trackList.length) return; setQueueFromTracks(); curIndex=Math.max(0,Math.min(i,queue.length-1)); A.src=queue[curIndex]; A.play().catch(()=>{}); updateTrackHighlight(); }
+function updateTrackHighlight(){ trackEls.forEach((el,idx)=>el.classList.toggle('playing', idx===curIndex)); }
 
-function setQueueFromTracks(){
-  queue = trackList.map(t => t.url);
-}
+P.play?.addEventListener('click', ()=>{ if(A.paused) A.play(); else A.pause(); });
+P.prev?.addEventListener('click', ()=>{ if(curIndex>0) playIndex(curIndex-1); });
+P.next?.addEventListener('click', ()=>{ if(curIndex<queue.length-1) playIndex(curIndex+1); });
+P.mute?.addEventListener('click', ()=>{ A.muted=!A.muted; });
+P.seek?.addEventListener('input', ()=>{ if(!A.duration||isNaN(A.duration)) return; A.currentTime=(P.seek.value/1000)*A.duration; });
 
-function playIndex(i){
-  if (!trackList.length) return;
-  setQueueFromTracks();
-  curIndex = Math.max(0, Math.min(i, queue.length-1));
-  A.src = queue[curIndex];
-  A.play().catch(()=>{});
-  updateTrackHighlight();
-}
-
-function updateTrackHighlight(){
-  trackEls.forEach((el,idx)=>{
-    el.classList.toggle('playing', idx===curIndex);
-  });
-}
-
-P.play?.addEventListener('click', () => { if (A.paused) A.play(); else A.pause(); });
-P.prev?.addEventListener('click', () => { if (curIndex>0) playIndex(curIndex-1); });
-P.next?.addEventListener('click', () => { if (curIndex<queue.length-1) playIndex(curIndex+1); });
-P.mute?.addEventListener('click', () => { A.muted = !A.muted; });
-
-P.seek?.addEventListener('input', () => {
-  if (!A.duration || isNaN(A.duration)) return;
-  const t = (P.seek.value / 1000) * A.duration;
-  A.currentTime = t;
+A.addEventListener('timeupdate', ()=>{
+  if(A.duration && !isNaN(A.duration)){
+    P.cur.textContent=fmtTime(A.currentTime); P.dur.textContent=' / '+fmtTime(A.duration); P.seek.value=Math.floor((A.currentTime/A.duration)*1000);
+    if(curIndex>=0){ const pb=$('#pb-'+curIndex); if(pb) pb.style.width=`${(A.currentTime/A.duration)*100}%`; }
+  }else{ P.cur.textContent='0:00'; P.dur.textContent=' / 0:00'; P.seek.value=0; }
 });
+A.addEventListener('play', ()=>{ P.play.textContent='⏸'; updateTrackHighlight(); });
+A.addEventListener('pause', ()=>{ P.play.textContent='▶️'; });
+A.addEventListener('ended', ()=>{ if(curIndex<queue.length-1) playIndex(curIndex+1); });
 
-A.addEventListener('timeupdate', () => {
-  if (A.duration && !isNaN(A.duration)) {
-    P.cur.textContent = fmtTime(A.currentTime);
-    P.dur.textContent = ' / ' + fmtTime(A.duration);
-    P.seek.value = Math.floor((A.currentTime / A.duration) * 1000);
-
-    // per-track progress bar on Show page
-    if (curIndex>=0){
-      const pb = document.getElementById('pb-'+curIndex);
-      if (pb) pb.style.width = `${(A.currentTime/A.duration)*100}%`;
-    }
-  } else {
-    P.cur.textContent = '0:00';
-    P.dur.textContent = ' / 0:00';
-    P.seek.value = 0;
-  }
-});
-
-A.addEventListener('play',  () => { P.play.textContent = '⏸'; updateTrackHighlight(); });
-A.addEventListener('pause', () => { P.play.textContent = '▶️'; });
-A.addEventListener('ended', () => {
-  if (curIndex < queue.length-1) playIndex(curIndex+1);
-});
-
-/* ------------------------------
-   Route wiring
------------------------------- */
+/* ------------ wire routes ------------ */
 Router.on('bands', showBands);
 Router.on('band', showBand);
 Router.on('show', showShow);
 
-/* ------------------------------
-   Bands filters
------------------------------- */
+/* ------------ bands filters ------------ */
 $('#sortSel')?.addEventListener('change', showBands);
 $('#searchBox')?.addEventListener('change', showBands);
-$('#resetBtn')?.addEventListener('click', () => {
-  $('#sortSel').value = 'downloads desc';
-  $('#searchBox').value = '';
-  location.hash = '#/bands';
-  showBands();
-});
+$('#resetBtn')?.addEventListener('click', ()=>{ $('#sortSel').value='downloads desc'; $('#searchBox').value=''; location.hash='#/bands'; showBands(); });
 
-/* ------------------------------
-   Service worker (optional)
------------------------------- */
-if ('serviceWorker' in navigator) {
-  navigator.serviceWorker.register('sw.js').catch(console.warn);
-}
+/* ------------ sw ------------ */
+if('serviceWorker' in navigator){ navigator.serviceWorker.register('sw.js').catch(console.warn); }
 </script>
 </body>
 </html>
