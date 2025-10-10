@@ -126,12 +126,20 @@
   .eqBars span:nth-child(1){ animation-delay:0s }
   .eqBars span:nth-child(2){ animation-delay:.15s }
   .eqBars span:nth-child(3){ animation-delay:.3s }
+  
+  /* Pause the equalizer animation when audio is paused */
+.eqBars.paused span{
+  animation-play-state: paused;
+  opacity: .6; /* optional: dim bars when paused */
+}
+  
   @keyframes eq {
     0%,100%{ height:20% }
     25%{ height:80% }
     50%{ height:40% }
     75%{ height:70% }
   }
+
 
   /* Volume popover (centered) */
   .volWrap{position:relative}
@@ -689,6 +697,20 @@ async function showShow(params){
 
 /* ------------ Player & Media Session ------------ */
 const A=$('#audio'); const P={ play:$('#P_play'), prev:$('#P_prev'), next:$('#P_next'), mute:$('#P_mute'), seek:$('#P_seek'), cur:$('#P_times .cur'), dur:$('#P_times .dur') };
+/* Equalizer animation state */
+const EQ = document.querySelector('#P_now .eqBars');
+
+function updateEqAnim(){
+  if (EQ) EQ.classList.toggle('paused', A.paused);
+}
+
+// keep it in sync with playback
+A.addEventListener('play',  updateEqAnim);
+A.addEventListener('pause', updateEqAnim);
+A.addEventListener('ended', updateEqAnim);
+
+// Initialize state on load (in case audio starts paused)
+updateEqAnim();  
 const P_now = $('#P_now');
 const volPop = $('#volPop'); const P_vol = $('#P_vol'); const volLabel = $('#volLabel');
 let queue=[]; let curIndex=-1;
