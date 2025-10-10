@@ -126,25 +126,22 @@
   .eqBars span:nth-child(1){ animation-delay:0s }
   .eqBars span:nth-child(2){ animation-delay:.15s }
   .eqBars span:nth-child(3){ animation-delay:.3s }
-  
-  /* Pause the equalizer animation when audio is paused */
-.eqBars.paused span{
-  animation-play-state: paused;
-  opacity: .6; /* optional: dim bars when paused */
-}
-  
   @keyframes eq {
     0%,100%{ height:20% }
     25%{ height:80% }
     50%{ height:40% }
     75%{ height:70% }
   }
-
+  /* Pause the equalizer animation when audio is paused */
+  .eqBars.paused span{
+    animation-play-state: paused;
+    opacity:.6;
+  }
 
   /* Volume popover (centered) */
   .volWrap{position:relative}
   .volPop{
-    position:fixed; /* center of viewport */
+    position:fixed; /* center of viewport horizontally */
     left:50%; transform:translateX(-50%);
     bottom:72px;
     background:var(--panel); border:1px solid var(--ring); border-radius:12px;
@@ -591,7 +588,7 @@ function renderConcerts(){
   content.innerHTML = list.map(it=>{
     const dateStr = it.date ? new Date(it.date).toLocaleDateString() : (it.year||'');
     const reviews = it.num_reviews||0;
-    const venueLine = [it.venue, it.coverage].filter(Boolean).join(', ';
+    const venueLine = [it.venue, it.coverage].filter(Boolean).join(', ');
     const viewsChip = `<span class="chip">${fmtCompact(it.downloads||0)} views</span>`;
     return `
       <div class="card tap" data-id="${it.identifier}">
@@ -697,20 +694,6 @@ async function showShow(params){
 
 /* ------------ Player & Media Session ------------ */
 const A=$('#audio'); const P={ play:$('#P_play'), prev:$('#P_prev'), next:$('#P_next'), mute:$('#P_mute'), seek:$('#P_seek'), cur:$('#P_times .cur'), dur:$('#P_times .dur') };
-/* Equalizer animation state */
-const EQ = document.querySelector('#P_now .eqBars');
-
-function updateEqAnim(){
-  if (EQ) EQ.classList.toggle('paused', A.paused);
-}
-
-// keep it in sync with playback
-A.addEventListener('play',  updateEqAnim);
-A.addEventListener('pause', updateEqAnim);
-A.addEventListener('ended', updateEqAnim);
-
-// Initialize state on load (in case audio starts paused)
-updateEqAnim();  
 const P_now = $('#P_now');
 const volPop = $('#volPop'); const P_vol = $('#P_vol'); const volLabel = $('#volLabel');
 let queue=[]; let curIndex=-1;
@@ -739,9 +722,18 @@ function playIndex(i){
   A.play().catch(()=>{});
   updateTrackHighlight();
   store.set('currentShowId', currentShowId);
+  updateEqAnim();
 }
 function updateTrackHighlight(){ trackEls.forEach((el,idx)=>el.classList.toggle('playing', idx===curIndex)); }
 P.play?.addEventListener('click', ()=>{ if(A.paused) A.play(); else A.pause(); });
+
+/* Equalizer animation state */
+const EQ = document.querySelector('#P_now .eqBars');
+function updateEqAnim(){ if(EQ) EQ.classList.toggle('paused', A.paused); }
+A.addEventListener('play',  ()=>{ P.play.textContent='⏸'; store.set('wasPlaying', true); updateEqAnim(); });
+A.addEventListener('pause', ()=>{ P.play.textContent='▶️'; store.set('wasPlaying', false); updateEqAnim(); });
+A.addEventListener('ended', ()=>{ updateEqAnim(); if(curIndex<queue.length-1) playIndex(curIndex+1); });
+
 P.prev?.addEventListener('click', ()=>{ if(curIndex>0) playIndex(curIndex-1); });
 P.next?.addEventListener('click', ()=>{ if(curIndex<queue.length-1) playIndex(curIndex+1); });
 
@@ -778,9 +770,6 @@ A.addEventListener('timeupdate', ()=>{
     if(curIndex>=0){ const pb=$('#pb-'+curIndex); if(pb) pb.style.width=`${(A.currentTime/A.duration)*100}%`; }
   }else{ P.cur.textContent='0:00'; P.dur.textContent=' / 0:00'; P.seek.value=0; }
 });
-A.addEventListener('play', ()=>{ P.play.textContent='⏸'; store.set('wasPlaying', true); });
-A.addEventListener('pause', ()=>{ P.play.textContent='▶️'; store.set('wasPlaying', false); });
-A.addEventListener('ended', ()=>{ if(curIndex<queue.length-1) playIndex(curIndex+1); });
 
 /* Equalizer button -> jump back to current show */
 P_now.addEventListener('click', ()=>{
@@ -816,6 +805,9 @@ $('#resetBtn')?.addEventListener('click', ()=>{ $('#sortSel').value='downloads d
 
 /* ------------ optional SW ------------ */
 if('serviceWorker' in navigator){ navigator.serviceWorker.register('sw.js').catch(()=>{}); }
+
+/* Init eq state once DOM is ready */
+document.addEventListener('DOMContentLoaded', updateEqAnim);
 </script>
 </body>
 </html>
