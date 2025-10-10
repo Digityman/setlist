@@ -591,8 +591,13 @@ function renderConcerts(){
     const venueLine = [it.venue, it.coverage].filter(Boolean).join(', ');
     const viewsChip = `<span class="chip">${fmtCompact(it.downloads||0)} views</span>`;
     return `
-      <div class="card tap" data-id="${it.identifier}">
-        <div>
+      <div class="card" 
+           data-id="${it.identifier}"
+           data-concert-id="${it.identifier}"
+           data-band-id="${currentBandId}"
+           data-band-name="${(it.creator||'').replace(/"/g,'&quot;')}"
+           data-concert-label="${(it.title||it.identifier||'').replace(/"/g,'&quot;')}">
+        <div class="tap" style="flex:1; min-width:0;">
           <h3>${it.title || it.identifier}</h3>
           <div class="row">
             <span class="chip">${dateStr}</span>
@@ -603,6 +608,7 @@ function renderConcerts(){
         </div>
         <div class="row">
           <button class="btn ghost favToggle" title="Favorite">${isFav(it.identifier)?'★':'☆'}</button>
+          <button class="btn" data-act="playAll" title="Play all from here">▶︎ Play</button>
         </div>
       </div>`;
   }).join('');
@@ -623,7 +629,13 @@ function renderConcerts(){
       store.set('favShows',fav); renderConcerts();
       return;
     }
-    const card = ev.target.closest('.card.tap');
+    const playBtn = ev.target.closest('[data-act="playAll"]');
+    if (playBtn){
+      const card = playBtn.closest('.card'); const cid = card.getAttribute('data-concert-id');
+      PlayerQueue.startFromConcert(cid);
+      return;
+    }
+    const card = ev.target.closest('.tap')?.closest('.card');
     if (card) location.hash = '#/show/' + encodeURIComponent(card.dataset.id);
   };
 }
@@ -665,25 +677,38 @@ async function showShow(params){
 
       playable.sort((a,b)=>{ const an=extractTrackNo(a), bn=extractTrackNo(b); if (an!==bn) return an-bn; return naturalCmp(a.name||'', b.name||''); });
 
-      const seen=new Set(); trackList=[];
-      for (const f of playable){
+      const seen=new Set(); trackList=[]; const rows=[];
+      for (let i=0;i<playable.length;i++){
+        const f = playable[i];
         const title = cleanTitle(f.title || f.name || '');
         const key = title.toLowerCase(); if (seen.has(key)) continue; seen.add(key);
         const url = `https://archive.org/download/${currentShowId}/${encodeURIComponent(f.name)}`;
         trackList.push({ url, title, length: f.length || '' });
+        rows.push(`
+          <div class="track" data-i="${trackList.length-1}" data-track-index="${trackList.length-1}" data-track-url="${url}">
+            <div class="tleft"><div class="tnum">${trackList.length}</div><div class="tname">${title}</div></div>
+            <div class="tlen">${f.length||''}</div>
+            <div class="progressBar" id="pb-${trackList.length-1}"></div>
+          </div>`);
       }
 
       if (!trackList.length){ content.innerHTML=`<div class="card"><span class="small">No playable files found.</span></div>`; return; }
 
-      content.innerHTML = trackList.map((t,i)=>`
-        <div class="track" data-i="${i}">
-          <div class="tleft"><div class="tnum">${i+1}</div><div class="tname">${t.title}</div></div>
-          <div class="tlen">${t.length}</div>
-          <div class="progressBar" id="pb-${i}"></div>
-        </div>`).join('');
-
+      content.innerHTML = rows.join('');
       trackEls = $$('.track');
-      content.onclick = ev => { const tr=ev.target.closest('.track'); if(!tr) return; playIndex(Number(tr.dataset.i)); };
+
+      // Clicking a track: build queue from this concert; jump to the clicked index
+      content.onclick = ev => {
+        const tr=ev.target.closest('.track'); if(!tr) return;
+        const idx = Number(tr.dataset.i);
+        PlayerQueue.startFromConcert(currentShowId).then(()=>{
+          if (PlayerQueue._jump) PlayerQueue._jump(idx);
+        });
+      };
+
+      // Mark attributes on show container for PlayerQueue media metadata
+      const card = document.createElement('div'); // temporary for attrs
+      card.setAttribute('data-concert-id', currentShowId);
     }catch(e){
       const msg = navigator.onLine ? 'Network error while loading tracks.' : 'You appear to be offline.';
       showRetry(content, msg, load);
@@ -692,50 +717,25 @@ async function showShow(params){
   load();
 }
 
-/* ------------ Player & Media Session ------------ */
+/* ------------ Player & Media Session (wired to PlayerQueue) ------------ */
 const A=$('#audio'); const P={ play:$('#P_play'), prev:$('#P_prev'), next:$('#P_next'), mute:$('#P_mute'), seek:$('#P_seek'), cur:$('#P_times .cur'), dur:$('#P_times .dur') };
 const P_now = $('#P_now');
 const volPop = $('#volPop'); const P_vol = $('#P_vol'); const volLabel = $('#volLabel');
-let queue=[]; let curIndex=-1;
 
-function setQueueFromTracks(){ queue = trackList.map(t=>t.url); }
-function updateMediaSession(title='Playing', artist='Setlist Streamer'){
-  try{
-    if(!('mediaSession' in navigator)) return;
-    navigator.mediaSession.metadata = new MediaMetadata({
-      title, artist, album: 'Live Music Archive',
-      artwork: [
-        { src: 'icons/logo-96.png?v=3',  sizes:'96x96',  type:'image/png' },
-        { src: 'icons/logo-192.png?v=3', sizes:'192x192', type:'image/png' },
-        { src: 'icons/logo-256.png?v=3', sizes:'256x256', type:'image/png' },
-        { src: 'icons/logo-512.png?v=3', sizes:'512x512', type:'image/png' }
-      ]
-    });
-  }catch(e){}
-}
-function playIndex(i){
-  if(!trackList.length) return;
-  setQueueFromTracks();
-  curIndex=Math.max(0,Math.min(i,queue.length-1));
-  A.src=queue[curIndex];
-  updateMediaSession(trackList[curIndex]?.title || 'Track');
-  A.play().catch(()=>{});
-  updateTrackHighlight();
-  store.set('currentShowId', currentShowId);
-  updateEqAnim();
-}
-function updateTrackHighlight(){ trackEls.forEach((el,idx)=>el.classList.toggle('playing', idx===curIndex)); }
-P.play?.addEventListener('click', ()=>{ if(A.paused) A.play(); else A.pause(); });
+/* Transport buttons now call PlayerQueue */
+P.play?.addEventListener('click', ()=> PlayerQueue.togglePlay());
+P.prev?.addEventListener('click', ()=> PlayerQueue.prev());
+P.next?.addEventListener('click', ()=> PlayerQueue.next());
 
 /* Equalizer animation state */
 const EQ = document.querySelector('#P_now .eqBars');
 function updateEqAnim(){ if(EQ) EQ.classList.toggle('paused', A.paused); }
+
+/* Media Session metadata handled by PlayerQueue, but we still reflect play/pause icons */
 A.addEventListener('play',  ()=>{ P.play.textContent='⏸'; store.set('wasPlaying', true); updateEqAnim(); });
 A.addEventListener('pause', ()=>{ P.play.textContent='▶️'; store.set('wasPlaying', false); updateEqAnim(); });
-A.addEventListener('ended', ()=>{ updateEqAnim(); if(curIndex<queue.length-1) playIndex(curIndex+1); });
 
-P.prev?.addEventListener('click', ()=>{ if(curIndex>0) playIndex(curIndex-1); });
-P.next?.addEventListener('click', ()=>{ if(curIndex<queue.length-1) playIndex(curIndex+1); });
+/* Remove old ended-advance; PlayerQueue handles continuous play */
 
 /* Volume controls (centered popover) */
 function setVolumeUI(v){
@@ -750,10 +750,7 @@ P_vol.value = String(A.volume);
 setVolumeUI(A.volume);
 
 P_mute.addEventListener('click', ()=>{ volPop.classList.toggle('open'); });
-document.addEventListener('click',(e)=>{
-  const w = $('.volWrap');
-  if(!w.contains(e.target)) volPop.classList.remove('open');
-});
+document.addEventListener('click',(e)=>{ const w = $('.volWrap'); if(!w.contains(e.target)) volPop.classList.remove('open'); });
 P_vol.addEventListener('input', ()=>{
   const v = Number(P_vol.value);
   A.volume = Math.max(0,Math.min(1,v));
@@ -762,18 +759,20 @@ P_vol.addEventListener('input', ()=>{
   setVolumeUI(A.volume);
 });
 
-/* Seek & time */
+/* Seek & time — tied to #audio */
 P.seek?.addEventListener('input', ()=>{ if(!A.duration||isNaN(A.duration)) return; A.currentTime=(P.seek.value/1000)*A.duration; });
 A.addEventListener('timeupdate', ()=>{
   if(A.duration&&!isNaN(A.duration)){
     P.cur.textContent=fmtTime(A.currentTime); P.dur.textContent=' / '+fmtTime(A.duration); P.seek.value=Math.floor((A.currentTime/A.duration)*1000);
-    if(curIndex>=0){ const pb=$('#pb-'+curIndex); if(pb) pb.style.width=`${(A.currentTime/A.duration)*100}%`; }
+    // Progress bar on current track (if in view)
+    const idx = window._nowPlayingIndex ?? -1;
+    if(idx>=0){ const pb=$('#pb-'+idx); if(pb) pb.style.width=`${(A.currentTime/A.duration)*100}%`; }
   }else{ P.cur.textContent='0:00'; P.dur.textContent=' / 0:00'; P.seek.value=0; }
 });
 
 /* Equalizer button -> jump back to current show */
 P_now.addEventListener('click', ()=>{
-  const id = store.get('currentShowId', null) || currentShowId;
+  const id = store.get('currentShowId', null) || window._nowPlayingConcertId || '';
   if(id){ location.hash = '#/show/' + encodeURIComponent(id); }
 });
 
@@ -784,14 +783,10 @@ function tryAutoResume(){
     A.play().catch(()=>{ /* autoplay block ignored */ });
   }
 }
-document.addEventListener('visibilitychange', ()=>{
-  if(document.hidden) markHideState(); else tryAutoResume();
-});
+document.addEventListener('visibilitychange', ()=>{ if(document.hidden) markHideState(); else tryAutoResume(); });
 window.addEventListener('pageshow', tryAutoResume);
 window.addEventListener('focus', tryAutoResume);
-if (navigator.mediaDevices && 'ondevicechange' in navigator.mediaDevices){
-  navigator.mediaDevices.ondevicechange = () => { tryAutoResume(); };
-}
+if (navigator.mediaDevices && 'ondevicechange' in navigator.mediaDevices){ navigator.mediaDevices.ondevicechange = () => { tryAutoResume(); }; }
 
 /* ------------ wire routes ------------ */
 Router.on('bands', showBands);
@@ -808,6 +803,203 @@ if('serviceWorker' in navigator){ navigator.serviceWorker.register('sw.js').catc
 
 /* Init eq state once DOM is ready */
 document.addEventListener('DOMContentLoaded', updateEqAnim);
+</script>
+
+<!-- ===== PlayerQueue v2.3 (Continuous Play across concerts; uses #audio) ===== -->
+<script>
+(function () {
+  const DEFAULTS = {
+    continuousPlay: true,
+    stayWithinBand: true,
+    loopAll: false,
+    shuffle: false,
+    audioSelector: '#audio',                 // Use your existing audio element
+    concertSelector: '[data-concert-id]',
+    trackSelector: '[data-track-url]',
+    getBandForConcert: defaultGetBandForConcert,
+    getVisibleConcertsOrder: defaultGetVisibleConcertsOrder,
+    fetchTracksForConcert: defaultFetchTracksForConcert,
+    onNowPlaying: defaultOnNowPlaying,
+    onPlaybackState: defaultOnPlaybackState,
+  };
+
+  const S = { audio:null, opts:{...DEFAULTS}, playQueue:[], queueIndex:-1, subs:[], _prefetch:null };
+
+  const PlayerQueue = {
+    init(opts={}){
+      S.opts = {...DEFAULTS, ...opts};
+      let a = document.querySelector(S.opts.audioSelector);
+      if(!a){ a=document.createElement('audio'); a.id=S.opts.audioSelector.replace(/^#/,'')||'audio'; a.preload='metadata'; a.style.display='none'; document.body.appendChild(a); }
+      S.audio = a;
+      wireAudio();
+      wireMediaSession();
+      ['continuousPlay','stayWithinBand','loopAll','shuffle'].forEach(k=>S.opts[k]=!!S.opts[k]);
+      PlayerQueue._jump = (idx)=> playAt(idx);
+    },
+    async startFromConcert(concertId,{includeFollowingConcerts=true}={}){
+      const n = await buildQueue(concertId, includeFollowingConcerts);
+      if (n>0) playAt(0);
+      return n;
+    },
+    next(){ playAt(S.queueIndex+1); },
+    prev(){ playAt(S.queueIndex-1); },
+    togglePlay(){ if(!S.audio.src){ if(S.playQueue.length) return playAt(Math.max(S.queueIndex,0)); return; } if(S.audio.paused) S.audio.play().catch(()=>{}); else S.audio.pause(); },
+    setOptions(p={}){ Object.assign(S.opts,p); },
+    getQueue(){ return S.playQueue.slice(); },
+    getIndex(){ return S.queueIndex; },
+    onNowPlaying(cb){ if(typeof cb==='function') S.subs.push(cb); return ()=>{ const i=S.subs.indexOf(cb); if(i>=0) S.subs.splice(i,1); }; },
+    _jump:null
+  };
+
+  async function buildQueue(concertId, includeFollowing){
+    const order = S.opts.getVisibleConcertsOrder();
+    const idx = order.indexOf(concertId);
+    if (idx===-1) return 0;
+    const anchorBand = safeBand(concertId);
+    const out = [];
+    const add = async (cid)=>{
+      if (S.opts.stayWithinBand && anchorBand && safeBand(cid)!==anchorBand) return;
+      const tracks = await S.opts.fetchTracksForConcert(cid);
+      (tracks||[]).forEach((t,i)=>{ if(!t?.url) return; out.push({ concertId:cid, trackIndex:i, url:t.url, title:t.title||`Track ${i+1}`, duration:t.duration||null }); });
+    };
+    await add(order[idx]);
+    if (includeFollowing) for (let i=idx+1;i<order.length;i++) await add(order[i]);
+
+    if (S.opts.shuffle && out.length>2){
+      const head=out[0], rest=out.slice(1);
+      for(let i=rest.length-1;i>0;i--){ const j=(Math.random()*(i+1))|0; [rest[i],rest[j]]=[rest[j],rest[i]]; }
+      S.playQueue=[head,...rest];
+    } else S.playQueue=out;
+
+    S.queueIndex=0;
+    return S.playQueue.length;
+  }
+
+  function playAt(i){
+    const q=S.playQueue; if(!q.length) return stop();
+    if(i<0) i=0;
+    if(i>=q.length){ if(S.opts.loopAll) i=0; else return stop(); }
+    S.queueIndex=i;
+    const item=q[i];
+    S.audio.src=item.url;
+    S.audio.play().then(()=>{
+      notify(item); mediaMeta(item); defaultOnPlaybackState('playing'); prefetch(i+1); focusConcert(item.concertId);
+    }).catch(()=>{ notify(item); defaultOnPlaybackState('paused'); });
+  }
+
+  function stop(){
+    try{S.audio.pause();}catch{}
+    S.audio.removeAttribute('src'); S.audio.load(); S.queueIndex=-1; defaultOnPlaybackState('stopped'); clearPrefetch();
+  }
+
+  function wireAudio(){
+    const a=S.audio;
+    a.addEventListener('ended',()=>{ if(!S.opts.continuousPlay) return; playAt(S.queueIndex+1); });
+    a.addEventListener('timeupdate',()=>{ const d=a.duration||0, c=a.currentTime||0; if(d && c>d-10) prefetch(S.queueIndex+1); });
+    a.addEventListener('error',()=> playAt(S.queueIndex+1));
+    a.addEventListener('pause',()=> defaultOnPlaybackState('paused'));
+    a.addEventListener('play',()=> defaultOnPlaybackState('playing'));
+  }
+
+  function wireMediaSession(){
+    if(!('mediaSession' in navigator)) return;
+    navigator.mediaSession.setActionHandler('nexttrack',()=>playAt(S.queueIndex+1));
+    navigator.mediaSession.setActionHandler('previoustrack',()=>playAt(S.queueIndex-1));
+    navigator.mediaSession.setActionHandler('pause',()=>S.audio.pause());
+    navigator.mediaSession.setActionHandler('play',()=>S.audio.play().catch(()=>{}));
+    navigator.mediaSession.setActionHandler('stop',()=>stop());
+  }
+
+  function mediaMeta(item){
+    if(!('mediaSession' in navigator)) return;
+    const meta={ title:item.title||'Live Track', artist: bandName(item.concertId)||'Live Music Archive', album: concertLabel(item.concertId)||'Concert' };
+    navigator.mediaSession.metadata=new MediaMetadata(meta);
+  }
+
+  function prefetch(i){
+    const nx=S.playQueue[i]; if(!nx?.url) return;
+    if(S._prefetch===nx.url) return;
+    clearPrefetch();
+    const link=document.createElement('link'); link.rel='preload'; link.as='audio'; link.href=nx.url; link.dataset._pq='1'; document.head.appendChild(link);
+    S._prefetch=nx.url;
+  }
+  function clearPrefetch(){ document.querySelectorAll('link[data-_pq="1"]').forEach(n=>n.remove()); S._prefetch=null; }
+
+  function notify(item){
+    window._nowPlayingConcertId = item.concertId;
+    window._nowPlayingIndex = item.trackIndex;
+    store.set('currentShowId', item.concertId);
+    S.subs.forEach(cb=>{ try{cb(item,S.queueIndex,S.playQueue);}catch{} });
+    S.opts.onNowPlaying(item,S.queueIndex,S.playQueue);
+  }
+
+  function defaultGetVisibleConcertsOrder(){
+    return Array.from(document.querySelectorAll(DEFAULTS.concertSelector)).map(el=>el.getAttribute('data-concert-id')).filter(Boolean);
+  }
+  function defaultFetchTracksForConcert(cid){
+    // Prefer DOM if we're on that concert page
+    const root=document.querySelector(`[data-concert-id="${cssEsc(cid)}"]`);
+    const rows = root ? root.querySelectorAll(DEFAULTS.trackSelector) : null;
+    if(rows && rows.length){
+      const out=Array.from(rows).map((r,i)=>({ url:r.getAttribute('data-track-url'), title:r.querySelector('.tname')?.textContent?.trim() || r.getAttribute('data-track-title') || `Track ${i+1}`, duration:null })).filter(t=>!!t.url);
+      if(out.length) return Promise.resolve(out);
+    }
+    // Fallback: API fetch via Archive metadata
+    if (typeof window.getConcertTracks === 'function') return Promise.resolve(window.getConcertTracks(cid));
+    return Promise.resolve([]);
+  }
+  function defaultGetBandForConcert(cid){
+    const el=document.querySelector(`[data-concert-id="${cssEsc(cid)}"]`); return el?.getAttribute('data-band-id')||null;
+  }
+  function defaultOnNowPlaying(item){
+    try{
+      // Highlight current track if on show page
+      $$('.track.playing').forEach(n=>n.classList.remove('playing'));
+      const root = document.querySelector(`[data-concert-id="${cssEsc(item.concertId)}"]`);
+      const tr = root ? root.querySelector(`[data-track-index="${item.trackIndex}"]`) : document.querySelector(`.track[data-track-index="${item.trackIndex}"]`);
+      tr?.classList.add('playing');
+    }catch{}
+  }
+  function defaultOnPlaybackState(st){ try{ if(st==='playing'){ $('#P_play').textContent='⏸'; } else { $('#P_play').textContent='▶️'; } }catch{} }
+
+  function focusConcert(cid){
+    const el=document.querySelector(`[data-concert-id="${cssEsc(cid)}"]`);
+    if(!el) return; const r=el.getBoundingClientRect();
+    if(!(r.top>=0 && r.bottom<= (innerHeight||document.documentElement.clientHeight))) el.scrollIntoView({behavior:'smooth',block:'center'});
+  }
+  function cssEsc(s){ return String(s).replace(/"/g,'\\"'); }
+  function bandName(cid){ const el=document.querySelector(`[data-concert-id="${cssEsc(cid)}"]`); return el?.getAttribute('data-band-name')||null; }
+  function concertLabel(cid){ const el=document.querySelector(`[data-concert-id="${cssEsc(cid)}"]`); return el?.getAttribute('data-concert-label')||null; }
+
+  window.PlayerQueue = PlayerQueue;
+})();
+</script>
+
+<!-- ===== Provide getConcertTracks API fallback for PlayerQueue ===== -->
+<script>
+/** Archive.org track loader for a single concert ID (used by PlayerQueue when tracks aren't in the DOM). */
+window.getConcertTracks = async function(concertId){
+  try{
+    const meta = await fetchJSON(IA.metaUrl(concertId));
+    const files = meta?.files||[];
+    let playable = files.filter(f => /\.mp3$/i.test(f.name||'') || (f.format||'').toLowerCase().includes('mp3'));
+    if (playable.length===0){ playable = files.filter(f => /\.(ogg|flac)$/i.test(f.name||'') || /(ogg|flac)/.test((f.format||'').toLowerCase())); }
+    playable.sort((a,b)=>{ const an=extractTrackNo(a), bn=extractTrackNo(b); if (an!==bn) return an-bn; return naturalCmp(a.name||'', b.name||''); });
+    const seen=new Set(); const out=[];
+    for(const f of playable){
+      const title = cleanTitle(f.title || f.name || '');
+      const key = title.toLowerCase(); if (seen.has(key)) continue; seen.add(key);
+      const url = `https://archive.org/download/${concertId}/${encodeURIComponent(f.name)}`;
+      out.push({ url, title, duration: Number(f.length)||null });
+    }
+    return out;
+  }catch(e){ return []; }
+};
+
+// Initialize PlayerQueue with defaults and your #audio binding
+document.addEventListener('DOMContentLoaded', ()=> {
+  PlayerQueue.init({ audioSelector:'#audio' });
+});
 </script>
 </body>
 </html>
