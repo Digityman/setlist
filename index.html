@@ -19,6 +19,7 @@
   :root{
     --bg:#0f0f10; --panel:#161719; --text:#e9e9ea; --muted:#a6a6ac; --accent:#5bd19a;
     --btn:#232428; --ring:#2b2d31; --warn:#ffd54a;
+    --overlay: rgba(0,0,0,.45);
   }
   html,body{height:100%}
   body{margin:0; background:var(--bg); color:var(--text); font:14px/1.4 system-ui,-apple-system,Segoe UI,Roboto,Arial,sans-serif}
@@ -26,43 +27,64 @@
 
   .wrap{min-height:100%; display:flex; flex-direction:column}
 
-  /* === HEADER (two-line layout) === */
+  /* === HEADER (two-line layout with 3 zones) === */
   header{
     padding:8px 12px;
     background:var(--panel);
-    position:sticky; top:0; z-index:3;
+    position:sticky; top:0; z-index:6; /* above menu */
     box-shadow:0 1px 0 #000 inset, 0 1px 0 rgba(255,255,255,.03);
     display:flex; flex-direction:column; gap:4px;
   }
-  .headerTop{display:flex; align-items:center; justify-content:space-between;}
-  .headerTop h1{font-size:18px; margin:0; white-space:nowrap}
+  .headerTop{
+    display:grid;
+    grid-template-columns: 42px 1fr 1fr; /* left, center, right (right can size to content) */
+    align-items:center; column-gap:8px;
+  }
+  .headerLeft{display:flex; align-items:center; justify-content:flex-start}
+  .headerCenter{
+    text-align:center; font-size:16px; font-weight:700;
+    white-space:nowrap; overflow:hidden; text-overflow:ellipsis;
+  }
+  .headerRight{display:flex; align-items:center; justify-content:flex-end; gap:8px}
   .headerBottom{
     text-align:center; font-size:15px; font-weight:600; color:var(--warn);
     overflow:hidden; text-overflow:ellipsis; white-space:nowrap;
     display:flex; align-items:center; justify-content:center; gap:10px;
+    min-height:22px; /* keeps layout steady when empty */
   }
-  .headerActions{display:flex; gap:8px; align-items:center}
+
+  .hambtn{
+    width:42px; height:42px; border-radius:12px;
+    background:var(--btn); border:1px solid var(--ring);
+    display:flex; align-items:center; justify-content:center; cursor:pointer;
+  }
+  .hambtn span{display:block; width:18px; height:2px; background:#d7d7da; position:relative}
+  .hambtn span::before,.hambtn span::after{
+    content:""; position:absolute; left:0; width:18px; height:2px; background:#d7d7da;
+  }
+  .hambtn span::before{top:-6px}
+  .hambtn span::after{top:6px}
+
   .headerActions .btn{min-height:32px; min-width:32px; padding:6px 10px; border-radius:10px}
-  header .crumb{opacity:.75}
+  .btn{background:var(--btn); color:var(--text); border:1px solid var(--ring); border-radius:12px; padding:10px 12px; display:inline-flex; align-items:center; justify-content:center; gap:6px; min-width:40px; min-height:40px; cursor:pointer}
+  .btn:active{transform:translateY(1px)}
+  .ghost{background:transparent}
+  .muted{color:var(--muted)}
+  .pillBtn{background:var(--panel); border:1px solid var(--ring); border-radius:999px; padding:6px 10px; font-size:12px; cursor:pointer; color:var(--text)}
+
+  /* Small star next to band name — yellow */
+  .starInline{
+    background:transparent; border:1px solid var(--ring);
+    padding:2px 8px; border-radius:999px; line-height:1; cursor:pointer;
+    color:var(--warn);
+    font-size:16px;
+  }
 
   /* Toolbars */
   .toolbar{display:flex; gap:8px; padding:10px 12px; align-items:center; flex-wrap:wrap}
   .pill{background:var(--panel); border:1px solid var(--ring); border-radius:999px; padding:8px 12px; display:flex; align-items:center; gap:8px}
   select, input[type="search"]{background:transparent; color:var(--text); border:none; outline:none; font:14px system-ui; min-width:120px}
-  .btn{background:var(--btn); color:var(--text); border:1px solid var(--ring); border-radius:12px; padding:10px 12px; display:inline-flex; align-items:center; justify-content:center; gap:6px; min-width:40px; min-height:40px; cursor:pointer}
-  .btn:active{transform:translateY(1px)}
-  .ghost{background:transparent}
-  .muted{color:var(--muted)}
   .chip{background:var(--panel); border:1px solid var(--ring); border-radius:999px; padding:6px 10px; font-size:12px; color:var(--muted)}
-  .pillBtn{background:var(--panel); border:1px solid var(--ring); border-radius:999px; padding:6px 10px; font-size:12px; cursor:pointer; color:var(--text)}
-
-  /* Small star next to band name — now yellow */
-  .starInline{
-    background:transparent; border:1px solid var(--ring);
-    padding:2px 8px; border-radius:999px; line-height:1; cursor:pointer;
-    color:var(--warn); /* YELLOW */
-    font-size:16px;
-  }
 
   /* Custom dropdowns */
   .dropdown{position:relative; min-width:150px; cursor:pointer}
@@ -124,9 +146,6 @@
     display:flex; align-items:center; gap:8px;
     max-width:1000px; margin:0 auto;
   }
-  .player .btn{min-width:42px; min-height:42px; border-radius:12px}
-  .seekWrap{display:flex; align-items:center; gap:10px; flex:1; min-width:180px}
-  #P_times{font-size:12px; color:var(--muted); white-space:nowrap}
   #P_seek{flex:1; height:6px; border:none; outline:none; border-radius:999px; background:#2a2b2f; -webkit-appearance:none; appearance:none;}
   #P_seek::-webkit-slider-thumb{-webkit-appearance:none; appearance:none; width:14px; height:14px; border-radius:50%; background:#7bdcaa; border:none;}
   #P_seek::-moz-range-thumb{ width:14px; height:14px; border-radius:50%; background:#7bdcaa; border:none; }
@@ -149,18 +168,57 @@
   }
   .volPop.open{display:block}
   .volRow{display:flex; align-items:center; gap:10px}
-  #P_vol{flex:1; height:6px; border:none; border-radius:999px; background:#2a2b2f; -webkit-appearance:none; appearance:none;}
-  #P_vol::-webkit-slider-thumb{ -webkit-appearance:none; appearance:none; width:14px; height:14px; border-radius:50%; background:#7bdcaa; border:none;}
-  #P_vol::-moz-range-thumb{ width:14px; height:14px; border-radius:50%; background:#7bdcaa; border:none;}
+
+  /* === LEFT SLIDE-OUT MENU === */
+  .overlay{
+    position:fixed; inset:0; background:var(--overlay); display:none; z-index:7;
+  }
+  .overlay.open{display:block}
+  .sideMenu{
+    position:fixed; top:0; bottom:0; left:0; width:260px; max-width:86vw;
+    background:var(--panel); border-right:1px solid var(--ring);
+    box-shadow:0 8px 32px rgba(0,0,0,.4);
+    transform:translateX(-105%); transition:transform .22s ease-out;
+    z-index:8; display:flex; flex-direction:column;
+  }
+  .sideMenu.open{ transform:translateX(0); }
+  .sideHeader{padding:14px 12px; font-weight:700; border-bottom:1px solid var(--ring)}
+  .menuList{padding:8px 8px 14px; display:grid; gap:6px; overflow:auto}
+  .menuItem{padding:10px 12px; border-radius:10px; border:1px solid var(--ring); background:var(--btn); cursor:pointer}
+  .menuItem:hover{background:#2a2b2f}
 </style>
 </head>
 <body>
 <div class="wrap">
+  <!-- Overlay + Side Menu -->
+  <div id="menuOverlay" class="overlay" aria-hidden="true"></div>
+  <nav id="sideMenu" class="sideMenu" aria-label="Main">
+    <div class="sideHeader">Menu</div>
+    <div class="menuList">
+      <div class="menuItem">Discover</div>
+      <div class="menuItem">My Favorites</div>
+      <div class="menuItem">Recent Shows</div>
+      <div class="menuItem">Random Concert</div>
+      <div class="menuItem">Settings</div>
+      <div class="menuItem">About</div>
+    </div>
+  </nav>
+
   <header>
     <div class="headerTop">
-      <h1><a href="#/bands">Setlist Streamer</a> <span class="crumb" id="crumb">— Bands</span></h1>
-      <div id="headerActions" class="headerActions"></div>
+      <!-- LEFT: Hamburger -->
+      <div class="headerLeft">
+        <button id="hamburger" class="hambtn" aria-label="Open menu"><span></span></button>
+      </div>
+
+      <!-- CENTER: Route Title (Bands / Concerts / Tracks) -->
+      <div id="routeTitle" class="headerCenter">Setlist Streamer — Bands</div>
+
+      <!-- RIGHT: Back buttons (dynamic) -->
+      <div id="headerActions" class="headerRight"></div>
     </div>
+
+    <!-- SECOND ROW: Band name (only on Concerts page) -->
     <div id="headerBandName" class="headerBottom"></div>
   </header>
 
@@ -229,8 +287,8 @@
     <button id="P_play" class="btn" title="Play/Pause">▶️</button>
     <button id="P_next" class="btn" title="Next">⏭</button>
 
-    <div class="seekWrap">
-      <div id="P_times"><span class="cur">0:00</span><span class="dur"> / 0:00</span></div>
+    <div class="seekWrap" style="display:flex; align-items:center; gap:10px; flex:1; min-width:180px">
+      <div id="P_times" style="font-size:12px; color:var(--muted); white-space:nowrap"><span class="cur">0:00</span><span class="dur"> / 0:00</span></div>
       <input id="P_seek" type="range" min="0" max="1000" value="0" step="1" aria-label="Seek">
     </div>
 
@@ -271,36 +329,25 @@ const Router = (() => {
   const routes={};
   function on(n,f){routes[n]=f}
   function parse(){ const raw=location.hash.replace(/^#\/?/,''); const [name,...rest]=raw.split('/').filter(Boolean); return {name:name||'bands', params:rest}; }
-  function route(){ const r=parse(); (routes[r.name]||routes['bands'])(r.params);
-    $('#crumb').textContent = r.name==='band'?'— Concerts':(r.name==='show'?'— Tracks':'— Bands');
-    setHeaderActions(r.name);
+  function route(){
+    const r=parse();
+    (routes[r.name]||routes['bands'])(r.params);
+    updateHeaderForRoute(r.name);
   }
   return {on,route};
 })();
 addEventListener('hashchange', Router.route); addEventListener('DOMContentLoaded', Router.route);
 
-function setHeaderActions(routeName){
-  const actions = $('#headerActions'); if(!actions) return;
-  actions.innerHTML = '';
-  const bandNameEl = $('#headerBandName');
-  if(routeName!=='band') bandNameEl.textContent = '';
+/* ------------ Left Menu (hamburger) ------------ */
+const sideMenu = $('#sideMenu');
+const menuOverlay = $('#menuOverlay');
+const hamburger = $('#hamburger');
 
-  if(routeName==='show'){
-    const btn = document.createElement('button');
-    btn.className = 'btn ghost';
-    btn.title = 'Back';
-    btn.textContent = '← Concerts';
-    btn.onclick = () => history.back();
-    actions.appendChild(btn);
-  } else if (routeName==='band'){
-    const btn = document.createElement('button');
-    btn.className = 'btn ghost';
-    btn.title = 'Back';
-    btn.textContent = '← Bands';
-    btn.onclick = () => { location.hash = '#/bands'; };
-    actions.appendChild(btn);
-  }
-}
+function openMenu(){ sideMenu.classList.add('open'); menuOverlay.classList.add('open'); }
+function closeMenu(){ sideMenu.classList.remove('open'); menuOverlay.classList.remove('open'); }
+hamburger.addEventListener('click', openMenu);
+menuOverlay.addEventListener('click', closeMenu);
+document.addEventListener('keydown', (e)=>{ if(e.key==='Escape'){ closeMenu(); }});
 
 /* ------------ robust fetch ------------ */
 async function fetchWithTimeout(url, {timeout=12000}={}){
@@ -429,8 +476,8 @@ function updateBandFavUI(){
   btn.title = on ? 'Unfavorite band' : 'Favorite band';
 }
 
-/* ------------ Bands page ------------ */
-let currentBandId=''; 
+/* ------------ Bands page state ------------ */
+let currentBandId='';
 let state={year:'', term:'', sortSel:'auto', page:1, numFound:0, rows:200, list:[]};
 let onlyFavConcerts=false;
 let onlyFavBands=false;
@@ -438,9 +485,43 @@ let onlyFavBands=false;
 function favShows(){ return store.get('favShows',[]); }
 function isFav(id){ return favShows().includes(id); }
 
+/* ------------ Header controller ------------ */
+function updateHeaderForRoute(routeName){
+  const titleEl = $('#routeTitle');
+  const actions = $('#headerActions');
+  const bandNameEl = $('#headerBandName');
+
+  // Center title per page
+  if(routeName==='band') titleEl.textContent = 'Setlist Streamer — Concerts';
+  else if(routeName==='show') titleEl.textContent = 'Setlist Streamer — Tracks';
+  else titleEl.textContent = 'Setlist Streamer — Bands';
+
+  // Right-side actions (back buttons)
+  actions.innerHTML = '';
+  if(routeName==='band'){
+    const btn = document.createElement('button');
+    btn.className = 'btn ghost';
+    btn.title = 'Back';
+    btn.textContent = '← Bands';
+    btn.onclick = () => { location.hash = '#/bands'; };
+    actions.appendChild(btn);
+  }
+  if(routeName==='show'){
+    const btn = document.createElement('button');
+    btn.className = 'btn ghost';
+    btn.title = 'Back';
+    btn.textContent = '← Concerts';
+    btn.onclick = () => history.back();
+    actions.appendChild(btn);
+  }
+
+  // Second row — only for Concerts page; others clear.
+  if(routeName!=='band') bandNameEl.textContent = '';
+}
+
+/* ------------ Bands page ------------ */
 async function showBands(){
   show($('#toolbar-bands'),true); show($('#toolbar-band'),false); show($('#showMeta'),false);
-  $('#headerBandName').textContent = '';
 
   const content=$('#content'); content.className='bandsGrid'; content.innerHTML=`<div class="card"><span class="small">Loading bands…</span></div>`;
   const sort=$('#sortSel')?.value||'downloads desc'; const term=($('#searchBox')?.value||'').trim();
@@ -469,7 +550,7 @@ async function showBands(){
         return;
       }
       content.innerHTML = items.map(b=>`
-        <div class="bandTile" data-id="${b.id}" data-title="${b.title.replace(/"/g,'&quot;')}">
+        <div class="bandTile" data-id="${b.id}" data-title="${(b.title||'').replace(/"/g,'&quot;')}">
           <img src="${IA.imgUrl(b.id)}" alt="${b.title}">
           <div class="bandTitle">${b.title}</div>
           <div class="bandViews">${b.downloads.toLocaleString()} views</div>
@@ -489,7 +570,6 @@ async function showBands(){
 }
 
 /* ------------ Concerts page ------------ */
-
 function resolveSort(){ return state.sortSel==='auto' ? (state.year ? 'date asc' : 'date desc') : state.sortSel; }
 
 async function buildYearCounts(bandId){
@@ -790,7 +870,7 @@ A.addEventListener('ended', ()=>{ updateEqAnim(); if(curIndex<queue.length-1) pl
 P.prev?.addEventListener('click', ()=>{ if(curIndex>0) playIndex(curIndex-1); });
 P.next?.addEventListener('click', ()=>{ if(curIndex<queue.length-1) playIndex(curIndex+1); });
 
-/* Volume controls (centered popover) */
+/* Volume controls */
 function setVolumeUI(v){
   const pct = Math.round((v||0)*100);
   volLabel.textContent = pct+'%';
@@ -819,9 +899,15 @@ P_vol.addEventListener('input', ()=>{
 P.seek?.addEventListener('input', ()=>{ if(!A.duration||isNaN(A.duration)) return; A.currentTime=(P.seek.value/1000)*A.duration; });
 A.addEventListener('timeupdate', ()=>{
   if(A.duration&&!isNaN(A.duration)){
-    P.cur.textContent=fmtTime(A.currentTime); P.dur.textContent=' / '+fmtTime(A.duration); P.seek.value=Math.floor((A.currentTime/A.duration)*1000);
+    $('#P_times .cur').textContent=fmtTime(A.currentTime);
+    $('#P_times .dur').textContent=' / '+fmtTime(A.duration);
+    P.seek.value=Math.floor((A.currentTime/A.duration)*1000);
     if(curIndex>=0){ const pb=$('#pb-'+curIndex); if(pb) pb.style.width=`${(A.currentTime/A.duration)*100}%`; }
-  }else{ P.cur.textContent='0:00'; P.dur.textContent=' / 0:00'; P.seek.value=0; }
+  }else{
+    $('#P_times .cur').textContent='0:00';
+    $('#P_times .dur').textContent=' / 0:00';
+    P.seek.value=0;
+  }
 });
 
 /* Equalizer button -> jump back to current show */
@@ -854,13 +940,22 @@ Router.on('show', showShow);
 /* ------------ bands filters ------------ */
 $('#sortSel')?.addEventListener('change', showBands);
 $('#searchBox')?.addEventListener('change', showBands);
-$('#resetBtn')?.addEventListener('click', ()=>{ $('#sortSel').value='downloads desc'; $('#searchBox').value=''; location.hash='#/bands'; onlyFavBands=false; $('#favToggle').textContent='☆ Favorites'; showBands(); });
+$('#resetBtn')?.addEventListener('click', ()=>{
+  $('#sortSel').value='downloads desc';
+  $('#searchBox').value='';
+  location.hash='#/bands';
+  onlyFavBands=false;
+  $('#favToggle').textContent='☆ Favorites';
+  showBands();
+});
 
 /* ------------ optional SW ------------ */
 if('serviceWorker' in navigator){ navigator.serviceWorker.register('sw.js').catch(()=>{}); }
 
-/* Init eq state once DOM is ready */
-document.addEventListener('DOMContentLoaded', ()=>{ const EQ = document.querySelector('#P_now .eqBars'); if(EQ){ EQ.classList.toggle('paused', true);} });
+/* Init EQ state once DOM is ready */
+document.addEventListener('DOMContentLoaded', ()=>{
+  const EQ = document.querySelector('#P_now .eqBars'); if(EQ){ EQ.classList.toggle('paused', true);}
+});
 </script>
 </body>
 </html>
