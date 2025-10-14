@@ -26,54 +26,45 @@
 
   .wrap{min-height:100%; display:flex; flex-direction:column}
 
-  /* ===== HEADER (2 rows) ===== */
+  /* ===== Header (two rows) ===== */
   header{
-    padding:6px 12px; display:flex; flex-direction:column; gap:4px;
-    background:var(--panel); position:sticky; top:0; z-index:8;
+    padding:6px 12px; background:var(--panel); position:sticky; top:0; z-index:6;
     box-shadow:0 1px 0 #000 inset, 0 1px 0 rgba(255,255,255,.03)
   }
-  /* Row 1 */
-  .hTop{position:relative; min-height:44px; display:flex; align-items:center; justify-content:space-between}
-  .hLeft, .hRight{display:flex; align-items:center; gap:8px}
-  .hCenter{
-    position:absolute; left:50%; transform:translateX(-50%);
-    font-weight:700; font-size:16px; white-space:nowrap;
-    max-width:calc(100% - 180px); /* leaves space for left/right controls */
-    overflow:hidden; text-overflow:ellipsis; text-align:center;
+  .headerRow{
+    display:grid; grid-template-columns:auto 1fr auto; align-items:center; gap:8px;
+    min-height:40px;
   }
-  /* Row 2: band line (only on concerts page) */
-  .hBand{display:flex; align-items:center; justify-content:center; gap:8px; min-height:22px}
-  .hBand .bandName{font-weight:700}
-  .hBand .favBandBtn{background:transparent; border:none; cursor:pointer; color:var(--warn); font-size:16px}
-  .hidden{display:none!important}
-
-  /* Hamburger */
-  .hamburger{ width:40px; height:40px; border-radius:10px; border:1px solid var(--ring); background:var(--btn); display:flex; align-items:center; justify-content:center; cursor:pointer }
-  .hamburger span{ display:block; width:18px; height:2px; background:#e9e9ea; position:relative }
-  .hamburger span::before, .hamburger span::after{ content:""; position:absolute; left:0; right:0; height:2px; background:#e9e9ea }
-  .hamburger span::before{ top:-6px } .hamburger span::after{ top:6px }
-
-  /* Slide-out menu */
-  .scrim{ position:fixed; inset:0; background:rgba(0,0,0,.45); display:none; z-index:19 }
-  .scrim.open{ display:block }
-  .sideMenu{
-    position:fixed; top:0; bottom:0; left:0; width:260px; background:#141516;
-    border-right:1px solid var(--ring); transform:translateX(-100%); transition:transform .25s ease; z-index:20; padding:16px 12px;
-  }
-  .sideMenu.open{ transform:translateX(0) }
-  .menuItem{ padding:10px 12px; border-radius:10px; margin:4px 0; cursor:pointer }
-  .menuItem:hover{ background:#1b1c1e }
-
-  /* Toolbars */
-  .toolbar{display:flex; gap:8px; padding:10px 12px; align-items:center; flex-wrap:wrap}
-  .pill{background:var(--panel); border:1px solid var(--ring); border-radius:999px; padding:8px 12px; display:flex; align-items:center; gap:8px}
-  select, input[type="search"]{background:transparent; color:var(--text); border:none; outline:none; font:14px system-ui; min-width:120px}
+  .siteBtn{display:inline-flex; align-items:center; gap:8px}
   .btn{background:var(--btn); color:var(--text); border:1px solid var(--ring); border-radius:12px; padding:10px 12px; display:inline-flex; align-items:center; justify-content:center; gap:6px; min-width:40px; min-height:40px; cursor:pointer}
   .btn:active{transform:translateY(1px)}
   .ghost{background:transparent}
   .muted{color:var(--muted)}
+
+  .headerTitle{
+    text-align:center; font-size:18px; font-weight:600; white-space:nowrap; overflow:hidden; text-overflow:ellipsis;
+  }
+  .headerActions{display:flex; gap:8px; align-items:center}
+  .headerActions .btn{min-height:32px; min-width:32px; padding:6px 10px; border-radius:10px}
+
+  /* Second row for page-specific sub-title (e.g., band name) */
+  .subHeader{
+    display:flex; align-items:center; justify-content:center; padding:4px 0 6px;
+    min-height:28px;
+  }
+  .subHeader .bandLine{
+    display:inline-flex; align-items:center; gap:10px; max-width:100%; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;
+  }
+  .bandName{
+    font-weight:700; color:var(--warn);
+  }
   .chip{background:var(--panel); border:1px solid var(--ring); border-radius:999px; padding:6px 10px; font-size:12px; color:var(--muted)}
   .pillBtn{background:var(--panel); border:1px solid var(--ring); border-radius:999px; padding:6px 10px; font-size:12px; cursor:pointer; color:var(--text)}
+
+  /* Top toolbars */
+  .toolbar{display:flex; gap:8px; padding:10px 12px; align-items:center; flex-wrap:wrap}
+  .pill{background:var(--panel); border:1px solid var(--ring); border-radius:999px; padding:8px 12px; display:flex; align-items:center; gap:8px}
+  select, input[type="search"]{background:transparent; color:var(--text); border:none; outline:none; font:14px system-ui; min-width:120px}
 
   /* Custom dropdowns (full-pill clickable, scrollable) */
   .dropdown{position:relative; min-width:150px; cursor:pointer}
@@ -116,11 +107,18 @@
   .track.playing::before{content:""; position:absolute; left:0; top:0; bottom:0; width:6px; background:var(--warn); border-radius:12px 0 0 12px}
   .progressBar{position:absolute; left:0; bottom:0; height:3px; background:var(--warn); border-radius:0 0 12px 12px; width:0%}
 
-  /* Show header meta (title + date/location chips + Favorite at right) */
+  /* Stars */
+  .stars{display:inline-flex; align-items:center; gap:4px}
+  .starBtn{
+    border:1px solid var(--ring); background:var(--btn); border-radius:10px; width:28px; height:28px; display:inline-flex; align-items:center; justify-content:center; cursor:pointer; font-size:16px;
+  }
+  .starBtn.on{ color:var(--warn); }
+  .starBtn:not(.on){ color:#fff; opacity:.9; }
+
+  /* Show header meta (chips etc) */
   .showMeta{display:flex; gap:8px; flex-wrap:wrap; align-items:center; padding:6px 12px 8px}
   .showTitle{font-weight:600; margin-right:6px}
   .showMeta .end{margin-left:auto; display:flex; align-items:center}
-  .stars{display:inline-flex; align-items:center; gap:4px}
 
   /* === FIXED PLAYER (bottom) === */
   .player{
@@ -160,12 +158,18 @@
     50%{ height:40% }
     75%{ height:70% }
   }
-  .eqBars.paused span{ animation-play-state:paused; opacity:.6 }
+  /* Pause the equalizer animation when audio is paused */
+  .eqBars.paused span{
+    animation-play-state: paused;
+    opacity:.6;
+  }
 
   /* Volume popover (centered) */
   .volWrap{position:relative}
   .volPop{
-    position:fixed; left:50%; transform:translateX(-50%); bottom:72px;
+    position:fixed; /* center of viewport horizontally */
+    left:50%; transform:translateX(-50%);
+    bottom:72px;
     background:var(--panel); border:1px solid var(--ring); border-radius:12px;
     padding:10px 12px; box-shadow:0 8px 24px rgba(0,0,0,.45); display:none;
     width:260px; max-width:90vw; z-index:40;
@@ -175,25 +179,91 @@
   #P_vol{flex:1; height:6px; border:none; border-radius:999px; background:#2a2b2f; -webkit-appearance:none; appearance:none;}
   #P_vol::-webkit-slider-thumb{ -webkit-appearance:none; appearance:none; width:14px; height:14px; border-radius:50%; background:#7bdcaa; border:none;}
   #P_vol::-moz-range-thumb{ width:14px; height:14px; border-radius:50%; background:#7bdcaa; border:none;}
+
+  /* ===== Slide-out Left Menu ===== */
+  .hamburger{width:42px; height:42px; border-radius:12px; border:1px solid var(--ring); background:var(--btn); display:flex; align-items:center; justify-content:center; cursor:pointer}
+  .hamBars{display:inline-flex; flex-direction:column; gap:3px}
+  .hamBars span{display:block; width:18px; height:2px; background:#e9e9ea; border-radius:2px}
+
+  .sideOverlay{
+    position:fixed; inset:0; background:rgba(0,0,0,.45); display:none; z-index:20;
+  }
+  .sideOverlay.open{display:block}
+  .sideMenu{
+    position:fixed; left:0; top:0; bottom:0; width:280px; max-width:86vw; background:var(--panel); border-right:1px solid var(--ring);
+    transform:translateX(-100%); transition:transform .2s ease; z-index:21; display:flex; flex-direction:column;
+  }
+  .sideMenu.open{ transform:translateX(0); }
+  .sideHeader{
+    display:flex; align-items:center; justify-content:space-between; gap:8px;
+    padding:10px 12px; border-bottom:1px solid var(--ring);
+  }
+  .sideHeader .title{font-weight:700}
+  .sideClose{width:36px; height:36px; border-radius:10px; border:1px solid var(--ring); background:var(--btn); display:flex; align-items:center; justify-content:center; cursor:pointer}
+  .sideClose .hamBars span{height:2px}
+  .sideBody{padding:10px 8px; overflow:auto; flex:1}
+  .menuGroup{margin:8px 0}
+  .menuGroup .groupTitle{font-size:12px; color:var(--muted); padding:6px 8px}
+  .menuItem{display:flex; align-items:center; gap:10px; padding:10px 8px; border-radius:10px; cursor:pointer}
+  .menuItem:hover{background:#202124}
+  .menuItem .dot{width:8px; height:8px; border-radius:50%; background:#7bdcaa}
+
+  /* Content area */
+  #content{aria-live:polite}
 </style>
 </head>
 <body>
 <div class="wrap">
+  <!-- ===== Header ===== -->
   <header>
-    <!-- Row 1 -->
-    <div class="hTop">
-      <div class="hLeft">
-        <button id="menuBtn" class="hamburger" title="Menu"><span></span></button>
+    <!-- First row: hamburger | centered title | right actions (back buttons etc) -->
+    <div class="headerRow">
+      <div class="siteBtn">
+        <button id="hamOpen" class="hamburger" title="Menu" aria-label="Open menu">
+          <span class="hamBars" aria-hidden="true"><span></span><span></span><span></span></span>
+        </button>
       </div>
-      <div id="headerTitle" class="hCenter">Setlist Streamer — Bands</div>
-      <div id="headerActions" class="hRight"></div>
+      <div id="headerTitle" class="headerTitle">Setlist Streamer — Bands</div>
+      <div id="headerActions" class="headerActions"></div>
     </div>
-    <!-- Row 2 (band line; only on concerts page) -->
-    <div id="bandLine" class="hBand hidden">
-      <span id="bandName" class="bandName"></span>
-      <button id="favBandBtn" class="favBandBtn" title="Favorite band">☆</button>
+    <!-- Second row: sub title (e.g., Band Name + fav) -->
+    <div class="subHeader">
+      <div id="subTitle" class="bandLine" style="display:none;">
+        <span id="bandName" class="bandName"></span>
+        <button id="favBandBtn" class="starBtn" title="Favorite band" aria-label="Favorite band">☆</button>
+      </div>
     </div>
   </header>
+
+  <!-- ===== Slide-out Left Menu + overlay ===== -->
+  <div id="sideOverlay" class="sideOverlay"></div>
+  <aside id="sideMenu" class="sideMenu" aria-label="Main menu">
+    <div class="sideHeader">
+      <div class="title">Menu</div>
+      <!-- Close hamburger on the top-right -->
+      <button id="hamClose" class="sideClose" title="Close menu" aria-label="Close menu">
+        <span class="hamBars" aria-hidden="true"><span></span><span></span><span></span></span>
+      </button>
+    </div>
+    <div class="sideBody">
+      <div class="menuGroup">
+        <div class="menuItem" data-link="#/bands"><span class="dot"></span><span>Home</span></div>
+      </div>
+
+      <div class="menuGroup">
+        <div class="groupTitle">Favorites</div>
+        <div class="menuItem" data-link="#/fav/bands"><span class="dot"></span><span>Bands</span></div>
+        <div class="menuItem" data-link="#/fav/concerts"><span class="dot"></span><span>Concerts</span></div>
+        <div class="menuItem" data-link="#/fav/songs"><span class="dot"></span><span>Songs</span></div>
+      </div>
+
+      <div class="menuGroup">
+        <div class="groupTitle">Other</div>
+        <div class="menuItem" data-link="#/recent"><span class="dot"></span><span>Recently Played</span></div>
+        <div class="menuItem" data-link="#"><span class="dot"></span><span>Placeholder</span></div>
+      </div>
+    </div>
+  </aside>
 
   <!-- Bands toolbar -->
   <div class="toolbar" id="toolbar-bands">
@@ -253,17 +323,6 @@
   <div id="content" class="grid" aria-live="polite"></div>
 </div>
 
-<!-- Slide-out menu -->
-<aside id="sideMenu" class="sideMenu" aria-label="Menu">
-  <div class="menuItem">Home</div>
-  <div class="menuItem">My Favorites</div>
-  <div class="menuItem">Recently Played</div>
-  <div class="menuItem">Top Bands</div>
-  <div class="menuItem">Random Show</div>
-  <div class="menuItem">Settings</div>
-</aside>
-<div id="scrim" class="scrim" aria-hidden="true"></div>
-
 <!-- Fixed Player -->
 <div class="player" id="player">
   <div class="controls">
@@ -304,48 +363,43 @@ const $ = s => document.querySelector(s);
 const $$ = s => Array.from(document.querySelectorAll(s));
 const fmtTime = secs => { secs = Math.max(0, Math.floor(secs||0)); const m=Math.floor(secs/60), s=secs%60; return m+":"+String(s).padStart(2,"0"); };
 const fmtCompact = n => { n=Number(n||0); if(n>=1e9) return (n/1e9).toFixed(1)+'B'; if(n>=1e6) return (n/1e6).toFixed(1)+'M'; if(n>=1e3) return (n/1e3).toFixed(1)+'K'; return String(n); };
-function show(el,on=true){ if(!el) return; el.style.display=on?'':'none'; el.classList.toggle('hidden',!on); }
+function show(el,on=true){ if(!el) return; el.style.display=on?'':'none'; }
 const store = { get(k,f){ try{return JSON.parse(localStorage.getItem(k))??f;}catch{return f;}}, set(k,v){ localStorage.setItem(k,JSON.stringify(v)); } };
-
-/* ------------ slide menu ------------ */
-const sideMenu = $('#sideMenu'), scrim = $('#scrim');
-$('#menuBtn').addEventListener('click', ()=>{ sideMenu.classList.add('open'); scrim.classList.add('open'); });
-scrim.addEventListener('click', ()=>{ sideMenu.classList.remove('open'); scrim.classList.remove('open'); });
 
 /* ------------ router ------------ */
 const Router = (() => {
   const routes={};
   function on(n,f){routes[n]=f}
-  function parse(){ const raw=location.hash.replace(/^#\/?/,''); const [name,...rest]=raw.split('/').filter(Boolean); return {name:name||'bands', params:rest}; }
-  function route(){ const r=parse(); (routes[r.name]||routes['bands'])(r.params);
-    renderHeader(r.name);
+  function parse(){
+    const raw=location.hash.replace(/^#\/?/,'');
+    const [name,...rest]=raw.split('/').filter(Boolean);
+    return {name:name||'bands', params:rest};
+  }
+  function route(){
+    const r=parse(); (routes[r.name]||routes['bands'])(r.params);
+    // Title line centered per page
+    const titleEl = $('#headerTitle');
+    if(r.name==='band') titleEl.textContent='Setlist Streamer — Concerts';
+    else if(r.name==='show') titleEl.textContent='Setlist Streamer — Tracks';
+    else if(r.name==='fav') {
+      const t = (r.params[0]||'').toLowerCase();
+      const map = {bands:'Favorites — Bands', concerts:'Favorites — Concerts', songs:'Favorites — Songs'};
+      titleEl.textContent = 'Setlist Streamer — ' + (map[t] || 'Favorites');
+    } else if(r.name==='recent'){
+      titleEl.textContent='Setlist Streamer — Recently Played';
+    } else titleEl.textContent='Setlist Streamer — Bands';
+    setHeaderActions(r.name);
   }
   return {on,route};
 })();
 addEventListener('hashchange', Router.route); addEventListener('DOMContentLoaded', Router.route);
 
-/* ------------ header rendering (centered title + band line) ------------ */
-let currentBandId=''; let currentBandName='';
-
-function prettifyBandId(id=''){
-  const t = decodeURIComponent(id).replace(/[_+]+/g,' ').replace(/\s{2,}/g,' ').trim();
-  return t || id;
-}
-function renderHeader(routeName){
-  const titleEl = $('#headerTitle');
-  const actions = $('#headerActions');
-  const bandLine = $('#bandLine');
-  const bandNameEl = $('#bandName');
-  const favBtn = $('#favBandBtn');
-
-  const titleMap = {
-    bands:'Setlist Streamer — Bands',
-    band:'Setlist Streamer — Concerts',
-    show:'Setlist Streamer — Tracks'
-  };
-  titleEl.textContent = titleMap[routeName] || 'Setlist Streamer';
-
+/* ------------ header actions & subheader ------------ */
+function setHeaderActions(routeName){
+  const actions = $('#headerActions'); if(!actions) return;
   actions.innerHTML = '';
+
+  // Back buttons as requested
   if(routeName==='show'){
     const btn = document.createElement('button');
     btn.className = 'btn ghost';
@@ -361,29 +415,7 @@ function renderHeader(routeName){
     btn.onclick = () => { location.hash = '#/bands'; };
     actions.appendChild(btn);
   }
-
-  if(routeName==='band'){
-    bandNameEl.textContent = currentBandName || prettifyBandId(currentBandId);
-    show(bandLine,true);
-    updateFavBandBtnUI();
-  }else{
-    show(bandLine,false);
-  }
-
-  favBtn.onclick = () => { toggleFavBand(currentBandId); updateFavBandBtnUI(); };
-}
-function favBands(){ return store.get('favBands',[]); }
-function isFavBand(id){ return favBands().includes(id); }
-function toggleFavBand(id){
-  if(!id) return;
-  const arr=favBands(); const i=arr.indexOf(id);
-  if(i>=0) arr.splice(i,1); else arr.push(id);
-  store.set('favBands',arr);
-}
-function updateFavBandBtnUI(){
-  const btn = $('#favBandBtn');
-  if(!btn) return;
-  btn.textContent = isFavBand(currentBandId)?'★':'☆'; // always yellow via CSS color
+  // subheader visibility is set within page renderers
 }
 
 /* ------------ robust fetch ------------ */
@@ -495,11 +527,19 @@ function renderStars(r){
   return `<span class="stars" aria-label="${rating} out of 5 stars">${out}</span>`;
 }
 
+/* ------------ Favorites stores ------------ */
+function favShows(){ return store.get('favShows',[]); }
+function favBands(){ return store.get('favBands',[]); }            // band identifiers
+function favSongs(){ return store.get('favSongs',[]); }            // array of song keys
+function isFavShow(id){ return favShows().includes(id); }
+function isFavBand(id){ return favBands().includes(id); }
+function isFavSong(key){ return favSongs().includes(key); }
+function toggleFavBand(id){ const f=favBands(); const i=f.indexOf(id); if(i>=0) f.splice(i,1); else f.push(id); store.set('favBands',f); updateBandFavUI(); }
+
 /* ------------ Bands page ------------ */
 async function showBands(){
   show($('#toolbar-bands'),true); show($('#toolbar-band'),false); show($('#showMeta'),false);
-  currentBandId=''; currentBandName='';
-  renderHeader('bands');
+  $('#subTitle').style.display='none';
 
   const content=$('#content'); content.className='bandsGrid'; content.innerHTML=`<div class="card"><span class="small">Loading bands…</span></div>`;
   const sort=$('#sortSel')?.value||'downloads desc'; const term=($('#searchBox')?.value||'').trim();
@@ -524,11 +564,9 @@ async function showBands(){
 }
 
 /* ------------ Concerts page ------------ */
+let currentBandId=''; 
 let state={year:'', term:'', sortSel:'auto', page:1, numFound:0, rows:200, list:[]};
 let onlyFavConcerts=false;
-
-function favShows(){ return store.get('favShows',[]); }
-function isFav(id){ return favShows().includes(id); }
 
 /* Sort dropdown controller */
 const SortDrop = (()=> {
@@ -636,16 +674,6 @@ async function loadPage(){
     const resp = data?.response || {};
     state.numFound = Number(resp.numFound || 0);
     state.list = state.list.concat(resp.docs || []);
-
-    // Try to get a pretty band display name from docs
-    if(!currentBandName){
-      const d = (resp.docs||[])[0];
-      const creator = Array.isArray(d?.creator) ? d.creator[0] : d?.creator;
-      if(creator) currentBandName = creator;
-      else currentBandName = prettifyBandId(currentBandId);
-      renderHeader('band');
-    }
-
     renderConcerts();
   }catch(e){
     showRetry(content, 'Network error while loading concerts.', ()=>loadPage());
@@ -661,10 +689,6 @@ function resetAndLoad(patch={}){
 async function showBand(params){
   show($('#toolbar-bands'),false); show($('#toolbar-band'),true); show($('#showMeta'),false);
   currentBandId = decodeURIComponent((params||[])[0]||'');
-  currentBandName = ''; // will be resolved on first page
-
-  // header
-  renderHeader('band');
 
   // Sort dropdown wiring
   SortDrop.subscribe((val)=> resetAndLoad({sortSel:val}));
@@ -680,8 +704,28 @@ async function showBand(params){
   else { YearDrop.setOptions([{value:'', label:'All years'}, {value:'', label:'Loading years…'}]); }
   buildYearCounts(currentBandId).catch(()=>{});
 
+  // Show band name line + set fave star state
+  $('#subTitle').style.display='';
+  updateBandFavUI();
+
   resetAndLoad({year:'', term:'', sortSel:'auto'});
 }
+
+function updateBandFavUI(){
+  const nameEl = $('#bandName');
+  const bandId = currentBandId||'';
+  // Convert id to spaced name best-effort: use identifier with spaces
+  const spaced = decodeURIComponent(bandId).replace(/[_+]+/g,' ').replace(/\s+/g,' ').trim();
+  nameEl.textContent = spaced;
+  const favBtn = $('#favBandBtn');
+  if(favBtn){
+    favBtn.classList.toggle('on', isFavBand(bandId));
+    favBtn.textContent = isFavBand(bandId) ? '★' : '☆';
+    favBtn.onclick = ()=>{ toggleFavBand(bandId); };
+  }
+}
+
+function isFav(id){ return isFavShow(id); } // backward-compatible usage
 
 function renderConcerts(){
   const content=$('#content'); if(!content) return;
@@ -707,7 +751,7 @@ function renderConcerts(){
           <div class="small">${venueLine}</div>
         </div>
         <div class="row">
-          <button class="btn ghost favToggle" title="Favorite">${isFav(it.identifier)?'★':'☆'}</button>
+          <button class="btn ghost favToggle" title="Favorite">${isFavShow(it.identifier)?'★':'☆'}</button>
         </div>
       </div>`;
   }).join('');
@@ -733,11 +777,12 @@ function renderConcerts(){
   };
 }
 
-/* ------------ Show (tracks) ------------ */
+/* ------------ Show (tracks) + SONG FAVORITES ------------ */
 let currentShowId=''; let currentShowTitle=''; let trackEls=[]; let trackList=[];
 
-function toggleFav(id){ const fav=favShows(); const i=fav.indexOf(id); if(i>=0) fav.splice(i,1); else fav.push(id); store.set('favShows',fav); updateFavBtn(); }
-function updateFavBtn(){ const btn=$('#favShowBtn'); if(!btn) return; btn.textContent = favShows().includes(currentShowId)?'★ Favorited':'☆ Favorite'; }
+function toggleFavShow(id){ const fav=favShows(); const i=fav.indexOf(id); if(i>=0) fav.splice(i,1); else fav.push(id); store.set('favShows',fav); updateFavBtn(); }
+function updateFavBtn(){ const btn=$('#favShowBtn'); if(!btn) return; btn.textContent = isFavShow(currentShowId)?'★ Favorited':'☆ Favorite'; }
+
 function setShowHeader(meta){
   const title = meta?.metadata?.title || currentShowId;
   const date  = meta?.metadata?.date || '';
@@ -755,15 +800,16 @@ function extractTrackNo(f){ const n1=Number(f.track||f.trackno||''); if(!isNaN(n
 
 async function showShow(params){
   show($('#toolbar-bands'),false); show($('#toolbar-band'),false);
+  $('#subTitle').style.display='none';
+
   currentShowId = decodeURIComponent((params||[])[0]||'');
-  renderHeader('show');
 
   const content=$('#content'); content.className='tracks'; content.innerHTML=`<div class="card"><span class="small">Loading tracks…</span></div>`;
   const load = async ()=>{
     try{
       const meta = await fetchJSON(IA.metaUrl(currentShowId));
       setShowHeader(meta);
-      $('#favShowBtn').onclick = () => toggleFav(currentShowId); updateFavBtn();
+      $('#favShowBtn').onclick = () => toggleFavShow(currentShowId); updateFavBtn();
 
       const files = meta?.files||[];
       let playable = files.filter(f => /\.mp3$/i.test(f.name||'') || (f.format||'').toLowerCase().includes('mp3'));
@@ -776,20 +822,40 @@ async function showShow(params){
         const title = cleanTitle(f.title || f.name || '');
         const key = title.toLowerCase(); if (seen.has(key)) continue; seen.add(key);
         const url = `https://archive.org/download/${currentShowId}/${encodeURIComponent(f.name)}`;
-        trackList.push({ url, title, length: f.length || '' });
+        // songKey uniquely identifies a favorite song entry
+        const songKey = `${currentShowId}::${title}::${url}`;
+        trackList.push({ url, title, length: f.length || '', key: songKey });
       }
 
       if (!trackList.length){ content.innerHTML=`<div class="card"><span class="small">No playable files found.</span></div>`; return; }
 
       content.innerHTML = trackList.map((t,i)=>`
         <div class="track" data-i="${i}">
-          <div class="tleft"><div class="tnum">${i+1}</div><div class="tname">${t.title}</div></div>
+          <div class="tleft">
+            <button class="starBtn songFav ${isFavSong(t.key)?'on':''}" data-key="${t.key}" title="Favorite song" aria-label="Favorite song">${isFavSong(t.key)?'★':'☆'}</button>
+            <div class="tnum">${i+1}</div>
+            <div class="tname">${t.title}</div>
+          </div>
           <div class="tlen">${t.length}</div>
           <div class="progressBar" id="pb-${i}"></div>
         </div>`).join('');
 
       trackEls = $$('.track');
-      content.onclick = ev => { const tr=ev.target.closest('.track'); if(!tr) return; playIndex(Number(tr.dataset.i)); };
+      content.onclick = ev => {
+        // Toggle song favorite
+        const favBtn = ev.target.closest('.songFav');
+        if(favBtn){
+          const key = favBtn.dataset.key;
+          const arr = favSongs(); const idx = arr.indexOf(key);
+          if(idx>=0) arr.splice(idx,1); else arr.push(key);
+          store.set('favSongs', arr);
+          favBtn.classList.toggle('on', arr.includes(key));
+          favBtn.textContent = arr.includes(key) ? '★' : '☆';
+          return;
+        }
+        // Play track
+        const tr=ev.target.closest('.track'); if(!tr) return; playIndex(Number(tr.dataset.i));
+      };
     }catch(e){
       const msg = navigator.onLine ? 'Network error while loading tracks.' : 'You appear to be offline.';
       showRetry(content, msg, load);
@@ -828,6 +894,8 @@ function playIndex(i){
   A.play().catch(()=>{});
   updateTrackHighlight();
   store.set('currentShowId', currentShowId);
+  // track the recent list
+  pushRecent(trackList[curIndex]);
   updateEqAnim();
 }
 function updateTrackHighlight(){ trackEls.forEach((el,idx)=>el.classList.toggle('playing', idx===curIndex)); }
@@ -899,7 +967,191 @@ if (navigator.mediaDevices && 'ondevicechange' in navigator.mediaDevices){
   navigator.mediaDevices.ondevicechange = () => { tryAutoResume(); };
 }
 
-/* ------------ wire routes ------------ */
+/* ------------ FAVORITES PAGES ------------ */
+Router.on('fav', showFavorites);
+Router.on('recent', showRecent);
+
+async function showFavorites(params){
+  const type = (params?.[0]||'').toLowerCase();
+  show($('#toolbar-bands'),false); show($('#toolbar-band'),false); show($('#showMeta'),false);
+  $('#subTitle').style.display='none';
+  if(type==='bands') return renderFavBands();
+  if(type==='concerts') return renderFavConcerts();
+  if(type==='songs') return renderFavSongs();
+  // default: jump to bands favorites
+  location.hash='#/fav/bands';
+}
+
+async function renderFavBands(){
+  const ids = favBands();
+  const content = $('#content'); content.className='grid';
+  if(!ids.length){ content.innerHTML=`<div class="card"><span class="small">No favorite bands yet.</span></div>`; return; }
+  // Fetch titles for bands via metadata (best effort)
+  const metas = await Promise.all(ids.map(async id=>{
+    try{ const m = await fetchJSON(IA.metaUrl(id)); return {id, title:m?.metadata?.title||id}; }catch{return {id, title:id};}
+  }));
+  content.innerHTML = metas.map(b=>`
+    <div class="card tap" data-id="${b.id}">
+      <div class="row">
+        <img src="${IA.imgUrl(b.id)}" alt="${b.title}" style="width:42px;height:42px;border-radius:8px;object-fit:cover;background:#0c0c0d;border:1px solid var(--ring)">
+        <div>
+          <h3 style="margin:0">${b.title}</h3>
+          <div class="small">${b.id}</div>
+        </div>
+      </div>
+      <div class="row">
+        <button class="starBtn on" data-band="${b.id}" title="Unfavorite">★</button>
+      </div>
+    </div>
+  `).join('');
+
+  content.onclick = ev=>{
+    const unfav = ev.target.closest('.starBtn[data-band]');
+    if(unfav){
+      const id = unfav.dataset.band;
+      toggleFavBand(id);
+      renderFavBands();
+      return;
+    }
+    const card = ev.target.closest('.card.tap');
+    if(card) location.hash = '#/band/' + encodeURIComponent(card.dataset.id);
+  };
+}
+
+async function renderFavConcerts(){
+  const ids = favShows();
+  const content = $('#content'); content.className='grid';
+  if(!ids.length){ content.innerHTML=`<div class="card"><span class="small">No favorite concerts yet.</span></div>`; return; }
+
+  // Fetch metadata for each show (title, date, venue)
+  const metas = await Promise.all(ids.map(async id=>{
+    try{
+      const m = await fetchJSON(IA.metaUrl(id));
+      return {
+        id,
+        title: m?.metadata?.title || id,
+        date: m?.metadata?.date || '',
+        venue: m?.metadata?.venue || '',
+        coverage: m?.metadata?.coverage || ''
+      };
+    }catch{return {id, title:id};}
+  }));
+
+  content.innerHTML = metas.map(it=>{
+    const dateStr = it.date ? new Date(it.date).toLocaleDateString() : '';
+    const loc = [it.venue, it.coverage].filter(Boolean).join(', ');
+    return `
+      <div class="card tap" data-id="${it.id}">
+        <div>
+          <h3>${it.title}</h3>
+          <div class="small">${[dateStr, loc].filter(Boolean).join(' — ')}</div>
+        </div>
+        <div class="row">
+          <button class="btn ghost favToggle" title="Unfavorite">★</button>
+        </div>
+      </div>`;
+  }).join('');
+
+  content.onclick = ev=>{
+    const favBtn = ev.target.closest('.favToggle');
+    if(favBtn){
+      const card = favBtn.closest('.card'); const id = card.dataset.id;
+      const fav=favShows(); const i=fav.indexOf(id); if(i>=0) fav.splice(i,1); else fav.push(id);
+      store.set('favShows',fav); renderFavConcerts(); return;
+    }
+    const card = ev.target.closest('.card.tap');
+    if(card) location.hash = '#/show/' + encodeURIComponent(card.dataset.id);
+  };
+}
+
+function renderFavSongs(){
+  const arr = favSongs();
+  const content = $('#content'); content.className='tracks';
+  if(!arr.length){ content.innerHTML=`<div class="card"><span class="small">No favorite songs yet.</span></div>`; return; }
+
+  // parse keys: showId::title::url
+  const rows = arr.map(k=>{
+    const [showId, title, url] = k.split('::');
+    return {key:k, showId, title, url};
+  });
+
+  content.innerHTML = rows.map((r, i)=>`
+    <div class="track">
+      <div class="tleft">
+        <button class="starBtn on songFav" data-key="${r.key}" title="Unfavorite">★</button>
+        <div class="tnum">${i+1}</div>
+        <div class="tname">${r.title}</div>
+      </div>
+      <div class="row">
+        <button class="btn" data-play="${r.key}" title="Play">▶️</button>
+      </div>
+    </div>
+  `).join('');
+
+  content.onclick = ev=>{
+    const unf = ev.target.closest('.songFav[data-key]');
+    if(unf){
+      const key = unf.dataset.key;
+      const arr = favSongs(); const idx = arr.indexOf(key);
+      if(idx>=0) arr.splice(idx,1);
+      store.set('favSongs', arr);
+      renderFavSongs();
+      return;
+    }
+    const playBtn = ev.target.closest('button[data-play]');
+    if(playBtn){
+      const key = playBtn.dataset.play;
+      const [showId, title, url] = key.split('::');
+      // lightweight single-song play
+      currentShowId = showId;
+      trackList = [{url, title, length:'', key}];
+      trackEls = [];
+      playIndex(0);
+      location.hash = '#/show/' + encodeURIComponent(showId);
+    }
+  };
+}
+
+/* ------------ RECENTLY PLAYED (simple) ------------ */
+function pushRecent(track){
+  try{
+    const list = store.get('recentTracks',[]);
+    const item = {title: track.title, url: track.url, ts: Date.now(), showId: currentShowId};
+    // dedupe by url
+    const filtered = list.filter(x=>x.url!==item.url);
+    filtered.unshift(item);
+    store.set('recentTracks', filtered.slice(0,50));
+  }catch{}
+}
+function showRecent(){
+  show($('#toolbar-bands'),false); show($('#toolbar-band'),false); show($('#showMeta'),false);
+  $('#subTitle').style.display='none';
+  const list = store.get('recentTracks',[]);
+  const content=$('#content'); content.className='tracks';
+  if(!list.length){ content.innerHTML=`<div class="card"><span class="small">No recent plays.</span></div>`; return; }
+  content.innerHTML = list.map((r,i)=>`
+    <div class="track">
+      <div class="tleft">
+        <div class="tnum">${i+1}</div>
+        <div class="tname">${r.title}</div>
+      </div>
+      <div class="row">
+        <button class="btn" data-url="${r.url}" data-show="${r.showId}">▶️</button>
+      </div>
+    </div>
+  `).join('');
+  content.onclick = ev=>{
+    const btn = ev.target.closest('button[data-url]');
+    if(btn){
+      currentShowId = btn.dataset.show || '';
+      trackList = [{url: btn.dataset.url, title:'', length:''}];
+      playIndex(0);
+      if(currentShowId) location.hash = '#/show/' + encodeURIComponent(currentShowId);
+    }
+  };
+}
+
+/* ------------ wire main routes ------------ */
 Router.on('bands', showBands);
 Router.on('band', showBand);
 Router.on('show', showShow);
@@ -909,11 +1161,21 @@ $('#sortSel')?.addEventListener('change', showBands);
 $('#searchBox')?.addEventListener('change', showBands);
 $('#resetBtn')?.addEventListener('click', ()=>{ $('#sortSel').value='downloads desc'; $('#searchBox').value=''; location.hash='#/bands'; showBands(); });
 
+/* ------------ slide menu wiring ------------ */
+const sideMenu = $('#sideMenu'); const sideOverlay = $('#sideOverlay');
+function openMenu(){ sideMenu.classList.add('open'); sideOverlay.classList.add('open'); }
+function closeMenu(){ sideMenu.classList.remove('open'); sideOverlay.classList.remove('open'); }
+$('#hamOpen').addEventListener('click', openMenu);
+$('#hamClose').addEventListener('click', closeMenu);
+sideOverlay.addEventListener('click', closeMenu);
+sideMenu.addEventListener('click', (e)=>{ const it=e.target.closest('.menuItem[data-link]'); if(!it) return; closeMenu(); const h=it.dataset.link; if(h && h!=='#') location.hash=h; });
+
 /* ------------ optional SW ------------ */
 if('serviceWorker' in navigator){ navigator.serviceWorker.register('sw.js').catch(()=>{}); }
 
-/* Init header & eq once DOM is ready */
-document.addEventListener('DOMContentLoaded', ()=>{ renderHeader('bands'); updateEqAnim(); });
+/* Init eq state once DOM is ready */
+document.addEventListener('DOMContentLoaded', ()=>{ updateEqAnim(); });
+
 </script>
 </body>
 </html>
