@@ -26,7 +26,7 @@
 
   .wrap{min-height:100%; display:flex; flex-direction:column}
 
-  /* === UPDATED HEADER: two-line layout === */
+  /* === HEADER (two-line layout) === */
   header{
     padding:8px 12px;
     background:var(--panel);
@@ -36,7 +36,7 @@
   }
   .headerTop{display:flex; align-items:center; justify-content:space-between;}
   .headerTop h1{font-size:18px; margin:0; white-space:nowrap}
-  .headerBottom{text-align:center; font-size:15px; font-weight:500; color:var(--accent); overflow:hidden; text-overflow:ellipsis; white-space:nowrap}
+  .headerBottom{text-align:center; font-size:15px; font-weight:600; color:var(--warn); overflow:hidden; text-overflow:ellipsis; white-space:nowrap}
   .headerActions{display:flex; gap:8px; align-items:center}
   .headerActions .btn{min-height:32px; min-width:32px; padding:6px 10px; border-radius:10px}
   header .crumb{opacity:.75}
@@ -93,13 +93,13 @@
   .track.playing::before{content:""; position:absolute; left:0; top:0; bottom:0; width:6px; background:var(--warn); border-radius:12px 0 0 12px}
   .progressBar{position:absolute; left:0; bottom:0; height:3px; background:var(--warn); border-radius:0 0 12px 12px; width:0%}
 
-  /* Show header meta (title + date/location chips + Favorite at right) */
+  /* Show header meta */
   .showMeta{display:flex; gap:8px; flex-wrap:wrap; align-items:center; padding:6px 12px 8px}
   .showTitle{font-weight:600; margin-right:6px}
   .showMeta .end{margin-left:auto; display:flex; align-items:center}
   .stars{display:inline-flex; align-items:center; gap:4px}
 
-  /* === FIXED PLAYER (bottom) === */
+  /* === FIXED PLAYER === */
   .player{
     position:fixed; left:0; right:0; bottom:0;
     background:var(--panel);
@@ -115,31 +115,19 @@
   .player .btn{min-width:42px; min-height:42px; border-radius:12px}
   .seekWrap{display:flex; align-items:center; gap:10px; flex:1; min-width:180px}
   #P_times{font-size:12px; color:var(--muted); white-space:nowrap}
-  #P_seek{
-    flex:1; height:6px; border:none; outline:none; border-radius:999px;
-    background:#2a2b2f; -webkit-appearance:none; appearance:none;
-  }
-  #P_seek::-webkit-slider-thumb{
-    -webkit-appearance:none; appearance:none; width:14px; height:14px; border-radius:50%; background:#7bdcaa; border:none;
-  }
+  #P_seek{flex:1; height:6px; border:none; outline:none; border-radius:999px; background:#2a2b2f; -webkit-appearance:none; appearance:none;}
+  #P_seek::-webkit-slider-thumb{-webkit-appearance:none; appearance:none; width:14px; height:14px; border-radius:50%; background:#7bdcaa; border:none;}
   #P_seek::-moz-range-thumb{ width:14px; height:14px; border-radius:50%; background:#7bdcaa; border:none; }
 
-  /* Equalizer "Now Playing" button */
   .eqBtn{ width:42px; height:42px; border-radius:12px; border:1px solid var(--ring); background:var(--btn); display:flex; align-items:center; justify-content:center; cursor:pointer }
   .eqBars{ display:inline-flex; align-items:flex-end; gap:3px; width:18px; height:16px }
   .eqBars span{ width:4px; background:#7bdcaa; border-radius:2px; animation:eq 1.1s infinite ease-in-out; transform-origin:bottom }
   .eqBars span:nth-child(1){ animation-delay:0s }
   .eqBars span:nth-child(2){ animation-delay:.15s }
   .eqBars span:nth-child(3){ animation-delay:.3s }
-  @keyframes eq {
-    0%,100%{ height:20% }
-    25%{ height:80% }
-    50%{ height:40% }
-    75%{ height:70% }
-  }
+  @keyframes eq { 0%,100%{height:20%} 25%{height:80%} 50%{height:40%} 75%{height:70%} }
   .eqBars.paused span{ animation-play-state: paused; opacity:.6; }
 
-  /* Volume popover (centered) */
   .volWrap{position:relative}
   .volPop{
     position:fixed; left:50%; transform:translateX(-50%); bottom:72px;
@@ -182,7 +170,6 @@
 
   <!-- Concerts toolbar -->
   <div class="toolbar" id="toolbar-band" style="display:none;">
-    <!-- Sort (custom dropdown) -->
     <div class="pill dropdown" id="sortDrop" aria-label="Sort">
       <button class="dropBtn" id="sortBtn">Sort</button>
       <div class="menu" id="sortMenu" role="listbox" aria-label="Sort options">
@@ -194,7 +181,6 @@
       </div>
     </div>
 
-    <!-- Year (custom dropdown) -->
     <div class="pill dropdown" id="yearDrop" aria-label="Year">
       <button class="dropBtn" id="yearBtn">All years</button>
       <div class="menu" id="yearMenu" role="listbox" aria-label="Year options">
@@ -202,7 +188,6 @@
       </div>
     </div>
 
-    <!-- Text filter -->
     <div class="pill" style="flex:1 1 160px;"><input id="concertSearch" type="search" placeholder="Filter (venue/city/title)" style="width:100%"></div>
 
     <button id="favConcertsToggle" class="btn" title="Show only favorites">☆ Favorites</button>
@@ -225,23 +210,18 @@
 <!-- Fixed Player -->
 <div class="player" id="player">
   <div class="controls">
-    <!-- Equalizer "Now Playing" button -->
     <button id="P_now" class="eqBtn" title="Go to currently playing">
       <span class="eqBars" aria-hidden="true"><span style="height:60%"></span><span style="height:30%"></span><span style="height:45%"></span></span>
     </button>
-
-    <!-- Transport -->
     <button id="P_prev" class="btn" title="Previous">⏮</button>
     <button id="P_play" class="btn" title="Play/Pause">▶️</button>
     <button id="P_next" class="btn" title="Next">⏭</button>
 
-    <!-- Time / Seek -->
     <div class="seekWrap">
       <div id="P_times"><span class="cur">0:00</span><span class="dur"> / 0:00</span></div>
       <input id="P_seek" type="range" min="0" max="1000" value="0" step="1" aria-label="Seek">
     </div>
 
-    <!-- Volume -->
     <div class="volWrap">
       <button id="P_mute" class="btn" title="Volume">🔈</button>
       <div id="volPop" class="volPop" role="dialog" aria-label="Volume">
@@ -264,6 +244,15 @@ const fmtTime = secs => { secs = Math.max(0, Math.floor(secs||0)); const m=Math.
 const fmtCompact = n => { n=Number(n||0); if(n>=1e9) return (n/1e9).toFixed(1)+'B'; if(n>=1e6) return (n/1e6).toFixed(1)+'M'; if(n>=1e3) return (n/1e3).toFixed(1)+'K'; return String(n); };
 function show(el,on=true){ if(!el) return; el.style.display=on?'':'none'; }
 const store = { get(k,f){ try{return JSON.parse(localStorage.getItem(k))??f;}catch{return f;}}, set(k,v){ localStorage.setItem(k,JSON.stringify(v)); } };
+
+/* Pretty band name from identifier when we don't have the title */
+function prettyBandName(id=''){
+  return String(id)
+    .replace(/[_-]+/g,' ')
+    .replace(/([a-z])([A-Z])/g,'$1 $2')
+    .replace(/\s+/g,' ')
+    .trim();
+}
 
 /* ------------ router ------------ */
 const Router = (() => {
@@ -299,8 +288,9 @@ function setHeaderActions(routeName){
     btn.onclick = () => { location.hash = '#/bands'; };
     actions.appendChild(btn);
     // Show band name centered
-    const bandTitle = decodeURIComponent(currentBandId||'');
-    bandNameEl.textContent = bandTitle.replace(/_/g,' ');
+    const storedTitle = store.get('bandTitle_'+currentBandId, null);
+    const bandTitle = storedTitle || prettyBandName(currentBandId||'');
+    bandNameEl.textContent = bandTitle;
   }
 }
 
@@ -416,7 +406,7 @@ function renderStars(r){
 /* ------------ Bands page ------------ */
 async function showBands(){
   show($('#toolbar-bands'),true); show($('#toolbar-band'),false); show($('#showMeta'),false);
-  $('#headerBandName').textContent = ''; // clear second-line band name
+  $('#headerBandName').textContent = '';
   const content=$('#content'); content.className='bandsGrid'; content.innerHTML=`<div class="card"><span class="small">Loading bands…</span></div>`;
   const sort=$('#sortSel')?.value||'downloads desc'; const term=($('#searchBox')?.value||'').trim();
   let q='collection:(etree) AND mediatype:(collection)'; if(term) q+=` AND (title:(${term}) OR identifier:(${term}))`;
@@ -425,12 +415,17 @@ async function showBands(){
       const data=await fetchJSON(IA.bandsUrl({q,sort,rows:120}));
       const items=(data?.response?.docs||[]).map(d=>({id:d.identifier,title:d.title||d.identifier,downloads:d.downloads||0}));
       content.innerHTML = items.map(b=>`
-        <div class="bandTile" data-id="${b.id}">
+        <div class="bandTile" data-id="${b.id}" data-title="${b.title.replace(/"/g,'&quot;')}">
           <img src="${IA.imgUrl(b.id)}" alt="${b.title}">
           <div class="bandTitle">${b.title}</div>
           <div class="bandViews">${b.downloads.toLocaleString()} views</div>
         </div>`).join('');
-      content.onclick = ev => { const tile=ev.target.closest('.bandTile'); if(!tile) return; location.hash='#/band/'+encodeURIComponent(tile.dataset.id); };
+      content.onclick = ev => {
+        const tile=ev.target.closest('.bandTile'); if(!tile) return;
+        const id = tile.dataset.id; const title = tile.dataset.title;
+        if(id && title) store.set('bandTitle_'+id, title);
+        location.hash='#/band/'+encodeURIComponent(id);
+      };
     }catch(e){
       const msg = navigator.onLine ? 'Network error while loading bands.' : 'You appear to be offline.';
       showRetry(content, msg, load);
@@ -509,7 +504,6 @@ const YearDrop = (()=> {
 function resolveSort(){ return state.sortSel==='auto' ? (state.year ? 'date asc' : 'date desc') : state.sortSel; }
 
 async function buildYearCounts(bandId){
-  // Try facet first (silent fallback)
   const facet = await IA.facetYearsJSONP({bandId});
   let counts = {};
   if (facet?.response?.facets?.year){
@@ -517,7 +511,6 @@ async function buildYearCounts(bandId){
     for(const k in y){ if(!isNaN(+k)) counts[k] = y[k]; }
   }
   if (!Object.keys(counts).length){
-    // Fallback: paged lightweight year docs
     let page=1, rows=1200, numFound=Infinity, got=0;
     while(got < numFound && page<=120){
       const data = await fetchJSON(IA.yearsOnlyUrl({bandId, rows, page}));
@@ -569,7 +562,6 @@ async function showBand(params){
   show($('#toolbar-bands'),false); show($('#toolbar-band'),true); show($('#showMeta'),false);
   currentBandId = decodeURIComponent((params||[])[0]||'');
 
-  // Sort dropdown wiring
   SortDrop.subscribe((val)=> resetAndLoad({sortSel:val}));
   SortDrop.setValue('auto', true);
 
@@ -577,15 +569,14 @@ async function showBand(params){
   $('#resetConcerts').onclick=()=>{ onlyFavConcerts=false; YearDrop.setValue(''); $('#concertSearch').value=''; SortDrop.setValue('auto', true); $('#favConcertsToggle').textContent='☆ Favorites'; resetAndLoad({year:'', term:'', sortSel:'auto'}); };
   $('#concertSearch').onchange=()=> resetAndLoad({term:($('#concertSearch').value||'').trim().toLowerCase()});
 
-  // Years (cached or build)
   const cached = store.get('years_'+currentBandId,null);
   if(cached){ const counts={}; for(const y of cached.years) counts[y.year]=y.count; updateYearMenu(counts); }
   else { YearDrop.setOptions([{value:'', label:'All years'}, {value:'', label:'Loading years…'}]); }
   buildYearCounts(currentBandId).catch(()=>{});
 
-  // Set header band name immediately
-  const bandTitle = decodeURIComponent(currentBandId||'').replace(/_/g,' ');
-  $('#headerBandName').textContent = bandTitle;
+  // Set header band name using stored title or prettified id
+  const storedTitle = store.get('bandTitle_'+currentBandId, null);
+  $('#headerBandName').textContent = storedTitle || prettyBandName(currentBandId||'');
 
   resetAndLoad({year:'', term:'', sortSel:'auto'});
 }
@@ -662,7 +653,7 @@ function extractTrackNo(f){ const n1=Number(f.track||f.trackno||''); if(!isNaN(n
 
 async function showShow(params){
   show($('#toolbar-bands'),false); show($('#toolbar-band'),false);
-  $('#headerBandName').textContent = ''; // hide band name on tracks view
+  $('#headerBandName').textContent = '';
   currentShowId = decodeURIComponent((params||[])[0]||'');
 
   const content=$('#content'); content.className='tracks'; content.innerHTML=`<div class="card"><span class="small">Loading tracks…</span></div>`;
@@ -820,8 +811,7 @@ $('#resetBtn')?.addEventListener('click', ()=>{ $('#sortSel').value='downloads d
 if('serviceWorker' in navigator){ navigator.serviceWorker.register('sw.js').catch(()=>{}); }
 
 /* Init eq state once DOM is ready */
-function updateEqAnim(){ if(EQ) EQ.classList.toggle('paused', A.paused); }
-document.addEventListener('DOMContentLoaded', updateEqAnim);
+document.addEventListener('DOMContentLoaded', ()=>{ const EQ = document.querySelector('#P_now .eqBars'); if(EQ){ EQ.classList.toggle('paused', true);} });
 </script>
 </body>
 </html>
