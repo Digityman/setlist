@@ -31,7 +31,7 @@
     box-shadow:0 1px 0 #000 inset, 0 1px 0 rgba(255,255,255,.03)
   }
   header h1{font-size:18px; margin:0; white-space:nowrap}
-  header .crumb{opacity:.75}
+  header .crumb{opacity:.85}
   .spacer{flex:1}
   .headerActions{display:flex; gap:8px; align-items:center}
   .headerActions .btn{min-height:32px; min-width:32px; padding:6px 10px; border-radius:10px}
@@ -132,16 +132,12 @@
     50%{ height:40% }
     75%{ height:70% }
   }
-  /* Pause the equalizer animation when audio is paused */
-  .eqBars.paused span{
-    animation-play-state: paused;
-    opacity:.6;
-  }
+  .eqBars.paused span{ animation-play-state: paused; opacity:.6; }
 
   /* Volume popover (centered) */
   .volWrap{position:relative}
   .volPop{
-    position:fixed; /* center of viewport horizontally */
+    position:fixed;
     left:50%; transform:translateX(-50%);
     bottom:72px;
     background:var(--panel); border:1px solid var(--ring); border-radius:12px;
@@ -269,13 +265,28 @@ const Router = (() => {
   const routes={};
   function on(n,f){routes[n]=f}
   function parse(){ const raw=location.hash.replace(/^#\/?/,''); const [name,...rest]=raw.split('/').filter(Boolean); return {name:name||'bands', params:rest}; }
-  function route(){ const r=parse(); (routes[r.name]||routes['bands'])(r.params);
-    $('#crumb').textContent = r.name==='band'?'— Concerts':(r.name==='show'?'— Tracks':'— Bands');
-    setHeaderActions(r.name);
-  }
+  function route(){ const r=parse(); (routes[r.name]||routes['bands'])(r.params); updateCrumb(r.name); setHeaderActions(r.name); }
   return {on,route};
 })();
 addEventListener('hashchange', Router.route); addEventListener('DOMContentLoaded', Router.route);
+
+/* ------------ header helpers ------------ */
+let currentBandId=''; 
+let currentBandName='';
+
+function updateCrumb(routeName){
+  const crumb = $('#crumb');
+  if(!crumb) return;
+  if(routeName==='band' && currentBandName){
+    crumb.textContent = ' - ' + currentBandName + ' Concerts';
+  }else if(routeName==='band'){
+    crumb.textContent = ' - Concerts';
+  }else if(routeName==='show'){
+    crumb.textContent = ' - Tracks';
+  }else{
+    crumb.textContent = ' - Bands';
+  }
+}
 
 function setHeaderActions(routeName){
   const actions = $('#headerActions'); if(!actions) return;
@@ -409,6 +420,8 @@ function renderStars(r){
 /* ------------ Bands page ------------ */
 async function showBands(){
   show($('#toolbar-bands'),true); show($('#toolbar-band'),false); show($('#showMeta'),false);
+  currentBandName=''; updateCrumb('bands');
+
   const content=$('#content'); content.className='bandsGrid'; content.innerHTML=`<div class="card"><span class="small">Loading bands…</span></div>`;
   const sort=$('#sortSel')?.value||'downloads desc'; const term=($('#searchBox')?.value||'').trim();
   let q='collection:(etree) AND mediatype:(collection)'; if(term) q+=` AND (title:(${term}) OR identifier:(${term}))`;
@@ -417,12 +430,18 @@ async function showBands(){
       const data=await fetchJSON(IA.bandsUrl({q,sort,rows:120}));
       const items=(data?.response?.docs||[]).map(d=>({id:d.identifier,title:d.title||d.identifier,downloads:d.downloads||0}));
       content.innerHTML = items.map(b=>`
-        <div class="bandTile" data-id="${b.id}">
+        <div class="bandTile" data-id="${b.id}" data-title="${b.title}">
           <img src="${IA.imgUrl(b.id)}" alt="${b.title}">
           <div class="bandTitle">${b.title}</div>
           <div class="bandViews">${b.downloads.toLocaleString()} views</div>
         </div>`).join('');
-      content.onclick = ev => { const tile=ev.target.closest('.bandTile'); if(!tile) return; location.hash='#/band/'+encodeURIComponent(tile.dataset.id); };
+      content.onclick = ev => {
+        const tile=ev.target.closest('.bandTile'); if(!tile) return;
+        const id = tile.dataset.id;
+        const title = tile.dataset.title || tile.querySelector('.bandTitle')?.textContent || id;
+        store.set('bandTitle_'+id, title);
+        location.hash='#/band/'+encodeURIComponent(id);
+      };
     }catch(e){
       const msg = navigator.onLine ? 'Network error while loading bands.' : 'You appear to be offline.';
       showRetry(content, msg, load);
@@ -432,7 +451,6 @@ async function showBands(){
 }
 
 /* ------------ Concerts page ------------ */
-let currentBandId=''; 
 let state={year:'', term:'', sortSel:'auto', page:1, numFound:0, rows:200, list:[]};
 let onlyFavConcerts=false;
 
@@ -545,6 +563,17 @@ async function loadPage(){
     const resp = data?.response || {};
     state.numFound = Number(resp.numFound || 0);
     state.list = state.list.concat(resp.docs || []);
+
+    // If we don't have the band name yet, try to infer from the first doc's creator
+    if(!currentBandName){
+      const inferred = (resp.docs && resp.docs[0] && (resp.docs[0].creator || '') ) || '';
+      if(inferred){
+        currentBandName = inferred;
+        store.set('bandTitle_'+currentBandId, inferred);
+        updateCrumb('band');
+      }
+    }
+
     renderConcerts();
   }catch(e){
     showRetry(content, 'Network error while loading concerts.', ()=>loadPage());
@@ -560,6 +589,10 @@ function resetAndLoad(patch={}){
 async function showBand(params){
   show($('#toolbar-bands'),false); show($('#toolbar-band'),true); show($('#showMeta'),false);
   currentBandId = decodeURIComponent((params||[])[0]||'');
+
+  // Set band name from what we saved when clicking the tile (fast)
+  currentBandName = store.get('bandTitle_'+currentBandId, '') || '';
+  updateCrumb('band');
 
   // Sort dropdown wiring
   SortDrop.subscribe((val)=> resetAndLoad({sortSel:val}));
