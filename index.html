@@ -36,7 +36,11 @@
   }
   .headerTop{display:flex; align-items:center; justify-content:space-between;}
   .headerTop h1{font-size:18px; margin:0; white-space:nowrap}
-  .headerBottom{text-align:center; font-size:15px; font-weight:600; color:var(--warn); overflow:hidden; text-overflow:ellipsis; white-space:nowrap}
+  .headerBottom{
+    text-align:center; font-size:15px; font-weight:600; color:var(--warn);
+    overflow:hidden; text-overflow:ellipsis; white-space:nowrap;
+    display:flex; align-items:center; justify-content:center; gap:10px;
+  }
   .headerActions{display:flex; gap:8px; align-items:center}
   .headerActions .btn{min-height:32px; min-width:32px; padding:6px 10px; border-radius:10px}
   header .crumb{opacity:.75}
@@ -52,7 +56,14 @@
   .chip{background:var(--panel); border:1px solid var(--ring); border-radius:999px; padding:6px 10px; font-size:12px; color:var(--muted)}
   .pillBtn{background:var(--panel); border:1px solid var(--ring); border-radius:999px; padding:6px 10px; font-size:12px; cursor:pointer; color:var(--text)}
 
-  /* Custom dropdowns (full-pill clickable, scrollable) */
+  /* Small star next to band name */
+  .starInline{
+    background:transparent; border:1px solid var(--ring);
+    padding:2px 8px; border-radius:999px; line-height:1; cursor:pointer;
+    color:var(--text);
+  }
+
+  /* Custom dropdowns */
   .dropdown{position:relative; min-width:150px; cursor:pointer}
   .dropBtn{background:transparent; border:none; color:var(--text); font:14px; width:100%; text-align:left; padding:0; pointer-events:none}
   .menu{
@@ -65,7 +76,7 @@
   .menu .item{padding:9px 12px; cursor:pointer; white-space:nowrap}
   .menu .item:hover{background:#202124}
 
-  /* Bands grid — ≈5 per row */
+  /* Bands grid */
   .bandsGrid{display:grid; grid-template-columns: repeat(auto-fill, minmax(80px, 1fr)); gap:8px; padding:0 12px 120px}
   .bandTile{background:var(--panel); border:1px solid var(--ring); border-radius:12px; padding:6px; display:flex; flex-direction:column; gap:6px; cursor:pointer}
   .bandTile img{width:100%; aspect-ratio:1/1; object-fit:cover; border-radius:8px; background:#0c0c0d}
@@ -271,7 +282,7 @@ function setHeaderActions(routeName){
   const actions = $('#headerActions'); if(!actions) return;
   actions.innerHTML = '';
   const bandNameEl = $('#headerBandName');
-  bandNameEl.textContent = '';
+  if(routeName!=='band') bandNameEl.textContent = '';
 
   if(routeName==='show'){
     const btn = document.createElement('button');
@@ -287,10 +298,6 @@ function setHeaderActions(routeName){
     btn.textContent = '← Bands';
     btn.onclick = () => { location.hash = '#/bands'; };
     actions.appendChild(btn);
-    // Show band name centered
-    const storedTitle = store.get('bandTitle_'+currentBandId, null);
-    const bandTitle = storedTitle || prettyBandName(currentBandId||'');
-    bandNameEl.textContent = bandTitle;
   }
 }
 
@@ -403,17 +410,64 @@ function renderStars(r){
   return `<span class="stars" aria-label="${rating} out of 5 stars">${out}</span>`;
 }
 
+/* ------------ Favorites (bands & shows) ------------ */
+function favBands(){ return store.get('favBands',[]); }
+function isBandFav(id){ return favBands().includes(id); }
+function toggleBandFav(id){
+  const arr = favBands();
+  const i = arr.indexOf(id);
+  if(i>=0) arr.splice(i,1); else arr.push(id);
+  store.set('favBands', arr);
+  updateBandFavUI();
+}
+function updateBandFavUI(){
+  const btn=$('#bandFavBtn');
+  if(!btn) return;
+  const on = isBandFav(currentBandId);
+  btn.textContent = on ? '★' : '☆';
+  btn.title = on ? 'Unfavorite band' : 'Favorite band';
+}
+
 /* ------------ Bands page ------------ */
+let currentBandId=''; 
+let state={year:'', term:'', sortSel:'auto', page:1, numFound:0, rows:200, list:[]};
+let onlyFavConcerts=false;
+let onlyFavBands=false;  // NEW: filter on bands page
+
+function favShows(){ return store.get('favShows',[]); }
+function isFav(id){ return favShows().includes(id); }
+
 async function showBands(){
   show($('#toolbar-bands'),true); show($('#toolbar-band'),false); show($('#showMeta'),false);
   $('#headerBandName').textContent = '';
+
   const content=$('#content'); content.className='bandsGrid'; content.innerHTML=`<div class="card"><span class="small">Loading bands…</span></div>`;
   const sort=$('#sortSel')?.value||'downloads desc'; const term=($('#searchBox')?.value||'').trim();
   let q='collection:(etree) AND mediatype:(collection)'; if(term) q+=` AND (title:(${term}) OR identifier:(${term}))`;
+
+  // Wire favorites filter button for bands
+  const favBtn = $('#favToggle');
+  if (favBtn && !favBtn._wired){
+    favBtn._wired = true;
+    favBtn.addEventListener('click', ()=>{
+      onlyFavBands = !onlyFavBands;
+      favBtn.textContent = onlyFavBands ? '★ Favorites' : '☆ Favorites';
+      showBands(); // reload with filter
+    });
+  }
+
   const load = async ()=>{
     try{
       const data=await fetchJSON(IA.bandsUrl({q,sort,rows:120}));
-      const items=(data?.response?.docs||[]).map(d=>({id:d.identifier,title:d.title||d.identifier,downloads:d.downloads||0}));
+      let items=(data?.response?.docs||[]).map(d=>({id:d.identifier,title:d.title||d.identifier,downloads:d.downloads||0}));
+      if (onlyFavBands){
+        const f = new Set(favBands());
+        items = items.filter(b=>f.has(b.id));
+      }
+      if (!items.length){
+        content.innerHTML = `<div class="card"><span class="small">${onlyFavBands?'No favorite bands yet. Open a band and star it.':'No bands found.'}</span></div>`;
+        return;
+      }
       content.innerHTML = items.map(b=>`
         <div class="bandTile" data-id="${b.id}" data-title="${b.title.replace(/"/g,'&quot;')}">
           <img src="${IA.imgUrl(b.id)}" alt="${b.title}">
@@ -435,71 +489,6 @@ async function showBands(){
 }
 
 /* ------------ Concerts page ------------ */
-let currentBandId=''; 
-let state={year:'', term:'', sortSel:'auto', page:1, numFound:0, rows:200, list:[]};
-let onlyFavConcerts=false;
-
-function favShows(){ return store.get('favShows',[]); }
-function isFav(id){ return favShows().includes(id); }
-
-/* Sort dropdown controller */
-const SortDrop = (()=> {
-  const wrap = document.getElementById('sortDrop');
-  const btn  = document.getElementById('sortBtn');
-  const menu = document.getElementById('sortMenu');
-  let value = 'auto';
-  const options = [
-    {value:'auto', label:'Auto'},
-    {value:'date asc', label:'Date ↑'},
-    {value:'date desc', label:'Date ↓'},
-    {value:'avg_rating desc', label:'Reviews ↓'},
-    {value:'downloads desc', label:'Views ↓'},
-  ];
-  function render(){ menu.innerHTML = options.map(o=>`<div class="item" data-value="${o.value}">${o.label}</div>`).join(''); }
-  function close(){ menu.classList.remove('open'); }
-  wrap.addEventListener('click', (e)=>{ if(e.target.closest('.item')) return; menu.classList.toggle('open'); });
-  document.addEventListener('click', (e)=>{ if(!wrap.contains(e.target)) close(); });
-  menu.addEventListener('click', (e)=>{
-    const it = e.target.closest('.item'); if(!it) return;
-    setValue(it.dataset.value, false);
-    close();
-    onChange?.(value);
-  });
-  function setValue(v, placeholder=false){
-    value = v||'auto';
-    btn.textContent = placeholder && value==='auto' ? 'Sort'
-      : (options.find(o=>o.value===value)?.label || 'Sort');
-  }
-  let onChange = null;
-  function subscribe(fn){ onChange = fn; }
-  render(); setValue('auto', true);
-  return {getValue:()=>value, setValue, subscribe};
-})();
-
-/* Scrollable Year dropdown controller */
-const YearDrop = (()=> {
-  const wrap = document.getElementById('yearDrop');
-  const btn  = document.getElementById('yearBtn');
-  const menu = document.getElementById('yearMenu');
-  let value = '';
-  let options = [{value:'', label:'All years'}];
-  function render(){ menu.innerHTML = options.map(o=>`<div class="item" data-value="${o.value}">${o.label}</div>`).join(''); }
-  function close(){ menu.classList.remove('open'); }
-  wrap.addEventListener('click', (e)=>{ if(e.target.closest('.item')) return; menu.classList.toggle('open'); });
-  document.addEventListener('click', (e)=>{ if(!wrap.contains(e.target)) close(); });
-  menu.addEventListener('click', (e)=>{
-    const it = e.target.closest('.item'); if(!it) return;
-    value = it.dataset.value || '';
-    btn.textContent = (options.find(o=>String(o.value)===String(value))?.label) || 'All years';
-    close();
-    resetAndLoad({year:value});
-  });
-  function setOptions(arr){ options = arr; render(); }
-  function setValue(v){ value=v||''; btn.textContent=(options.find(o=>String(o.value)===String(value))?.label)||'All years'; }
-  function getValue(){ return value; }
-  render();
-  return {setOptions,setValue,getValue};
-})();
 
 function resolveSort(){ return state.sortSel==='auto' ? (state.year ? 'date asc' : 'date desc') : state.sortSel; }
 
@@ -536,6 +525,63 @@ function updateYearMenu(counts){
     YearDrop.setValue(YearDrop.getValue());
   }
 }
+
+const SortDrop = (()=> {
+  const wrap = document.getElementById('sortDrop');
+  const btn  = document.getElementById('sortBtn');
+  const menu = document.getElementById('sortMenu');
+  let value = 'auto';
+  const options = [
+    {value:'auto', label:'Auto'},
+    {value:'date asc', label:'Date ↑'},
+    {value:'date desc', label:'Date ↓'},
+    {value:'avg_rating desc', label:'Reviews ↓'},
+    {value:'downloads desc', label:'Views ↓'},
+  ];
+  function render(){ menu.innerHTML = options.map(o=>`<div class="item" data-value="${o.value}">${o.label}</div>`).join(''); }
+  function close(){ menu.classList.remove('open'); }
+  wrap.addEventListener('click', (e)=>{ if(e.target.closest('.item')) return; menu.classList.toggle('open'); });
+  document.addEventListener('click', (e)=>{ if(!wrap.contains(e.target)) close(); });
+  menu.addEventListener('click', (e)=>{
+    const it = e.target.closest('.item'); if(!it) return;
+    setValue(it.dataset.value, false);
+    close();
+    onChange?.(value);
+  });
+  function setValue(v, placeholder=false){
+    value = v||'auto';
+    btn.textContent = placeholder && value==='auto' ? 'Sort'
+      : (options.find(o=>o.value===value)?.label || 'Sort');
+  }
+  let onChange = null;
+  function subscribe(fn){ onChange = fn; }
+  render(); setValue('auto', true);
+  return {getValue:()=>value, setValue, subscribe};
+})();
+
+const YearDrop = (()=> {
+  const wrap = document.getElementById('yearDrop');
+  const btn  = document.getElementById('yearBtn');
+  const menu = document.getElementById('yearMenu');
+  let value = '';
+  let options = [{value:'', label:'All years'}];
+  function render(){ menu.innerHTML = options.map(o=>`<div class="item" data-value="${o.value}">${o.label}</div>`).join(''); }
+  function close(){ menu.classList.remove('open'); }
+  wrap.addEventListener('click', (e)=>{ if(e.target.closest('.item')) return; menu.classList.toggle('open'); });
+  document.addEventListener('click', (e)=>{ if(!wrap.contains(e.target)) close(); });
+  menu.addEventListener('click', (e)=>{
+    const it = e.target.closest('.item'); if(!it) return;
+    value = it.dataset.value || '';
+    btn.textContent = (options.find(o=>String(o.value)===String(value))?.label) || 'All years';
+    close();
+    resetAndLoad({year:value});
+  });
+  function setOptions(arr){ options = arr; render(); }
+  function setValue(v){ value=v||''; btn.textContent=(options.find(o=>String(o.value)===String(value))?.label)||'All years'; }
+  function getValue(){ return value; }
+  render();
+  return {setOptions,setValue,getValue};
+})();
 
 async function loadPage(){
   const content=$('#content');
@@ -574,9 +620,13 @@ async function showBand(params){
   else { YearDrop.setOptions([{value:'', label:'All years'}, {value:'', label:'Loading years…'}]); }
   buildYearCounts(currentBandId).catch(()=>{});
 
-  // Set header band name using stored title or prettified id
+  // Set centered band name + star
   const storedTitle = store.get('bandTitle_'+currentBandId, null);
-  $('#headerBandName').textContent = storedTitle || prettyBandName(currentBandId||'');
+  const label = storedTitle || prettyBandName(currentBandId||'');
+  const bandHeader = $('#headerBandName');
+  bandHeader.innerHTML = `<span id="headerBandLabel">${label}</span><button id="bandFavBtn" class="starInline" title="Favorite band">☆</button>`;
+  $('#bandFavBtn').addEventListener('click', ()=> toggleBandFav(currentBandId));
+  updateBandFavUI();
 
   resetAndLoad({year:'', term:'', sortSel:'auto'});
 }
@@ -805,7 +855,7 @@ Router.on('show', showShow);
 /* ------------ bands filters ------------ */
 $('#sortSel')?.addEventListener('change', showBands);
 $('#searchBox')?.addEventListener('change', showBands);
-$('#resetBtn')?.addEventListener('click', ()=>{ $('#sortSel').value='downloads desc'; $('#searchBox').value=''; location.hash='#/bands'; showBands(); });
+$('#resetBtn')?.addEventListener('click', ()=>{ $('#sortSel').value='downloads desc'; $('#searchBox').value=''; location.hash='#/bands'; onlyFavBands=false; $('#favToggle').textContent='☆ Favorites'; showBands(); });
 
 /* ------------ optional SW ------------ */
 if('serviceWorker' in navigator){ navigator.serviceWorker.register('sw.js').catch(()=>{}); }
