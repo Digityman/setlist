@@ -419,7 +419,7 @@ const IA = {
     const safe = ids.map(id=>`"${id.replace(/"/g,'\"')}"`);
     const q = `identifier:(${safe.join(' OR ')}) AND (mediatype:(etree) OR mediatype:(audio))`;
     u.searchParams.set('q', q);
-    ['identifier','title','date','year','downloads','avg_rating','num_reviews','venue','coverage','creator','publicdate']
+    ['identifier','title','date','year','downloads','avg_rating','num_reviews','venue','coverage','creator','publicdate','collection']
       .forEach(f=>u.searchParams.append('fl[]',f));
     u.searchParams.append('sort[]','date desc');
     u.searchParams.set('rows', String(ids.length || 50));
@@ -576,6 +576,22 @@ let state={year:'', term:'', sortSel:'auto', page:1, numFound:0, rows:200, list:
 let onlyFavConcerts=false;
 
 function isFav(id){ return favShows().includes(id); }
+  
+// Fetch favorite show docs for this band (batched), filtering by collection
+async function fetchFavDocsForBand(bandId){
+  const ids = favShows();
+  if (!ids.length) return [];
+  const batchSize = 40;
+  let docs = [];
+  for (let i=0; i<ids.length; i+=batchSize){
+    const chunk = ids.slice(i, i+batchSize);
+    const data = await fetchJSON(IA.concertsByIdsUrl(chunk));
+    const part = (data?.response?.docs) || [];
+    docs = docs.concat(part);
+  }
+  // Keep only shows whose collections include this band id
+  return docs.filter(d => Array.isArray(d.collection) ? d.collection.includes(bandId) : false);
+}
 
 /* Sort dropdown controller */
 const SortDrop = (()=> {
@@ -723,6 +739,50 @@ function updateFavBandBtn(){
   const isFav = favBands().includes(currentBandId);
   btn.textContent = isFav ? '★' : '☆';
   btn.classList.toggle('fav', isFav);
+}
+async function renderFavConcertsForBand(){
+  const content = $('#content'); 
+  content.className = 'grid';
+  const docs = await fetchFavDocsForBand(currentBandId);
+
+  if (!docs.length){
+    content.innerHTML = `<div class="card"><span class="small">No favorite concerts for this band.</span></div>`;
+    return;
+  }
+
+  content.innerHTML = docs.map(it=>{
+    const dateStr   = it.date ? new Date(it.date).toLocaleDateString() : (it.year||'');
+    const reviews   = it.num_reviews || 0;
+    const venueLine = [it.venue, it.coverage].filter(Boolean).join(', ');
+    const viewsChip = `<span class="chip">${fmtCompact(it.downloads||0)} views</span>`;
+    return `
+      <div class="card tap" data-id="${it.identifier}">
+        <div>
+          <h3>${it.title || it.identifier}</h3>
+          <div class="row">
+            <span class="chip">${dateStr}</span>
+            ${viewsChip}
+            ${renderStars(it.avg_rating||0)} <span class="small">(${reviews})</span>
+          </div>
+          <div class="small">${venueLine}</div>
+        </div>
+        <div class="row">
+          <button class="btn ghost favToggle" title="Favorite">★</button>
+        </div>
+      </div>`;
+  }).join('');
+
+  // Clicks (open / unfavorite)
+  content.onclick = ev => {
+    const favBtn = ev.target.closest('.favToggle');
+    if (favBtn){
+      const card = favBtn.closest('.card'); const id = card?.dataset.id;
+      if (id){ toggleFavShow(id); renderFavConcertsForBand(); }
+      return;
+    }
+    const card = ev.target.closest('.card.tap');
+    if (card) location.hash = '#/show/' + encodeURIComponent(card.dataset.id);
+  };
 }
 
 function renderConcerts(){
