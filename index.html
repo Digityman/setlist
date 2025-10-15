@@ -1127,25 +1127,6 @@ Router.on('favorites/concerts', async ()=>{
   }
 });
 
-
-  // Wire actions
-  $('#favShowsPlayAll').onclick = ()=> startShowQueue(false);
-  $('#favShowsShuffleAll').onclick = ()=> startShowQueue(true);
-
-  function startShowQueue(shuffle){
-    showQueue = shows.slice();
-    if(shuffle) shuffleArray(showQueue);
-    showQueuePos = 0; queueShowsActive = true; persistShowQueue();
-    store.set('autoPlayOnLoad', true);
-    location.hash = '#/show/' + encodeURIComponent(showQueue[0]);
-  }
-
-  content.onclick = (e)=>{
-    const open = e.target.getAttribute('data-open'); if(open){ location.hash = '#/show/'+encodeURIComponent(open); return; }
-    const unf  = e.target.getAttribute('data-unfav'); if(unf){ toggleFavShow(unf); Router.route(); return; }
-  };
-});
-
 Router.on('favorites/songs', ()=>{
   show($('#toolbar-bands'),false); show($('#toolbar-band'),false); show($('#showMeta'),false);
   const content=$('#content'); content.className='tracks';
