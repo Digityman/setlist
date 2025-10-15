@@ -1208,21 +1208,21 @@ Router.on('favorites/concerts', async ()=>{
         const venueLine = [it.venue, it.coverage].filter(Boolean).join(', ');
         const viewsChip = `<span class="chip">${fmtCompact(it.downloads||0)} views</span>`;
         return `
-          <div class="card tap" data-id="${it.identifier}">
-            <div>
-              <h3>${it.title || it.identifier}</h3>
-              <div class="row">
-                <span class="chip">${dateStr}</span>
-                ${viewsChip}
-                ${renderStars(it.avg_rating||0)} <span class="small">(${reviews})</span>
-              </div>
-              <div class="small">${venueLine}</div>
-            </div>
-            <div class="row">
-              <button class="btn ghost favToggle" title="Favorite">★</button>
-            </div>
-          </div>`;
-      }).join(''));
+return `
+  <div class="card tap fav" data-id="${it.identifier}">
+    <div>
+      <h3 class="title">${it.title || it.identifier}</h3>
+      <div class="row">
+        <span class="chip">${dateStr}</span>
+        ${viewsChip}
+        ${renderStars(it.avg_rating||0)} <span class="small">(${reviews})</span>
+      </div>
+      <div class="small">${venueLine}</div>
+    </div>
+    <div class="row">
+      <button class="btn ghost favToggle is-on" title="Favorite">★</button>
+    </div>
+  </div>`;
     }
 
     // Wire the action buttons
