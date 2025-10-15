@@ -182,9 +182,13 @@
 
   /* Page actions row for favorites lists */
   .pageActions{display:flex; gap:8px; padding:8px 12px; align-items:center}
-/* Favorited (yellow) look used in Favorites → Bands cards */
-.card.fav .btn { color: var(--warn); border-color:#4a3b0a; background:#1c1a12; }
-.card.fav .title { color: var(--warn); }
+/* Keep text white in Favorites lists; only star buttons stay yellow via .is-on */
+.card.fav .title { color: var(--text) !important; }
+.card.fav .btn:not(.is-on) {
+  color: var(--text);
+  border-color: var(--ring);
+  background: var(--btn);
+}
   
 </style>
 </head>
