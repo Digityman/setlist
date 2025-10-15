@@ -336,11 +336,14 @@ const Router = (() => {
   const routes={};
   function on(n,f){routes[n]=f}
   function parse(){ const raw=location.hash.replace(/^#\/?/,''); const [name,...rest]=raw.split('/').filter(Boolean); return {name:name||'bands', params:rest}; }
-  function route(){
-    const r=parse();
-    (routes[r.name]||routes['bands'])(r.params);
-    setHeader(r.name);
-  }
+function route(){
+  const r = parse();
+  // allow nested routes like "favorites/bands"
+  const key = r.params.length ? (r.name + '/' + r.params.join('/')) : r.name;
+  const handler = routes[key] || routes[r.name] || routes['bands'];
+  handler(r.params);
+  setHeader(r.name); // header uses top-level route name
+}
   return {on,route};
 })();
 addEventListener('hashchange', Router.route); addEventListener('DOMContentLoaded', Router.route);
@@ -499,9 +502,39 @@ function toggleFavSong(song){
 async function showBands(){
   show($('#toolbar-bands'),true); show($('#toolbar-band'),false); show($('#showMeta'),false);
   $('#subHeader').classList.remove('show');
-  const content=$('#content'); content.className='bandsGrid'; content.innerHTML=`<div class="card"><span class="small">Loading bands…</span></div>`;
-  const sort=$('#sortSel')?.value||'downloads desc'; const term=($('#searchBox')?.value||'').trim();
-  let q='collection:(etree) AND mediatype:(collection)'; if(term) q+=` AND (title:(${term}) OR identifier:(${term}))`;
+
+  // keep the button label in sync
+  if ($('#favToggle')) $('#favToggle').textContent = onlyFavBands ? '★ Favorites' : '☆ Favorites';
+
+  const content=$('#content'); content.className='bandsGrid';
+
+  // If filtering to favorite bands, render from local storage (fast, no network needed)
+  if (onlyFavBands) {
+    const fav = favBands();
+    if (!fav.length) {
+      content.innerHTML = `<div class="card"><span class="small">No favorite bands yet.</span></div>`;
+      return;
+    }
+    content.innerHTML = fav.map(id=>{
+      const title = decodeURIComponent(id).replace(/[_+]+/g,' ').trim();
+      return `
+        <div class="bandTile" data-id="${id}">
+          <img src="${IA.imgUrl(id)}" alt="${title}">
+          <div class="bandTitle">${title}</div>
+          <div class="bandViews small">Favorited</div>
+        </div>`;
+    }).join('');
+    content.onclick = ev => { const tile=ev.target.closest('.bandTile'); if(!tile) return; location.hash='#/band/'+encodeURIComponent(tile.dataset.id); };
+    return;
+  }
+
+  // Otherwise, fetch and render all bands
+  content.innerHTML=`<div class="card"><span class="small">Loading bands…</span></div>`;
+  const sort=$('#sortSel')?.value||'downloads desc';
+  const term=($('#searchBox')?.value||'').trim();
+  let q='collection:(etree) AND mediatype:(collection)';
+  if(term) q+=` AND (title:(${term}) OR identifier:(${term}))`;
+
   const load = async ()=>{
     try{
       const data=await fetchJSON(IA.bandsUrl({q,sort,rows:120}));
@@ -520,6 +553,7 @@ async function showBands(){
   };
   load();
 }
+
 
 /* ------------ Concerts page ------------ */
 let currentBandId=''; 
@@ -1138,7 +1172,20 @@ Router.on('show', showShow);
 /* ------------ bands filters ------------ */
 $('#sortSel')?.addEventListener('change', showBands);
 $('#searchBox')?.addEventListener('change', showBands);
-$('#resetBtn')?.addEventListener('click', ()=>{ $('#sortSel').value='downloads desc'; $('#searchBox').value=''; location.hash='#/bands'; showBands(); });
+$('#favToggle')?.addEventListener('click', ()=>{
+  onlyFavBands = !onlyFavBands;
+  $('#favToggle').textContent = onlyFavBands ? '★ Favorites' : '☆ Favorites';
+  showBands();
+});
+$('#resetBtn')?.addEventListener('click', ()=>{
+  $('#sortSel').value='downloads desc';
+  $('#searchBox').value='';
+  onlyFavBands = false;
+  $('#favToggle').textContent = '☆ Favorites';
+  location.hash='#/bands';
+  showBands();
+});
+
 
 /* ------------ optional SW ------------ */
 if('serviceWorker' in navigator){ navigator.serviceWorker.register('sw.js').catch(()=>{}); }
