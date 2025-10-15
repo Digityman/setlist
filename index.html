@@ -64,6 +64,7 @@
   .muted{color:var(--muted)}
   .chip{background:var(--panel); border:1px solid var(--ring); border-radius:999px; padding:6px 10px; font-size:12px; color:var(--muted)}
   .pillBtn{background:var(--panel); border:1px solid var(--ring); border-radius:999px; padding:6px 10px; font-size:12px; cursor:pointer; color:var(--text)}
+  .pill-sm{ padding:4px 8px; font-size:12px; }
 
   /* Visual ON state for toggles */
   .is-on{ color:var(--warn)!important; border-color:#4a3b0a!important; background:#1c1a12!important }
@@ -915,17 +916,27 @@ function renderConcerts(){
 let currentShowId=''; let currentShowTitle=''; let trackEls=[]; let trackList=[];
 
 function updateFavBtn(){ const btn=$('#favShowBtn'); if(!btn) return; const fav = favShows().includes(currentShowId); btn.textContent = fav ? '★ Favorited' : '☆ Favorite'; btn.classList.toggle('fav', fav); }
+// add globals to hold current show meta (place near other globals)
+let currentShowDate = '';
+let currentShowLocation = '';
+
 function setShowHeader(meta){
   const title = meta?.metadata?.title || currentShowId;
+
   const date  = meta?.metadata?.date || '';
   const venue = meta?.metadata?.venue || '';
   const coverage = meta?.metadata?.coverage || '';
   const location = [venue, coverage].filter(Boolean).join(', ');
-  currentShowTitle = title;
+
+  currentShowTitle    = title;
+  currentShowDate     = date ? new Date(date).toLocaleDateString() : '';
+  currentShowLocation = location;
+
   $('#showTitle').textContent = title; show($('#showMeta'),true);
-  if(date){ $('#showDate').textContent = new Date(date).toLocaleDateString(); show($('#showDate'),true);} else show($('#showDate'),false);
+  if(date){ $('#showDate').textContent = currentShowDate; show($('#showDate'),true);} else show($('#showDate'),false);
   if(location){ $('#showLoc').textContent = location; show($('#showLoc'),true);} else show($('#showLoc'),false);
 }
+
 function cleanTitle(name){ let t=name.replace(/\.(mp3|ogg|flac)$/i,''); t=t.replace(/[_-]+/g,' ').replace(/\s+/g,' ').trim(); t=t.replace(/^(\d+)[\s.\-_]+/,''); return t; }
 function naturalCmp(a,b){ return a.localeCompare(b,undefined,{numeric:true,sensitivity:'base'}); }
 function extractTrackNo(f){ const n1=Number(f.track||f.trackno||''); if(!isNaN(n1)&&n1>0) return n1; const m=/(\d+)[^\d]*\.(mp3|ogg|flac)$/i.exec(f.name||''); if(m) return Number(m[1]); return Infinity; }
@@ -975,7 +986,20 @@ async function showShow(params){
         const favBtn = ev.target.closest('.songFav');
         if (favBtn){
           const tr = ev.target.closest('.track'); if(!tr) return;
-          const idx = Number(tr.dataset.i); const song = {...trackList[idx], showId: currentShowId};
+          const idx = Number(tr.dataset.i); const song = {
+      ...trackList[idx],
+      showId: currentShowId,
+      date: currentShowDate,
+      location: currentShowLocation
+    };
+
+    toggleFavSong(song);
+    favBtn.textContent = findSongIdx(song.url)>=0 ? '★' : '☆';
+    return;
+  }
+  const tr=ev.target.closest('.track'); if(!tr) return;
+  playIndex(Number(tr.dataset.i));
+};
           toggleFavSong(song);
           favBtn.textContent = findSongIdx(song.url)>=0 ? '★' : '☆';
           return;
@@ -1283,16 +1307,22 @@ Router.on('favorites/songs', ()=>{
   // Render songs list
   const listWrap = document.createElement('div'); listWrap.className='tracks';
   listWrap.style.padding='0 12px 120px';
-  listWrap.innerHTML = songs.map((t,i)=>`
-    <div class="track" data-i="${i}">
-      <div class="tleft">
-        <button class="songFav" title="Unfavorite">★</button>
-        <div class="tnum">${i+1}</div>
-        <div class="tname">${t.title}</div>
-      </div>
-      <div class="tlen small">${t.showId || ''}</div>
-      <div class="progressBar"></div>
-    </div>`).join('');
+listWrap.innerHTML = songs.map((t,i)=>`
+  <div class="track" data-i="${i}">
+    <div class="tleft">
+      <button class="songFav" title="Unfavorite">★</button>
+      <div class="tnum">${i+1}</div>
+      <div class="tname">${t.title}</div>
+    </div>
+
+    <!-- pills row -->
+    <div class="row" style="margin-top:6px">
+      ${t.date ? `<span class="pill pill-sm">${t.date}</span>` : ''}
+      ${t.location ? `<span class="pill pill-sm">${t.location}</span>` : ''}
+    </div>
+
+    <div class="progressBar"></div>
+  </div>`).join('');
   content.appendChild(listWrap);
 
   // Play All / Shuffle All
