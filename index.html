@@ -182,6 +182,10 @@
 
   /* Page actions row for favorites lists */
   .pageActions{display:flex; gap:8px; padding:8px 12px; align-items:center}
+/* Favorited (yellow) look used in Favorites → Bands cards */
+.card.fav .btn { color: var(--warn); border-color:#4a3b0a; background:#1c1a12; }
+.card.fav .title { color: var(--warn); }
+  
 </style>
 </head>
 <body>
@@ -1124,21 +1128,22 @@ Router.on('favorites/bands', ()=>{
   const content=$('#content'); content.className='grid';
   const bands = favBands();
   if(!bands.length){ content.innerHTML = `<div class="card"><span class="small">No favorite bands yet.</span></div>`; return; }
-  content.innerHTML = bands.map(id=>
-    `<div class="card">
-      <div class="row">
-        <img src="${IA.imgUrl(id)}" alt="" style="width:42px;height:42px;border-radius:8px;object-fit:cover;background:#0c0c0d;border:1px solid var(--ring)">
-        <div>
-          <div style="font-weight:600">${decodeURIComponent(id).replace(/[_+]+/g,' ').trim()}</div>
-          <div class="small">${id}</div>
-        </div>
+content.innerHTML = bands.map(id=>
+  `<div class="card fav">
+    <div class="row">
+      <img src="${IA.imgUrl(id)}" alt="" style="width:42px;height:42px;border-radius:8px;object-fit:cover;background:#0c0c0d;border:1px solid var(--ring)">
+      <div>
+        <div class="title" style="font-weight:600">${decodeURIComponent(id).replace(/[_+]+/g,' ').trim()}</div>
+        <div class="small">${id}</div>
       </div>
-      <div class="row">
-        <button class="btn" data-go="#/band/${encodeURIComponent(id)}">Open</button>
-        <button class="btn ghost" data-unfav="${id}" title="Remove">★</button>
-      </div>
-    </div>`
-  ).join('');
+    </div>
+    <div class="row">
+      <button class="btn" data-go="#/band/${encodeURIComponent(id)}">Open</button>
+      <button class="btn ghost is-on" data-unfav="${id}" title="Remove">★</button>
+    </div>
+  </div>`
+).join('');
+
   content.onclick = (e)=>{
     const go = e.target.getAttribute('data-go'); if(go){ location.hash=go; return; }
     const unf = e.target.getAttribute('data-unfav'); if(unf){
