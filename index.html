@@ -395,19 +395,36 @@ async function fetchWithTimeout(url, {timeout=12000}={}){
 }
 async function fetchJSON(url){ const r = await fetchWithTimeout(url); return r.json(); }
 
-/* ------------ JSONP helper (silent fallback) ------------ */
-function fetchJSONP(url, {timeout=12000}={}){
+/* ------------ JSONP helper (defensive) ------------ */
+function fetchJSONP(url, {timeout=8000}={}) {
   return new Promise((resolve)=>{
     const cb = '__iajsonp_'+Math.random().toString(36).slice(2);
-    const s = document.createElement('script');
+    const s  = document.createElement('script');
+    let done = false;
+
+    function cleanup() {
+      if (done) return;
+      done = true;
+      delete window[cb];
+      s.remove();
+    }
+
+    // Hard timeout so we don’t hang on a bad payload
     const t = setTimeout(()=>{ cleanup(); resolve(null); }, timeout);
-    function cleanup(){ clearTimeout(t); delete window[cb]; s.remove(); }
-    window[cb] = (data)=>{ cleanup(); resolve(data); };
-    s.src = url + (url.includes('?')?'&':'?') + 'callback=' + cb;
-    s.onerror = ()=>{ cleanup(); resolve(null); };
+
+    window[cb] = (data)=>{ clearTimeout(t); cleanup(); resolve(data); };
+
+    // If the script 404s or throws a syntax error, onerror will fire.
+    s.onerror = ()=>{ clearTimeout(t); cleanup(); resolve(null); };
+
+    // Some CDNs report load but never call our cb (bad JSONP). Guard that too.
+    s.onload = ()=>{ /* if cb never called, timeout will resolve null */ };
+
+    s.src = url + (url.includes('?')?'&':'?') + 'callback=' + cb + '&output=json';
     document.head.appendChild(s);
   });
 }
+
 
 /* ------------ Hybrid IA fetch: fetch -> JSONP fallback (CORS-safe) ------------ */
 async function fetchIA(url){
@@ -679,36 +696,46 @@ const YearDrop = (()=> {
 function resolveSort(){ return state.sortSel==='auto' ? (state.year ? 'date asc' : 'date desc') : state.sortSel; }
 
 async function buildYearCounts(bandId){
+  // First try the official facet endpoint via JSONP (CORS-safe)
   const facet = await IA.facetYearsJSONP({bandId});
   let counts = {};
   if (facet?.response?.facets?.year){
     const y = facet.response.facets.year;
-    for(const k in y){ if(!isNaN(+k)) counts[k] = y[k]; }
-  }
-  if (!Object.keys(counts).length){
-    let page=1, rows=1200, numFound=Infinity, got=0;
-    while(got < numFound && page<=120){
-      const data = await fetchIA(IA.yearsOnlyUrl({bandId, rows, page}));
-      const resp = data?.response || {};
-      const docs = resp.docs || [];
-      for(const d of docs){
-        const yv = Array.isArray(d.year) ? d.year[0] : d.year;
-        if(yv) counts[yv] = (counts[yv]||0)+1;
-      }
-      got += docs.length; page++;
-      if(page % 2 === 0) updateYearMenu(counts);
+    for (const k in y){
+      const yr = Number(k);
+      if (!Number.isNaN(yr)) counts[yr] = (counts[yr] || 0) + Number(y[k] || 0);
     }
   }
+
+  // If we didn’t get anything, don’t fall back to paged fetch (CORS trap).
+  // Just leave “All years” and let the concerts list work normally.
+  if (!Object.keys(counts).length){
+    YearDrop.setOptions([{value:'', label:'All years'}]);
+    YearDrop.setValue('');
+    return;
+  }
+
   updateYearMenu(counts);
-  const yearsArr = Object.keys(counts).map(y=>({year:Number(y), count:counts[y]})).filter(o=>!isNaN(o.year)).sort((a,b)=>a.year-b.year);
+
+  const yearsArr = Object.keys(counts)
+    .map(y=>({year:Number(y), count:counts[y]}))
+    .filter(o=>!Number.isNaN(o.year))
+    .sort((a,b)=>a.year-b.year);
+
   store.set('years_'+bandId, {ts: Date.now(), years: yearsArr});
 }
+
 function updateYearMenu(counts){
-  const yearsArr = Object.keys(counts).map(y=>({year:Number(y), count:counts[y]})).filter(o=>!isNaN(o.year)).sort((a,b)=>a.year-b.year);
-  if(yearsArr.length){
-    YearDrop.setOptions([{value:'', label:'All years'}, ...yearsArr.map(o=>({value:String(o.year), label:`${o.year} (${o.count.toLocaleString()})`}))]);
-    YearDrop.setValue(YearDrop.getValue());
-  }
+  const yearsArr = Object.keys(counts)
+    .map(y=>({year:Number(y), count:counts[y]}))
+    .filter(o=>!Number.isNaN(o.year))
+    .sort((a,b)=>a.year-b.year);
+
+  YearDrop.setOptions([
+    {value:'', label:'All years'},
+    ...yearsArr.map(o=>({value:String(o.year), label:`${o.year} (${o.count.toLocaleString()})`}))
+  ]);
+  YearDrop.setValue(YearDrop.getValue());
 }
 
 async function loadPage(){
