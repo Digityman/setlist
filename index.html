@@ -982,16 +982,25 @@ async function showShow(params){
 
       trackEls = $$('.track');
 
-      content.onclick = ev => {
-        const favBtn = ev.target.closest('.songFav');
-        if (favBtn){
-          const tr = ev.target.closest('.track'); if(!tr) return;
-          const idx = Number(tr.dataset.i); const song = {
+   content.onclick = ev => {
+  const favBtn = ev.target.closest('.songFav');
+  if (favBtn){
+    const tr = ev.target.closest('.track'); if(!tr) return;
+    const idx = Number(tr.dataset.i);
+    const song = {
       ...trackList[idx],
       showId: currentShowId,
       date: currentShowDate,
       location: currentShowLocation
     };
+    toggleFavSong(song);
+    favBtn.textContent = findSongIdx(song.url) >= 0 ? '★' : '☆';
+    return;
+  }
+  const tr = ev.target.closest('.track'); if(!tr) return;
+  playIndex(Number(tr.dataset.i));
+};
+
 
     toggleFavSong(song);
     favBtn.textContent = findSongIdx(song.url)>=0 ? '★' : '☆';
