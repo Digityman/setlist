@@ -65,7 +65,7 @@
   .chip{background:var(--panel); border:1px solid var(--ring); border-radius:999px; padding:6px 10px; font-size:12px; color:var(--muted)}
   .pillBtn{background:var(--panel); border:1px solid var(--ring); border-radius:999px; padding:6px 10px; font-size:12px; cursor:pointer; color:var(--text)}
 
-  /* ON state (Requests #3 and #4) */
+  /* Visual ON state for toggles */
   .is-on{ color:var(--warn)!important; border-color:#4a3b0a!important; background:#1c1a12!important }
 
   /* Custom dropdowns */
@@ -177,8 +177,10 @@
   .menuItem{display:flex; align-items:center; gap:8px; padding:10px; border-radius:10px; cursor:pointer}
   .menuItem:hover{background:#202124}
   .menuItem .icon{width:18px; text-align:center}
+  /* Indent submenu items under Favorites */
   .menuItem.sub{ padding-left:28px; }
 
+  /* Page actions row for favorites lists */
   .pageActions{display:flex; gap:8px; padding:8px 12px; align-items:center}
 </style>
 </head>
@@ -338,33 +340,31 @@ const Router = (() => {
   function parse(){ const raw=location.hash.replace(/^#\/?/,''); const [name,...rest]=raw.split('/').filter(Boolean); return {name:name||'bands', params:rest}; }
   function route(){
     const r = parse();
+    // allow nested routes like "favorites/bands"
     const key = r.params.length ? (r.name + '/' + r.params.join('/')) : r.name;
     const handler = routes[key] || routes[r.name] || routes['bands'];
 
-    // Header crumb override for favorites subpages (Requests #1 and #2)
+    // Header crumb override for favorites subpages
     let crumbOverride = null;
     if (key === 'favorites/bands') crumbOverride = '— Favorite Bands';
     else if (key === 'favorites/concerts') crumbOverride = '— Favorite Concerts';
     else if (key === 'favorites/songs') crumbOverride = '— Favorite Songs';
 
     handler(r.params);
-    setHeader(r.name, crumbOverride);
+    setHeader(r.name, crumbOverride); // header uses top-level route name with optional override
   }
   return {on,route};
 })();
 addEventListener('hashchange', Router.route); addEventListener('DOMContentLoaded', Router.route);
 
-// setHeader now accepts an optional crumb override
 function setHeader(routeName, crumbOverride=null){
   const titleEl = $('#pageTitle');
   const crumbText = crumbOverride ?? (
-    routeName==='band' ? '— Concerts' :
-    routeName==='show' ? '— Tracks' :
-    (routeName==='fav' || routeName==='favorites' ? '— Favorites' :
-    (routeName==='playlist' ? '— Playlist' : '— Bands'))
+    routeName==='band' ? '— Concerts' : (routeName==='show' ? '— Tracks' :
+                     (routeName==='fav' || routeName==='favorites' ? '— Favorites' :
+                     (routeName==='playlist' ? '— Playlist' : '— Bands')))
   );
   titleEl.innerHTML = `Setlist Streamer <span class="crumb">${crumbText}</span>`;
-
   // Right side actions (Back buttons)
   const actions = $('#headerActions'); actions.innerHTML='';
   if(routeName==='band'){
@@ -409,6 +409,17 @@ function fetchJSONP(url, {timeout=12000}={}){
   });
 }
 
+/* ------------ Hybrid IA fetch: fetch -> JSONP fallback (CORS-safe) ------------ */
+async function fetchIA(url){
+  try{
+    return await fetchJSON(url);
+  }catch(e){
+    const data = await fetchJSONP(url);
+    if (data) return data;
+    throw e;
+  }
+}
+
 /* ------------ IA helpers ------------ */
 const IA = {
   bandsUrl({ q='collection:(etree) AND mediatype:(collection)', sort='downloads desc', rows=120 }={}){
@@ -424,6 +435,7 @@ const IA = {
     ['identifier','title','date','year','downloads','avg_rating','num_reviews','venue','coverage','creator','publicdate'].forEach(f=>u.searchParams.append('fl[]',f));
     u.searchParams.append('sort[]',sort); u.searchParams.set('rows',rows); u.searchParams.set('page',page); u.searchParams.set('output','json'); return u.toString();
   },
+  // Batch fetch concerts by identifier list (returns same fields as concertsUrl)
   concertsByIdsUrl(ids){
     const u=new URL('https://archive.org/advancedsearch.php');
     const safe = ids.map(id=>`"${id.replace(/"/g,'\"')}"`);
@@ -469,7 +481,7 @@ function showRetry(contentEl, message, retryFn){
   $('#retryBtn')?.addEventListener('click', retryFn);
 }
 
-/* ------------ SVG stars ------------ */
+/* ------------ SVG stars (full/half/empty) ------------ */
 let _starUid = 0;
 function starSVG(type){
   const id = 'g'+(++_starUid);
@@ -528,12 +540,13 @@ async function showBands(){
   show($('#toolbar-bands'),true); show($('#toolbar-band'),false); show($('#showMeta'),false);
   $('#subHeader').classList.remove('show');
 
-  // Request #3: visual ON state
+  // Visual ON state
   $('#favToggle').classList.toggle('is-on', !!onlyFavBands);
   $('#favToggle').textContent = onlyFavBands ? '★ Favorites' : '☆ Favorites';
 
   const content=$('#content'); content.className='bandsGrid';
 
+  // If filtering to favorite bands, render from local storage (fast, no network needed)
   if (onlyFavBands) {
     const fav = favBands();
     if (!fav.length) {
@@ -553,6 +566,7 @@ async function showBands(){
     return;
   }
 
+  // Otherwise, fetch and render all bands
   content.innerHTML=`<div class="card"><span class="small">Loading bands…</span></div>`;
   const sort=$('#sortSel')?.value||'downloads desc';
   const term=($('#searchBox')?.value||'').trim();
@@ -561,7 +575,7 @@ async function showBands(){
 
   const load = async ()=>{
     try{
-      const data=await fetchJSON(IA.bandsUrl({q,sort,rows:120}));
+      const data=await fetchIA(IA.bandsUrl({q,sort,rows:120}));
       const items=(data?.response?.docs||[]).map(d=>({id:d.identifier,title:d.title||d.identifier,downloads:d.downloads||0}));
       content.innerHTML = items.map(b=>`
         <div class="bandTile" data-id="${b.id}">
@@ -586,6 +600,7 @@ let onlyFavConcerts=false;
 
 function isFav(id){ return favShows().includes(id); }
   
+// Fetch favorite show docs for this band (batched), filtering by collection
 async function fetchFavDocsForBand(bandId){
   const ids = favShows();
   if (!ids.length) return [];
@@ -593,10 +608,11 @@ async function fetchFavDocsForBand(bandId){
   let docs = [];
   for (let i=0; i<ids.length; i+=batchSize){
     const chunk = ids.slice(i, i+batchSize);
-    const data = await fetchJSON(IA.concertsByIdsUrl(chunk));
+    const data = await fetchIA(IA.concertsByIdsUrl(chunk));
     const part = (data?.response?.docs) || [];
     docs = docs.concat(part);
   }
+  // Keep only shows whose collections include this band id
   return docs.filter(d => Array.isArray(d.collection) ? d.collection.includes(bandId) : false);
 }
 
@@ -649,12 +665,12 @@ const YearDrop = (()=> {
   menu.addEventListener('click', (e)=>{
     const it = e.target.closest('.item'); if(!it) return;
     value = it.dataset.value || '';
-    btn.textContent = (options.find(o=>o.value===String(value))?.label) || 'All years';
+    btn.textContent = (options.find(o=>String(o.value)===String(value))?.label) || 'All years';
     close();
     resetAndLoad({year:value});
   });
   function setOptions(arr){ options = arr; render(); }
-  function setValue(v){ value=v||''; btn.textContent=(options.find(o=>o.value===String(value))?.label)||'All years'; }
+  function setValue(v){ value=v||''; btn.textContent=(options.find(o=>String(o.value)===String(value))?.label)||'All years'; }
   function getValue(){ return value; }
   render();
   return {setOptions,setValue,getValue};
@@ -672,7 +688,7 @@ async function buildYearCounts(bandId){
   if (!Object.keys(counts).length){
     let page=1, rows=1200, numFound=Infinity, got=0;
     while(got < numFound && page<=120){
-      const data = await fetchJSON(IA.yearsOnlyUrl({bandId, rows, page}));
+      const data = await fetchIA(IA.yearsOnlyUrl({bandId, rows, page}));
       const resp = data?.response || {};
       const docs = resp.docs || [];
       for(const d of docs){
@@ -700,7 +716,7 @@ async function loadPage(){
   const sortExpr = resolveSort();
   const url = IA.concertsUrl({bandId:currentBandId, sort:sortExpr, rows:state.rows, page:state.page, year:state.year, term:state.term});
   try{
-    const data = await fetchJSON(url);
+    const data = await fetchIA(url);
     const resp = data?.response || {};
     state.numFound = Number(resp.numFound || 0);
     state.list = state.list.concat(resp.docs || []);
@@ -719,16 +735,19 @@ function resetAndLoad(patch={}){
 async function showBand(params){
   show($('#toolbar-bands'),false); show($('#toolbar-band'),true); show($('#showMeta'),false);
   currentBandId = decodeURIComponent((params||[])[0]||'');
+  // Show band name from id (spaces preserved from IA titles rendered later from list cache best-effort)
   $('#bandName').textContent = decodeURIComponent(currentBandId).replace(/[_+]+/g,' ').trim();
+  // Fav band button
   $('#favBandBtn').onclick = ()=> toggleFavBand(currentBandId);
   updateFavBandBtn();
 
-  // Request #3: visual ON state for concerts favorites filter
-  $('#favConcertsToggle').classList.toggle('is-on', !!onlyFavConcerts);
-  $('#favConcertsToggle').textContent = onlyFavConcerts ? '★ Favorites' : '☆ Favorites';
-
+  // Sort dropdown wiring
   SortDrop.subscribe((val)=> resetAndLoad({sortSel:val}));
   SortDrop.setValue('auto', true);
+
+  // Visual ON state for favorites toggle
+  $('#favConcertsToggle').classList.toggle('is-on', !!onlyFavConcerts);
+  $('#favConcertsToggle').textContent = onlyFavConcerts ? '★ Favorites' : '☆ Favorites';
 
   $('#favConcertsToggle').onclick=()=>{
     onlyFavConcerts=!onlyFavConcerts;
@@ -790,6 +809,7 @@ async function renderFavConcertsForBand(){
       </div>`;
   }).join('');
 
+  // Clicks (open / unfavorite)
   content.onclick = ev => {
     const favBtn = ev.target.closest('.favToggle');
     if (favBtn){
@@ -854,13 +874,7 @@ function renderConcerts(){
 /* ------------ Show (tracks) ------------ */
 let currentShowId=''; let currentShowTitle=''; let trackEls=[]; let trackList=[];
 
-function updateFavBtn(){
-  const btn=$('#favShowBtn'); if(!btn) return;
-  const fav = favShows().includes(currentShowId);
-  btn.textContent = fav ? '★ Favorited' : '☆ Favorite';
-  // Request #4: yellow when favorited
-  btn.classList.toggle('fav', fav);
-}
+function updateFavBtn(){ const btn=$('#favShowBtn'); if(!btn) return; const fav = favShows().includes(currentShowId); btn.textContent = fav ? '★ Favorited' : '☆ Favorite'; btn.classList.toggle('fav', fav); }
 function setShowHeader(meta){
   const title = meta?.metadata?.title || currentShowId;
   const date  = meta?.metadata?.date || '';
@@ -883,7 +897,7 @@ async function showShow(params){
   const content=$('#content'); content.className='tracks'; content.innerHTML=`<div class="card"><span class="small">Loading tracks…</span></div>`;
   const load = async ()=>{
     try{
-      const meta = await fetchJSON(IA.metaUrl(currentShowId));
+      const meta = await fetchIA(IA.metaUrl(currentShowId));
       setShowHeader(meta);
       $('#favShowBtn').onclick = () => { toggleFavShow(currentShowId); updateFavBtn(); };
       updateFavBtn();
@@ -930,6 +944,7 @@ async function showShow(params){
         playIndex(Number(tr.dataset.i));
       };
 
+      // Autoplay if flagged (used by concert queue)
       const pending = store.get('autoPlayOnLoad', false);
       if (pending){ store.set('autoPlayOnLoad', false); playIndex(0); }
 
@@ -949,8 +964,8 @@ const volPop = $('#volPop'); const P_vol = $('#P_vol'); const volLabel = $('#vol
 
 let queue=[]; let curIndex=-1;
 
-/* Show queue for Favorites → Concerts */
-let showQueue = store.get('showQueue', []);
+/* Show queue for Favorites → Concerts "Play All" / "Shuffle All" */
+let showQueue = store.get('showQueue', []); // array of show identifiers
 let showQueuePos = store.get('showQueuePos', -1);
 let queueShowsActive = store.get('queueShowsActive', false);
 
@@ -998,14 +1013,17 @@ A.addEventListener('pause', ()=>{ P.play.textContent='▶️'; store.set('wasPla
 A.addEventListener('ended', ()=>{
   updateEqAnim();
   if(curIndex<queue.length-1){
+    // Advance within current show/playlist
     playIndex(curIndex+1);
   }else{
+    // End of current list — if a show queue is active, advance to next show
     if(queueShowsActive && showQueuePos >=0 && showQueuePos < showQueue.length-1){
       showQueuePos += 1; persistShowQueue();
       const nextShowId = showQueue[showQueuePos];
       store.set('autoPlayOnLoad', true);
       location.hash = '#/show/' + encodeURIComponent(nextShowId);
     }else{
+      // Reached the end of everything
       queueShowsActive = false; persistShowQueue();
     }
   }
@@ -1058,7 +1076,7 @@ P_now.addEventListener('click', ()=>{
 function markHideState(){ store.set('wasPlayingOnHide', !A.paused); }
 function tryAutoResume(){
   if (store.get('wasPlayingOnHide', false)){
-    A.play().catch(()=>{});
+    A.play().catch(()=>{ /* autoplay block ignored */ });
   }
 }
 document.addEventListener('visibilitychange', ()=>{
@@ -1079,8 +1097,8 @@ Router.on('favorites/bands', ()=>{
   const content=$('#content'); content.className='grid';
   const bands = favBands();
   if(!bands.length){ content.innerHTML = `<div class="card"><span class="small">No favorite bands yet.</span></div>`; return; }
-  content.innerHTML = bands.map(id=>`
-    <div class="card">
+  content.innerHTML = bands.map(id=>
+    `<div class="card">
       <div class="row">
         <img src="${IA.imgUrl(id)}" alt="" style="width:42px;height:42px;border-radius:8px;object-fit:cover;background:#0c0c0d;border:1px solid var(--ring)">
         <div>
@@ -1092,7 +1110,8 @@ Router.on('favorites/bands', ()=>{
         <button class="btn" data-go="#/band/${encodeURIComponent(id)}">Open</button>
         <button class="btn ghost" data-unfav="${id}" title="Remove">★</button>
       </div>
-    </div>`).join('');
+    </div>`
+  ).join('');
   content.onclick = (e)=>{
     const go = e.target.getAttribute('data-go'); if(go){ location.hash=go; return; }
     const unf = e.target.getAttribute('data-unfav'); if(unf){
@@ -1106,6 +1125,7 @@ Router.on('favorites/concerts', async ()=>{
   const content=$('#content'); content.className='grid';
 
   const ids = favShows();
+  // Top action bar
   const actions = document.createElement('div');
   actions.className='pageActions';
   actions.innerHTML = `
@@ -1122,15 +1142,18 @@ Router.on('favorites/concerts', async ()=>{
     return;
   }
 
+  // Fetch metadata for all favorited shows using IA.advancedsearch so we can render same cards
   try{
+    // Archive.org URLs can get long; batch in chunks (e.g., 40)
     const batchSize = 40;
     let docs = [];
     for(let i=0;i<ids.length;i+=batchSize){
       const batch = ids.slice(i, i+batchSize);
-      const data = await fetchJSON(IA.concertsByIdsUrl(batch));
+      const data = await fetchIA(IA.concertsByIdsUrl(batch));
       docs = docs.concat((data?.response?.docs)||[]);
     }
 
+    // If nothing resolved, at least show simple tiles
     if(!docs.length){
       ids.forEach(id=>{
         const card = document.createElement('div'); card.className='card';
@@ -1146,6 +1169,7 @@ Router.on('favorites/concerts', async ()=>{
         content.appendChild(card);
       });
     }else{
+      // Render like the normal concert list
       content.insertAdjacentHTML('beforeend', docs.map(it=>{
         const dateStr = it.date ? new Date(it.date).toLocaleDateString() : (it.year||'');
         const reviews = it.num_reviews||0;
@@ -1169,6 +1193,7 @@ Router.on('favorites/concerts', async ()=>{
       }).join(''));
     }
 
+    // Wire the action buttons
     $('#favShowsPlayAll').onclick = ()=> startShowQueue(false);
     $('#favShowsShuffleAll').onclick = ()=> startShowQueue(true);
 
@@ -1180,9 +1205,11 @@ Router.on('favorites/concerts', async ()=>{
       location.hash = '#/show/' + encodeURIComponent(showQueue[0]);
     }
 
+    // Card interactions (open / unfavorite)
     content.onclick = (e)=>{
       const card = e.target.closest('.card.tap');
       if (e.target.closest('.favToggle')){
+        // toggle off from favorites
         const id = card ? card.dataset.id : e.target.getAttribute('data-unfav');
         if(id){ toggleFavShow(id); Router.route(); }
         return;
@@ -1216,6 +1243,7 @@ Router.on('favorites/songs', ()=>{
     content.appendChild(empty); return;
   }
 
+  // Render songs list
   const listWrap = document.createElement('div'); listWrap.className='tracks';
   listWrap.style.padding='0 12px 120px';
   listWrap.innerHTML = songs.map((t,i)=>`
@@ -1230,22 +1258,26 @@ Router.on('favorites/songs', ()=>{
     </div>`).join('');
   content.appendChild(listWrap);
 
+  // Play All / Shuffle All
   $('#favSongsPlayAll').onclick = ()=> startFavSongs(false);
   $('#favSongsShuffleAll').onclick = ()=> startFavSongs(true);
 
   function startFavSongs(shuffle){
     const arr = songs.slice();
     if(shuffle) shuffleArray(arr);
+    // Build a temporary playlist route
     store.set('playlist_fav_songs', arr);
     location.hash = '#/playlist/fav-songs';
   }
 
+  // Interactions
   listWrap.onclick = (e)=>{
     const tr = e.target.closest('.track'); if(!tr) return;
     const i = Number(tr.dataset.i); const t = songs[i];
     if(e.target.closest('.songFav')){
       toggleFavSong(t); Router.route(); return;
     }
+    // Play single favorite song by building single-item playlist
     store.set('playlist_fav_songs', [t]);
     location.hash = '#/playlist/fav-songs';
   };
@@ -1255,7 +1287,7 @@ Router.on('favorites/songs', ()=>{
 Router.on('playlist', (params)=>{
   const listId = (params||[])[0]||'';
   if(listId==='fav-songs') renderFavSongsPlaylist();
-  else {
+  else { // unknown
     const c=$('#content'); c.className='grid'; c.innerHTML=`<div class="card"><span class="small">Empty playlist.</span></div>`;
   }
 });
@@ -1266,6 +1298,7 @@ function renderFavSongsPlaylist(){
   const pl = store.get('playlist_fav_songs', []);
   if(!pl.length){ content.innerHTML = `<div class="card"><span class="small">No songs to play.</span></div>`; return; }
 
+  // Use the standard track list and player
   currentShowId = 'favorites_songs';
   trackList = pl.map(t=>({url:t.url, title:t.title, length:''}));
   content.innerHTML = trackList.map((t,i)=>`
@@ -1292,6 +1325,7 @@ function renderFavSongsPlaylist(){
     const tr=ev.target.closest('.track'); if(!tr) return; playIndex(Number(tr.dataset.i));
   };
 
+  // Autoplay first item when entering playlist
   playIndex(0);
 }
 
@@ -1306,7 +1340,7 @@ $('#searchBox')?.addEventListener('change', showBands);
 $('#favToggle')?.addEventListener('click', ()=>{
   onlyFavBands = !onlyFavBands;
   $('#favToggle').textContent = onlyFavBands ? '★ Favorites' : '☆ Favorites';
-  $('#favToggle').classList.toggle('is-on', !!onlyFavBands); // Request #3 visual
+  $('#favToggle').classList.toggle('is-on', !!onlyFavBands); // visual ON
   showBands();
 });
 $('#resetBtn')?.addEventListener('click', ()=>{
@@ -1318,6 +1352,7 @@ $('#resetBtn')?.addEventListener('click', ()=>{
   location.hash='#/bands';
   showBands();
 });
+
 
 /* ------------ optional SW ------------ */
 if('serviceWorker' in navigator){ navigator.serviceWorker.register('sw.js').catch(()=>{}); }
