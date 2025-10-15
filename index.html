@@ -1188,16 +1188,16 @@ Router.on('favorites/concerts', async ()=>{
     // If nothing resolved, at least show simple tiles
     if(!docs.length){
       ids.forEach(id=>{
-        const card = document.createElement('div'); card.className='card';
-        card.innerHTML = `
-          <div>
-            <h3>${id}</h3>
-            <div class="small">Favorite Concert</div>
-          </div>
-          <div class="row">
-            <button class="btn" data-open="${id}">Open</button>
-            <button class="btn ghost" data-unfav="${id}" title="Remove">★</button>
-          </div>`;
+        const card = document.createElement('div'); card.className='card fav';
+card.innerHTML = `
+  <div>
+    <h3 class="title">${id}</h3>
+    <div class="small">Favorite Concert</div>
+  </div>
+  <div class="row">
+    <button class="btn" data-open="${id}">Open</button>
+    <button class="btn ghost is-on" data-unfav="${id}" title="Remove">★</button>
+  </div>`;
         content.appendChild(card);
       });
     }else{
