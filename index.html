@@ -499,6 +499,7 @@ function toggleFavSong(song){
 }
 
 /* ------------ Bands page ------------ */
+let onlyFavBands = false;
 async function showBands(){
   show($('#toolbar-bands'),true); show($('#toolbar-band'),false); show($('#showMeta'),false);
   $('#subHeader').classList.remove('show');
