@@ -1157,7 +1157,7 @@ Router.on('favorites/concerts', async ()=>{
   const content=$('#content'); content.className='grid';
 
   const ids = favShows();
-  // Top action bar
+
   const actions = document.createElement('div');
   actions.className='pageActions';
   actions.innerHTML = `
@@ -1174,9 +1174,7 @@ Router.on('favorites/concerts', async ()=>{
     return;
   }
 
-  // Fetch metadata for all favorited shows using IA.advancedsearch so we can render same cards
   try{
-    // Archive.org URLs can get long; batch in chunks (e.g., 40)
     const batchSize = 40;
     let docs = [];
     for(let i=0;i<ids.length;i+=batchSize){
@@ -1185,45 +1183,43 @@ Router.on('favorites/concerts', async ()=>{
       docs = docs.concat((data?.response?.docs)||[]);
     }
 
-    // If nothing resolved, at least show simple tiles
     if(!docs.length){
       ids.forEach(id=>{
         const card = document.createElement('div'); card.className='card fav';
-card.innerHTML = `
-  <div>
-    <h3 class="title">${id}</h3>
-    <div class="small">Favorite Concert</div>
-  </div>
-  <div class="row">
-    <button class="btn" data-open="${id}">Open</button>
-    <button class="btn ghost is-on" data-unfav="${id}" title="Remove">★</button>
-  </div>`;
+        card.innerHTML = `
+          <div>
+            <h3 class="title">${id}</h3>
+            <div class="small">Favorite Concert</div>
+          </div>
+          <div class="row">
+            <button class="btn" data-open="${id}">Open</button>
+            <button class="btn ghost is-on" data-unfav="${id}" title="Remove">★</button>
+          </div>`;
         content.appendChild(card);
       });
     }else{
-      // Render like the normal concert list
       content.insertAdjacentHTML('beforeend', docs.map(it=>{
-  const dateStr = it.date ? new Date(it.date).toLocaleDateString() : (it.year||'');
-  const reviews = it.num_reviews||0;
-  const venueLine = [it.venue, it.coverage].filter(Boolean).join(', ');
-  const viewsChip = `<span class="chip">${fmtCompact(it.downloads||0)} views</span>`;
-  return `
-    <div class="card tap fav" data-id="${it.identifier}">
-      <div>
-        <h3 class="title">${it.title || it.identifier}</h3>
-        <div class="row">
-          <span class="chip">${dateStr}</span>
-          ${viewsChip}
-          ${renderStars(it.avg_rating||0)} <span class="small">(${reviews})</span>
-        </div>
-        <div class="small">${venueLine}</div>
-      </div>
-      <div class="row">
-        <button class="btn ghost favToggle is-on" title="Favorite">★</button>
-      </div>
-    </div>`;
-}).join(''));
-
+        const dateStr = it.date ? new Date(it.date).toLocaleDateString() : (it.year||'');
+        const reviews = it.num_reviews||0;
+        const venueLine = [it.venue, it.coverage].filter(Boolean).join(', ');
+        const viewsChip = `<span class="chip">${fmtCompact(it.downloads||0)} views</span>`;
+        return `
+          <div class="card tap fav" data-id="${it.identifier}">
+            <div>
+              <h3 class="title">${it.title || it.identifier}</h3>
+              <div class="row">
+                <span class="chip">${dateStr}</span>
+                ${viewsChip}
+                ${renderStars(it.avg_rating||0)} <span class="small">(${reviews})</span>
+              </div>
+              <div class="small">${venueLine}</div>
+            </div>
+            <div class="row">
+              <button class="btn ghost favToggle is-on" title="Favorite">★</button>
+            </div>
+          </div>`;
+      }).join(''));
+    } // <-- THIS was missing
 
     // Wire the action buttons
     $('#favShowsPlayAll').onclick = ()=> startShowQueue(false);
@@ -1241,7 +1237,6 @@ card.innerHTML = `
     content.onclick = (e)=>{
       const card = e.target.closest('.card.tap');
       if (e.target.closest('.favToggle')){
-        // toggle off from favorites
         const id = card ? card.dataset.id : e.target.getAttribute('data-unfav');
         if(id){ toggleFavShow(id); Router.route(); }
         return;
@@ -1256,6 +1251,7 @@ card.innerHTML = `
     content.appendChild(err);
   }
 });
+
 
 Router.on('favorites/songs', ()=>{
   show($('#toolbar-bands'),false); show($('#toolbar-band'),false); show($('#showMeta'),false);
