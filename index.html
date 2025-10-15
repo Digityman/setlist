@@ -50,7 +50,7 @@
     padding:6px 10px; background:var(--panel); border-top:1px solid var(--ring);
   }
   .subHeader.show{display:flex}
-  #bandName{font-weight:700; color:var(--warn);}
+  #bandName{font-weight:700; color:var(--text);}
   #favBandBtn{background:transparent; border:1px solid var(--ring); border-radius:999px; padding:4px 10px; cursor:pointer}
   #favBandBtn.fav{color:var(--warn); border-color:#4a3b0a; background:#1c1a12}
 
@@ -771,7 +771,12 @@ async function showBand(params){
   show($('#toolbar-bands'),false); show($('#toolbar-band'),true); show($('#showMeta'),false);
   currentBandId = decodeURIComponent((params||[])[0]||'');
   // Show band name from id (spaces preserved from IA titles rendered later from list cache best-effort)
-  $('#bandName').textContent = decodeURIComponent(currentBandId).replace(/[_+]+/g,' ').trim();
+const prettyBand = decodeURIComponent(currentBandId)
+  .replace(/[_+]+/g, ' ')           // underscores/plus → space
+  .replace(/([a-z])([A-Z])/g, '$1 $2') // camelCase → spaced
+  .replace(/\s+/g, ' ')
+  .trim();
+$('#bandName').textContent = prettyBand;
   // Fav band button
   $('#favBandBtn').onclick = ()=> toggleFavBand(currentBandId);
   updateFavBandBtn();
