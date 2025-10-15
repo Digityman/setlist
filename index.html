@@ -1203,27 +1203,27 @@ card.innerHTML = `
     }else{
       // Render like the normal concert list
       content.insertAdjacentHTML('beforeend', docs.map(it=>{
-        const dateStr = it.date ? new Date(it.date).toLocaleDateString() : (it.year||'');
-        const reviews = it.num_reviews||0;
-        const venueLine = [it.venue, it.coverage].filter(Boolean).join(', ');
-        const viewsChip = `<span class="chip">${fmtCompact(it.downloads||0)} views</span>`;
-        return `
-return `
-  <div class="card tap fav" data-id="${it.identifier}">
-    <div>
-      <h3 class="title">${it.title || it.identifier}</h3>
-      <div class="row">
-        <span class="chip">${dateStr}</span>
-        ${viewsChip}
-        ${renderStars(it.avg_rating||0)} <span class="small">(${reviews})</span>
+  const dateStr = it.date ? new Date(it.date).toLocaleDateString() : (it.year||'');
+  const reviews = it.num_reviews||0;
+  const venueLine = [it.venue, it.coverage].filter(Boolean).join(', ');
+  const viewsChip = `<span class="chip">${fmtCompact(it.downloads||0)} views</span>`;
+  return `
+    <div class="card tap fav" data-id="${it.identifier}">
+      <div>
+        <h3 class="title">${it.title || it.identifier}</h3>
+        <div class="row">
+          <span class="chip">${dateStr}</span>
+          ${viewsChip}
+          ${renderStars(it.avg_rating||0)} <span class="small">(${reviews})</span>
+        </div>
+        <div class="small">${venueLine}</div>
       </div>
-      <div class="small">${venueLine}</div>
-    </div>
-    <div class="row">
-      <button class="btn ghost favToggle is-on" title="Favorite">★</button>
-    </div>
-  </div>`;
-    }
+      <div class="row">
+        <button class="btn ghost favToggle is-on" title="Favorite">★</button>
+      </div>
+    </div>`;
+}).join(''));
+
 
     // Wire the action buttons
     $('#favShowsPlayAll').onclick = ()=> startShowQueue(false);
