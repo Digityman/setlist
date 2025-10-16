@@ -191,6 +191,16 @@
   background: var(--btn);
 }
 .card.fav a { color: var(--text); }
+/* Favorites → Songs: two-line layout */
+.track.favsong{ display:block; padding:12px }
+.track.favsong .line1{ display:flex; align-items:center; justify-content:space-between; gap:10px; }
+.track.favsong .line1 .tleft{ display:flex; align-items:center; gap:10px; min-width:0 }
+.track.favsong .line1 .tname{ white-space:normal }  /* allow wrapping */
+.track.favsong .line2{ display:flex; gap:8px; flex-wrap:wrap; margin-top:6px; margin-left:42px }  /* indent under star/num */
+
+
+
+  
 </style>
 </head>
 <body>
@@ -1311,12 +1321,25 @@ Router.on('favorites/songs', ()=>{
   const listWrap = document.createElement('div'); listWrap.className='tracks';
   listWrap.style.padding='0 12px 120px';
 listWrap.innerHTML = songs.map((t,i)=>`
-  <div class="track" data-i="${i}">
-    <div class="tleft">
-      <button class="songFav" title="Unfavorite">★</button>
-      <div class="tnum">${i+1}</div>
-      <div class="tname">${t.title}</div>
+  <div class="track favsong" data-i="${i}">
+    <div class="line1">
+      <div class="tleft">
+        <button class="songFav" title="Unfavorite">★</button>
+        <div class="tnum">${i+1}</div>
+        <div class="tname">${t.title}</div>
+      </div>
+      ${t.band ? `<span class="pill pill-sm">${t.band}</span>` : ''}
     </div>
+
+    <div class="line2">
+      ${t.location ? `<span class="pill pill-sm">${t.location}</span>` : ''}
+      ${t.date ? `<span class="pill pill-sm">${t.date}</span>` : ''}
+    </div>
+
+    <div class="progressBar"></div>
+  </div>
+`).join('');
+
 
 <!-- pills row -->
 <div class="row" style="margin-top:6px">
