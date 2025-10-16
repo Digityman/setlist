@@ -112,6 +112,14 @@
   .progressBar{position:absolute; left:0; bottom:0; height:3px; background:var(--warn); border-radius:0 0 12px 12px; width:0%}
   .songFav{min-width:32px; min-height:32px; border-radius:10px; border:1px solid var(--ring); background:transparent; color:var(--warn)}
 
+  /* Pulse the track briefly when we deep-link to it */
+@keyframes pulseTrack {
+  0%   { box-shadow:0 0 0 2px rgba(255,213,74,.45) inset }
+  100% { box-shadow:0 0 0 0   rgba(255,213,74,0) inset }
+}
+.track.pulse { animation: pulseTrack .9s ease-out 2; }
+
+  
   /* Show meta */
   .showMeta{display:flex; gap:8px; flex-wrap:wrap; align-items:center; padding:6px 12px 8px}
   .showTitle{font-weight:600; margin-right:6px}
@@ -1208,8 +1216,12 @@ A.addEventListener('timeupdate', ()=>{
 
 /* Equalizer button -> jump back to current show */
 P_now.addEventListener('click', ()=>{
-  const id = store.get('currentShowId', null) || currentShowId;
-  if(id){ location.hash = '#/show/' + encodeURIComponent(id); }
+  const id  = store.get('currentShowId', null) || currentShowId;
+  const url = (trackList[curIndex] && trackList[curIndex].url) || '';
+  if (id) {
+    if (url) store.set('jumpToUrl', url);   // remember the exact track
+    location.hash = '#/show/' + encodeURIComponent(id);
+  }
 });
 
 /* Auto-resume */
@@ -1551,7 +1563,29 @@ function renderFavSongsPlaylist(){
       <div class="progressBar" id="pb-${i}"></div>
     </div>`).join('');
   trackEls = $$('.track');
+  
+  // If we arrived via the Now-Playing button, jump to the exact track
+const jumpUrl = store.get('jumpToUrl', null);
+if (jumpUrl) {
+  store.set('jumpToUrl', null); // one-time use
+  const idx = trackList.findIndex(t => t.url === jumpUrl);
+  if (idx >= 0) {
+    // Sync highlight with what's playing
+    curIndex = idx;
+    updateTrackHighlight();
 
+    // Scroll into view and pulse
+    const el = document.querySelector(`.track[data-i="${idx}"]`);
+    if (el) {
+      el.scrollIntoView({ block: 'center', behavior: 'smooth' });
+      el.classList.add('pulse');
+      setTimeout(()=> el.classList.remove('pulse'), 1800);
+    }
+  }
+}
+
+
+  
   content.onclick = ev => {
     const favBtn = ev.target.closest('.songFav');
     if (favBtn){
