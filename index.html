@@ -400,11 +400,13 @@ addEventListener('hashchange', Router.route); addEventListener('DOMContentLoaded
 
 function setHeader(routeName, crumbOverride=null){
   const titleEl = $('#pageTitle');
-  const crumbText = crumbOverride ?? (
-    routeName==='band' ? '— Concerts' : (routeName==='show' ? '— Tracks' :
-                     (routeName==='fav' || routeName==='favorites' ? '— Favorites' :
-                     (routeName==='playlist' ? '— Playlist' : '— Bands')))
-  );
+const crumbText = crumbOverride ?? (
+  routeName==='band' ? '— Concerts' :
+  routeName==='show' ? '— Tracks'   :
+  routeName==='recent' ? '— Recently Played' :
+  (routeName==='fav' || routeName==='favorites' ? '— Favorites' :
+  (routeName==='playlist' ? '— Playlist' : '— Bands'))
+);
   titleEl.innerHTML = `Setlist Streamer <span class="crumb">${crumbText}</span>`;
   // Right side actions (Back buttons)
   const actions = $('#headerActions'); actions.innerHTML='';
@@ -591,7 +593,16 @@ function toggleFavSong(song){
   if(i>=0) arr.splice(i,1); else arr.push(song);
   store.set('favSongs',arr);
 }
-
+/* ------------ Recently Played helpers ------------ */  // NEW
+function recentSongs(){ return store.get('recentSongs', []); }        // [{url,title,date,location,band,showTitle,ts}]
+function pushRecent(song){                                            // keep list unique by url, newest first, max 100
+  const arr = recentSongs();
+  const i = arr.findIndex(s => s.url === song.url);
+  if (i >= 0) arr.splice(i, 1);              // de-dupe
+  arr.unshift({ ...song, ts: Date.now() });  // newest first
+  if (arr.length > 100) arr.length = 100;    // cap at 100
+  store.set('recentSongs', arr);
+}
 /* ------------ Bands page ------------ */
 let onlyFavBands = false;
 async function showBands(){
@@ -1093,6 +1104,20 @@ function playIndex(i){
   if(!trackList.length) return;
   setQueueFromTracks();
   curIndex=Math.max(0,Math.min(i,queue.length-1));
+  // Log to Recently Played (uses current show metadata)  // NEW
+try {
+  const t = trackList[curIndex];
+  if (t && t.url) {
+    pushRecent({
+      url: t.url,
+      title: t.title,
+      date: currentShowDate || '',
+      location: currentShowLocation || '',
+      band: currentShowBand || '',
+      showTitle: currentShowTitle || ''
+    });
+  }
+} catch(e) {}
   A.src=queue[curIndex];
   updateMediaSession(trackList[curIndex]?.title || 'Track');
   A.play().catch(()=>{});
@@ -1217,6 +1242,83 @@ content.innerHTML = bands.map(id=>
     const unf = e.target.getAttribute('data-unfav'); if(unf){
       toggleFavBand(unf); Router.route(); return;
     }
+  };
+});
+/* ------------ Recently Played page ------------ */  // NEW
+Router.on('recent', () => {
+  show($('#toolbar-bands'),false); show($('#toolbar-band'),false); show($('#showMeta'),false);
+  const content = $('#content'); content.className = 'tracks';
+  const songs = recentSongs();
+
+  // Actions
+  const actions = document.createElement('div');
+  actions.className = 'pageActions';
+  actions.innerHTML = `
+    <button class="btn" id="recentPlayAll">▶️ Play All</button>
+    <button class="btn" id="recentShuffleAll">🔀 Shuffle All</button>
+  `;
+  content.innerHTML = '';
+  content.appendChild(actions);
+
+  if (!songs.length){
+    const empty = document.createElement('div');
+    empty.className='card'; empty.innerHTML=`<span class="small">No recent plays yet.</span>`;
+    content.appendChild(empty);
+    return;
+  }
+
+  // List (reuse the .track.favsong two-line layout)
+  const listWrap = document.createElement('div');
+  listWrap.className='tracks';
+  listWrap.style.padding='0 12px 120px';
+  listWrap.innerHTML = songs.map((t,i)=>`
+    <div class="track favsong" data-i="${i}">
+      <div class="line1">
+        <div class="tleft">
+          <button class="songFav" title="${findSongIdx(t.url)>=0 ? 'Unfavorite' : 'Favorite'}">
+            ${findSongIdx(t.url)>=0 ? '★' : '☆'}
+          </button>
+          <div class="tnum">${i+1}</div>
+          <div class="tname">${t.title}</div>
+        </div>
+        ${t.band ? `<span class="pill pill-sm bandpill">${t.band}</span>` : ''}
+      </div>
+
+      <div class="line2">
+        ${t.location ? `<span class="pill pill-sm locpill">${t.location}</span>` : ''}
+        ${t.date ? `<span class="pill pill-sm datepill">${t.date}</span>` : ''}
+      </div>
+
+      <div class="progressBar"></div>
+    </div>
+  `).join('');
+  content.appendChild(listWrap);
+
+  // Play All / Shuffle All
+  $('#recentPlayAll').onclick   = ()=> startRecent(false);
+  $('#recentShuffleAll').onclick= ()=> startRecent(true);
+
+  function startRecent(shuffle){
+    const arr = songs.slice();
+    if (shuffle) shuffleArray(arr);
+    store.set('playlist_recent_songs', arr);
+    location.hash = '#/playlist/recent-songs';
+  }
+
+  // Item interactions (favorite toggle / play single)
+  listWrap.onclick = (e)=>{
+    const tr = e.target.closest('.track'); if(!tr) return;
+    const i = Number(tr.dataset.i); const t = songs[i];
+    if (e.target.closest('.songFav')){
+      toggleFavSong(t);
+      // Update star instantly
+      e.target.textContent = findSongIdx(t.url)>=0 ? '★' : '☆';
+      e.target.title = findSongIdx(t.url)>=0 ? 'Unfavorite' : 'Favorite';
+      return;
+    }
+    // Play just this recent song
+    store.set('playlist_recent_songs', [t]);
+    location.hash = '#/playlist/recent-songs';
   };
 });
 
@@ -1389,20 +1491,58 @@ listWrap.innerHTML = songs.map((t,i)=>`
   };
 });
 
-/* ------------ Playlist route (fav-songs) ------------ */
+/* ------------ Playlist route (fav-songs, recent-songs) ------------ */  // REPLACE
 Router.on('playlist', (params)=>{
   const listId = (params||[])[0]||'';
-  if(listId==='fav-songs') renderFavSongsPlaylist();
-  else { // unknown
+  if (listId==='fav-songs')        renderFavSongsPlaylist();
+  else if (listId==='recent-songs')renderRecentSongsPlaylist();
+  else {
     const c=$('#content'); c.className='grid'; c.innerHTML=`<div class="card"><span class="small">Empty playlist.</span></div>`;
   }
 });
+
 
 function renderFavSongsPlaylist(){
   show($('#toolbar-bands'),false); show($('#toolbar-band'),false); show($('#showMeta'),false);
   const content=$('#content'); content.className='tracks';
   const pl = store.get('playlist_fav_songs', []);
   if(!pl.length){ content.innerHTML = `<div class="card"><span class="small">No songs to play.</span></div>`; return; }
+
+  function renderRecentSongsPlaylist(){  // NEW
+  show($('#toolbar-bands'),false); show($('#toolbar-band'),false); show($('#showMeta'),false);
+  const content=$('#content'); content.className='tracks';
+  const pl = store.get('playlist_recent_songs', []);
+  if(!pl.length){ content.innerHTML = `<div class="card"><span class="small">No songs to play.</span></div>`; return; }
+
+  currentShowId = 'recent_songs';
+  trackList = pl.map(t=>({url:t.url, title:t.title, length:''}));
+  content.innerHTML = trackList.map((t,i)=>`
+    <div class="track" data-i="${i}">
+      <div class="tleft">
+        <button class="songFav" title="Favorite song">${ findSongIdx(t.url)>=0 ? '★' : '☆' }</button>
+        <div class="tnum">${i+1}</div>
+        <div class="tname">${t.title}</div>
+      </div>
+      <div class="tlen"></div>
+      <div class="progressBar" id="pb-${i}"></div>
+    </div>`).join('');
+  trackEls = $$('.track');
+
+  content.onclick = ev => {
+    const favBtn = ev.target.closest('.songFav');
+    if (favBtn){
+      const tr = ev.target.closest('.track'); if(!tr) return;
+      const idx = Number(tr.dataset.i);
+      toggleFavSong({url:trackList[idx].url, title:trackList[idx].title, showId:'recent_songs'});
+      favBtn.textContent = findSongIdx(trackList[idx].url)>=0 ? '★' : '☆';
+      return;
+    }
+    const tr=ev.target.closest('.track'); if(!tr) return; playIndex(Number(tr.dataset.i));
+  };
+
+  playIndex(0); // autoplay
+}
+
 
   // Use the standard track list and player
   currentShowId = 'favorites_songs';
