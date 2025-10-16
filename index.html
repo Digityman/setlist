@@ -1340,17 +1340,6 @@ listWrap.innerHTML = songs.map((t,i)=>`
   </div>
 `).join('');
 
-
-<!-- pills row -->
-<div class="row" style="margin-top:6px">
-  ${t.band ? `<span class="pill pill-sm">${t.band}</span>` : ''}             <!-- NEW -->
-  ${t.location ? `<span class="pill pill-sm">${t.location}</span>` : ''}     <!-- unchanged -->
-  ${t.date ? `<span class="pill pill-sm">${t.date}</span>` : ''}             <!-- unchanged -->
-</div>
-
-
-    <div class="progressBar"></div>
-  </div>`).join('');
   content.appendChild(listWrap);
 
   // Play All / Shuffle All
