@@ -611,6 +611,50 @@ function pushRecent(song){                                            // keep li
   if (arr.length > 100) arr.length = 100;    // cap at 100
   store.set('recentSongs', arr);
 }
+// Try to parse a show identifier from a track URL (https://archive.org/download/{showId}/{file})
+function parseShowIdFromUrl(url = '') {
+  try {
+    const m = /archive\.org\/download\/([^/]+)\//i.exec(url);
+    return m ? decodeURIComponent(m[1]) : '';
+  } catch { return ''; }
+}
+
+function formatMDY(isoOrLocal = '') {
+  // Reuse default locale formatting like other parts of the app
+  try { return new Date(isoOrLocal).toLocaleDateString(); } catch { return ''; }
+}
+
+// Enrich a recent item in-place if it lacks metadata; also persist back to storage
+async function enrichRecentItem(t) {
+  if (t.band && t.location && t.date && t.showId) return t; // nothing to do
+
+  const showId = t.showId || parseShowIdFromUrl(t.url);
+  if (!showId) return t;
+
+  try {
+    const meta = await fetchIA(IA.metaUrl(showId));
+    const md   = meta?.metadata || {};
+    const date = md.date ? formatMDY(md.date) : (t.date || '');
+    const venue = md.venue || '';
+    const coverage = md.coverage || '';
+    const location = [venue, coverage].filter(Boolean).join(', ') || t.location || '';
+    const band = md.creator || t.band || '';
+    const showTitle = md.title || t.showTitle || '';
+
+    const enriched = { ...t, showId, date, location, band, showTitle };
+
+    // Persist back to recentSongs (by URL)
+    const arr = recentSongs();
+    const idx = arr.findIndex(x => x.url === t.url);
+    if (idx >= 0) {
+      arr[idx] = enriched;
+      store.set('recentSongs', arr);
+    }
+    return enriched;
+  } catch {
+    return t;
+  }
+}  
 /* ------------ Bands page ------------ */
 let onlyFavBands = false;
 async function showBands(){
@@ -1044,7 +1088,7 @@ if (jumpUrl) {
   store.set('jumpToUrl', null); // one-time use
   const idx = trackList.findIndex(t => t.url === jumpUrl);
   if (idx >= 0) {
-    // Sync highlight with what’s playing
+    // Sync highlight with what's playing
     curIndex = idx;
     updateTrackHighlight();
 
@@ -1348,6 +1392,85 @@ Router.on('recent', () => {
     </div>
   `).join('');
   content.appendChild(listWrap);
+  // After initial render, backfill old rows that are missing metadata.
+// Update the DOM pills once enrichment finishes.
+(async () => {
+  for (let i = 0; i < songs.length; i++) {
+    const t = songs[i];
+    if (t.band && t.location && t.date && t.showId) continue; // already good
+
+    const enriched = await enrichRecentItem(t);
+    if (!enriched) continue;
+
+    // Update pills in the row
+    const row = listWrap.querySelector(`.track[data-i="${i}"]`);
+    if (!row) continue;
+
+    // Line 1: band pill (right side)
+    const line1 = row.querySelector('.line1');
+    if (line1) {
+      let bandEl = line1.querySelector('.bandpill');
+      if (!bandEl) {
+        bandEl = document.createElement('span');
+        bandEl.className = 'pill pill-sm bandpill';
+        line1.appendChild(bandEl);
+      }
+      bandEl.textContent = enriched.band || '';
+      bandEl.style.display = enriched.band ? '' : 'none';
+    }
+
+    // Line 2: location (link to show) + date
+    const line2 = row.querySelector('.line2');
+    if (line2) {
+      // location
+      let locEl = line2.querySelector('.locpill');
+      const href = enriched.showId ? `#/show/${encodeURIComponent(enriched.showId)}` : '';
+      if (!locEl) {
+        if (href) {
+          locEl = document.createElement('a');
+          locEl.className = 'pill pill-sm locpill';
+          locEl.setAttribute('href', href);
+        } else {
+          locEl = document.createElement('span');
+          locEl.className = 'pill pill-sm locpill';
+        }
+        line2.prepend(locEl);
+      } else {
+        // convert span→a if we learned showId
+        if (href && locEl.tagName !== 'A') {
+          const replacement = document.createElement('a');
+          replacement.className = locEl.className;
+          replacement.textContent = locEl.textContent;
+          replacement.setAttribute('href', href);
+          locEl.replaceWith(replacement);
+          locEl = replacement;
+        } else if (!href && locEl.tagName === 'A') {
+          const replacement = document.createElement('span');
+          replacement.className = locEl.className;
+          replacement.textContent = locEl.textContent;
+          locEl.replaceWith(replacement);
+          locEl = replacement;
+        }
+      }
+      locEl.textContent = enriched.location || '';
+      locEl.style.display = enriched.location ? '' : 'none';
+
+      // date
+      let dateEl = line2.querySelector('.datepill');
+      if (!dateEl) {
+        dateEl = document.createElement('span');
+        dateEl.className = 'pill pill-sm datepill';
+        line2.appendChild(dateEl);
+      }
+      dateEl.textContent = enriched.date || '';
+      dateEl.style.display = enriched.date ? '' : 'none';
+    }
+
+    // Save back into the local array so play/shuffle pick up fresh fields
+    songs[i] = enriched;
+  }
+})();
+
   trackEls = Array.from(listWrap.querySelectorAll('.track')); // NEW
 
   // Play All / Shuffle All
