@@ -1508,6 +1508,49 @@ function renderFavSongsPlaylist(){
   const pl = store.get('playlist_fav_songs', []);
   if(!pl.length){ content.innerHTML = `<div class="card"><span class="small">No songs to play.</span></div>`; return; }
 
+function renderRecentSongsPlaylist(){
+  show($('#toolbar-bands'),false); show($('#toolbar-band'),false); show($('#showMeta'),false);
+  const content = $('#content'); content.className = 'tracks';
+
+  const pl = store.get('playlist_recent_songs', []);
+  if (!pl.length){
+    content.innerHTML = `<div class="card"><span class="small">No songs to play.</span></div>`;
+    return;
+  }
+
+  // Use standard track list + player
+  currentShowId = 'recent_songs';
+  trackList = pl.map(t => ({ url: t.url, title: t.title, length: '' }));
+
+  content.innerHTML = trackList.map((t,i)=>`
+    <div class="track" data-i="${i}">
+      <div class="tleft">
+        <button class="songFav" title="Favorite song">${ findSongIdx(t.url)>=0 ? '★' : '☆' }</button>
+        <div class="tnum">${i+1}</div>
+        <div class="tname">${t.title}</div>
+      </div>
+      <div class="tlen"></div>
+      <div class="progressBar" id="pb-${i}"></div>
+    </div>`).join('');
+  trackEls = $$('.track');
+
+  content.onclick = ev => {
+    const favBtn = ev.target.closest('.songFav');
+    if (favBtn){
+      const tr = ev.target.closest('.track'); if (!tr) return;
+      const idx = Number(tr.dataset.i);
+      toggleFavSong({ url: trackList[idx].url, title: trackList[idx].title, showId: 'recent_songs' });
+      favBtn.textContent = findSongIdx(trackList[idx].url) >= 0 ? '★' : '☆';
+      return;
+    }
+    const tr = ev.target.closest('.track'); if (!tr) return;
+    playIndex(Number(tr.dataset.i));
+  };
+
+  playIndex(0); // autoplay first recent song
+}
+
+
   function renderRecentSongsPlaylist(){  // NEW
   show($('#toolbar-bands'),false); show($('#toolbar-band'),false); show($('#showMeta'),false);
   const content=$('#content'); content.className='tracks';
