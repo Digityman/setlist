@@ -110,7 +110,16 @@
   .track.playing{box-shadow:0 0 0 2px rgba(255,213,74,.25) inset}
   .track.playing::before{content:""; position:absolute; left:0; top:0; bottom:0; width:6px; background:var(--warn); border-radius:12px 0 0 12px}
   .progressBar{position:absolute; left:0; bottom:0; height:3px; background:var(--warn); border-radius:0 0 12px 12px; width:0%}
-  .songFav{min-width:32px; min-height:32px; border-radius:10px; border:1px solid var(--ring); background:transparent; color:var(--warn)}
+.songFav{
+  min-width:32px; min-height:32px;
+  border-radius:10px; border:1px solid var(--ring);
+  background:transparent;
+  color:var(--text);              /* default = white */
+}
+.songFav.is-on{                   /* favorited = yellow */
+  color:var(--warn);
+}
+
 
   /* Pulse the track briefly when we deep-link to it */
 @keyframes pulseTrack {
@@ -1073,7 +1082,9 @@ async function showShow(params){
       content.innerHTML = trackList.map((t,i)=>`
         <div class="track" data-i="${i}">
           <div class="tleft">
-            <button class="songFav" title="Favorite song">${ findSongIdx(t.url)>=0 ? '★' : '☆' }</button>
+<button class="songFav${ findSongIdx(t.url)>=0 ? ' is-on' : '' }" title="Favorite song">
+  ${ findSongIdx(t.url)>=0 ? '★' : '☆' }
+</button>
             <div class="tnum">${i+1}</div>
             <div class="tname">${t.title}</div>
           </div>
@@ -1120,6 +1131,8 @@ content.onclick = ev => {
     };
     toggleFavSong(song);
     favBtn.textContent = findSongIdx(song.url) >= 0 ? '★' : '☆';
+    favBtn.classList.toggle('is-on', findSongIdx(song.url) >= 0);
+
     return;
   }
   const tr = ev.target.closest('.track'); 
@@ -1369,9 +1382,10 @@ Router.on('recent', () => {
     <div class="track favsong" data-i="${i}">
       <div class="line1">
         <div class="tleft">
-          <button class="songFav" title="${findSongIdx(t.url)>=0 ? 'Unfavorite' : 'Favorite'}">
-            ${findSongIdx(t.url)>=0 ? '★' : '☆'}
-          </button>
+<button class="songFav${ findSongIdx(t.url)>=0 ? ' is-on' : '' }" title="${findSongIdx(t.url)>=0 ? 'Unfavorite' : 'Favorite'}">
+  ${ findSongIdx(t.url)>=0 ? '★' : '☆' }
+</button>
+
           <div class="tnum">${i+1}</div>
           <div class="tname">${t.title}</div>
         </div>
@@ -1498,6 +1512,7 @@ if (e.target.closest('a[href^="#/show/"]')) return; // already correct; keep it
   if (e.target.closest('.songFav')) {
     toggleFavSong(t);
     e.target.textContent = findSongIdx(t.url) >= 0 ? '★' : '☆';
+    e.target.classList.toggle('is-on', findSongIdx(t.url) >= 0);
     e.target.title = findSongIdx(t.url) >= 0 ? 'Unfavorite' : 'Favorite';
     return;
   }
@@ -1635,7 +1650,7 @@ listWrap.innerHTML = songs.map((t,i)=>`
   <div class="track favsong" data-i="${i}">
     <div class="line1">
       <div class="tleft">
-        <button class="songFav" title="Unfavorite">★</button>
+        <button class="songFav is-on" title="Unfavorite">★</button>
         <div class="tnum">${i+1}</div>
         <div class="tname">${t.title}</div>
       </div>
@@ -1700,7 +1715,13 @@ function renderFavSongsPlaylist(){
   content.innerHTML = trackList.map((t,i)=>`
     <div class="track" data-i="${i}">
       <div class="tleft">
-        <button class="songFav" title="Favorite song">${ findSongIdx(t.url)>=0 ? '★' : '☆' }</button>
+<button class="songFav${ findSongIdx(t.url)>=0 ? ' is-on' : '' }" title="Favorite song">
+  ${ findSongIdx(t.url)>=0 ? '★' : '☆' }
+</button>
+favBtn.classList.toggle('is-on', findSongIdx(trackList[idx].url) >= 0);
+
+
+        
         <div class="tnum">${i+1}</div>
         <div class="tname">${t.title}</div>
       </div>
@@ -1766,7 +1787,10 @@ function renderRecentSongsPlaylist(){
   content.innerHTML = trackList.map((t,i)=>`
     <div class="track" data-i="${i}">
       <div class="tleft">
-        <button class="songFav" title="Favorite song">${ findSongIdx(t.url)>=0 ? '★' : '☆' }</button>
+<button class="songFav${ findSongIdx(t.url)>=0 ? ' is-on' : '' }" title="Favorite song">
+  ${ findSongIdx(t.url)>=0 ? '★' : '☆' }
+</button>
+
         <div class="tnum">${i+1}</div>
         <div class="tname">${t.title}</div>
       </div>
@@ -1782,6 +1806,8 @@ function renderRecentSongsPlaylist(){
       const idx = Number(tr.dataset.i);
       toggleFavSong({ url: trackList[idx].url, title: trackList[idx].title, showId: 'recent_songs' });
       favBtn.textContent = findSongIdx(trackList[idx].url) >= 0 ? '★' : '☆';
+      favBtn.classList.toggle('is-on', findSongIdx(trackList[idx].url) >= 0);
+
       return;
     }
     const tr = ev.target.closest('.track'); if (!tr) return;
