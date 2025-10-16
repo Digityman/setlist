@@ -1038,6 +1038,27 @@ async function showShow(params){
         </div>`).join('');
 
       trackEls = $$('.track');
+// If we arrived via the Now-Playing button, jump to the exact track in this show
+const jumpUrl = store.get('jumpToUrl', null);
+if (jumpUrl) {
+  store.set('jumpToUrl', null); // one-time use
+  const idx = trackList.findIndex(t => t.url === jumpUrl);
+  if (idx >= 0) {
+    // Sync highlight with what’s playing
+    curIndex = idx;
+    updateTrackHighlight();
+
+    // Scroll into view and pulse for visibility
+    const el = document.querySelector(`.track[data-i="${idx}"]`);
+    if (el) {
+      el.scrollIntoView({ block: 'center', behavior: 'smooth' });
+      el.classList.add('pulse');
+      setTimeout(() => el.classList.remove('pulse'), 1800);
+    }
+  }
+}
+
+      
 
 content.onclick = ev => {
   const favBtn = ev.target.closest('.songFav');
@@ -1215,7 +1236,7 @@ A.addEventListener('timeupdate', ()=>{
 });
 
 /* Equalizer button -> jump back to current show */
-P_now.addEventListener('click', ()=>{
+P_now.addEventListener('click', () => {
   const id  = store.get('currentShowId', null) || currentShowId;
   const url = (trackList[curIndex] && trackList[curIndex].url) || '';
   if (id) {
@@ -1223,6 +1244,7 @@ P_now.addEventListener('click', ()=>{
     location.hash = '#/show/' + encodeURIComponent(id);
   }
 });
+
 
 /* Auto-resume */
 function markHideState(){ store.set('wasPlayingOnHide', !A.paused); }
