@@ -994,7 +994,10 @@ function renderConcerts(){
           <div class="small">${venueLine}</div>
         </div>
         <div class="row">
-          <button class="btn ghost favToggle" title="Favorite">${isFav(it.identifier)?'★':'☆'}</button>
+         <button class="btn ghost favToggle${isFav(it.identifier) ? ' is-on' : ''}" title="Favorite">
+  ${isFav(it.identifier) ? '★' : '☆'}
+</button>
+
         </div>
       </div>`;
   }).join('');
