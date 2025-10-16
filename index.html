@@ -1078,7 +1078,8 @@ let queue=[]; let curIndex=-1;
 let showQueue = store.get('showQueue', []); // array of show identifiers
 let showQueuePos = store.get('showQueuePos', -1);
 let queueShowsActive = store.get('queueShowsActive', false);
-
+let playlistMeta = null; // parallel to queue/trackList when playing from "Recent"
+  
 function persistShowQueue(){
   store.set('showQueue', showQueue);
   store.set('showQueuePos', showQueuePos);
@@ -1104,18 +1105,31 @@ function playIndex(i){
   if(!trackList.length) return;
   setQueueFromTracks();
   curIndex=Math.max(0,Math.min(i,queue.length-1));
+if (Array.isArray(playlistMeta)) {
+  const m = playlistMeta[curIndex] || null;
+  if (m) {
+    currentShowDate     = m.date || '';
+    currentShowLocation = m.location || '';
+    currentShowBand     = m.band || '';
+    currentShowTitle    = m.showTitle || m.title || '';
+    if (m.showId) currentShowId = m.showId;
+  }
+}
+  
   // Log to Recently Played (uses current show metadata)  // NEW
 try {
   const t = trackList[curIndex];
   if (t && t.url) {
-    pushRecent({
-      url: t.url,
-      title: t.title,
-      date: currentShowDate || '',
-      location: currentShowLocation || '',
-      band: currentShowBand || '',
-      showTitle: currentShowTitle || ''
-    });
+pushRecent({
+  url: t.url,
+  title: t.title,
+  date: currentShowDate || '',
+  location: currentShowLocation || '',
+  band: currentShowBand || '',
+  showTitle: currentShowTitle || '',
+  showId: currentShowId || ''
+});
+
   }
 } catch(e) {}
   A.src=queue[curIndex];
@@ -1285,7 +1299,12 @@ Router.on('recent', () => {
       </div>
 
       <div class="line2">
-        ${t.location ? `<span class="pill pill-sm locpill">${t.location}</span>` : ''}
+        ${t.location ? (
+  t.showId
+    ? `<a class="pill pill-sm locpill" href="#/show/${encodeURIComponent(t.showId)}">${t.location}</a>`
+    : `<span class="pill pill-sm locpill">${t.location}</span>`
+) : ''}
+
         ${t.date ? `<span class="pill pill-sm datepill">${t.date}</span>` : ''}
       </div>
 
@@ -1298,28 +1317,36 @@ Router.on('recent', () => {
   $('#recentPlayAll').onclick   = ()=> startRecent(false);
   $('#recentShuffleAll').onclick= ()=> startRecent(true);
 
-  function startRecent(shuffle){
-    const arr = songs.slice();
-    if (shuffle) shuffleArray(arr);
-    store.set('playlist_recent_songs', arr);
-    location.hash = '#/playlist/recent-songs';
-  }
+function startRecent(shuffle){
+  const arr = songs.slice();
+  if (shuffle) shuffleArray(arr);
+  playlistMeta = arr;                                  // keep metadata
+  currentShowId = arr[0]?.showId || 'recent_playlist'; // seed id
+  trackList = arr.map(t => ({ url: t.url, title: t.title, length: '' }));
+  playIndex(0);
+}
+
 
   // Item interactions (favorite toggle / play single)
-  listWrap.onclick = (e)=>{
-    const tr = e.target.closest('.track'); if(!tr) return;
-    const i = Number(tr.dataset.i); const t = songs[i];
-    if (e.target.closest('.songFav')){
-      toggleFavSong(t);
-      // Update star instantly
-      e.target.textContent = findSongIdx(t.url)>=0 ? '★' : '☆';
-      e.target.title = findSongIdx(t.url)>=0 ? 'Unfavorite' : 'Favorite';
-      return;
-    }
-    // Play just this recent song
-    store.set('playlist_recent_songs', [t]);
-    location.hash = '#/playlist/recent-songs';
-  };
+listWrap.onclick = (e) => {
+  if (e.target.closest('a[href^="#/show/"]')) return; // let the link work
+
+  const tr = e.target.closest('.track'); if (!tr) return;
+  const i = Number(tr.dataset.i);
+  const t = songs[i];
+
+  if (e.target.closest('.songFav')) {
+    toggleFavSong(t);
+    e.target.textContent = findSongIdx(t.url) >= 0 ? '★' : '☆';
+    e.target.title = findSongIdx(t.url) >= 0 ? 'Unfavorite' : 'Favorite';
+    return;
+  }
+
+  // play in place
+  playlistMeta = songs;
+  trackList = songs.map(s => ({ url: s.url, title: s.title, length: '' }));
+  playIndex(i);
+};
 });
 
 Router.on('favorites/concerts', async ()=>{
