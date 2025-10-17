@@ -1322,38 +1322,36 @@ function persistShowQueue(){
 }
 
 function setQueueFromTracks(){ queue = trackList.map(t=>t.url); }
-function updateMediaSession(title='Playing', artist='Setlist Streamer'){
-  try{
-  if ('mediaSession' in navigator) {
-  const art = [
-    { src: coverURL,   sizes: '96x96',   type: 'image/png' },
-    { src: coverURL,   sizes: '192x192', type: 'image/png' },
-    { src: coverURL,   sizes: '512x512', type: 'image/png' }
-  ];
+// Find this code: function updateMediaSession(
+function updateMediaSession(title = 'Playing') {
+  if (!('mediaSession' in navigator)) return;
 
-  // Important part: album = location/date
-  navigator.mediaSession.metadata = new MediaMetadata({
-    title:  currentTrack.title,          // "Cumberland Blues"
-    artist: currentBand.name,            // "Grateful Dead"
-    album:  showLabel(currentShow),      // e.g., "Ithaca, NY • 1977-05-08"
-    artwork: art
-  });
-// Example shape your app likely already has:
-const currentShow = {
-  venue: meta.venue,          // e.g., "Barton Hall"
-  city:  meta.city,           // e.g., "Ithaca"
-  state: meta.state,          // e.g., "NY"
-  date:  meta.date            // "1977-05-08"
-};
-  // optional but nice: keeps scrubber/time in sync
+  const artist = currentShowBand || 'Setlist Streamer';
+  const album  = [currentShowLocation, currentShowDate].filter(Boolean).join(' • ');
+
   try {
-    navigator.mediaSession.setPositionState({
-      duration:  A.duration || 0,
-      playbackRate: A.playbackRate || 1,
-      position: A.currentTime || 0
+    navigator.mediaSession.metadata = new MediaMetadata({
+      title,
+      artist,        // band
+      album,         // "Venue/City • MM/DD/YYYY"
+      artwork: [
+        { src: 'icons/logo-96.png?v=3',  sizes: '96x96',  type: 'image/png' },
+        { src: 'icons/logo-192.png?v=3', sizes: '192x192', type: 'image/png' },
+        { src: 'icons/logo-512.png?v=3', sizes: '512x512', type: 'image/png' }
+      ]
     });
-  } catch(_) {}
+
+    // keep Android’s scrubber in sync (best-effort)
+    try {
+      navigator.mediaSession.setPositionState({
+        duration:    Number.isFinite(A.duration) ? A.duration : 0,
+        playbackRate: A.playbackRate || 1,
+        position:    Number.isFinite(A.currentTime) ? A.currentTime : 0
+      });
+    } catch (_) {}
+  } catch (_) {}
 }
+
 function playIndex(i){
   if(!trackList.length) return;
   setQueueFromTracks();
