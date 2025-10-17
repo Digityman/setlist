@@ -1678,25 +1678,42 @@ listWrap.innerHTML = songs.map((t,i)=>`
   $('#favSongsPlayAll').onclick = ()=> startFavSongs(false);
   $('#favSongsShuffleAll').onclick = ()=> startFavSongs(true);
 
-  function startFavSongs(shuffle){
-    const arr = songs.slice();
-    if(shuffle) shuffleArray(arr);
-    // Build a temporary playlist route
-    store.set('playlist_fav_songs', arr);
-    location.hash = '#/playlist/fav-songs';
-  }
+function startFavSongs(shuffle){
+  const arr = songs.slice();
+  if (shuffle) shuffleArray(arr);
+
+  // Play inline on the Favorites → Songs page
+  currentShowId   = 'favorites_songs';
+  currentShowBand = arr[0]?.band || '';        // helps Now-Playing metadata
+  playlistMeta    = arr;                       // keep song meta (band/date/etc.)
+  trackList       = arr.map(t => ({ url: t.url, title: t.title, length: '' }));
+
+  playIndex(0);
+}
+
 
   // Interactions
-  listWrap.onclick = (e)=>{
-    const tr = e.target.closest('.track'); if(!tr) return;
-    const i = Number(tr.dataset.i); const t = songs[i];
-    if(e.target.closest('.songFav')){
-      toggleFavSong(t); Router.route(); return;
-    }
-    // Play single favorite song by building single-item playlist
-    store.set('playlist_fav_songs', [t]);
-    location.hash = '#/playlist/fav-songs';
-  };
+listWrap.onclick = (e)=>{
+  const tr = e.target.closest('.track'); if (!tr) return;
+  const i = Number(tr.dataset.i);
+  const t = songs[i];
+
+  // Toggle star without starting playback
+  if (e.target.closest('.songFav')){
+    toggleFavSong(t);
+    Router.route();
+    return;
+  }
+
+  // Play inline starting at the tapped song
+  currentShowId   = 'favorites_songs';
+  currentShowBand = t?.band || '';
+  playlistMeta    = songs;  // keep meta for Now-Playing and pills
+  trackList       = songs.map(s => ({ url: s.url, title: s.title, length: '' }));
+
+  playIndex(i);
+};
+
 });
 
 
