@@ -815,7 +815,7 @@ const params = new URLSearchParams({
   sort: sortExpr,                           // e.g., "downloads:desc"
   count: '120'
 });
-const url = `https://api.archive.org/search/v1/scrape?${params}`;
+const url = `https://archive.org/services/search/v1/scrape?${params.toString()}`;
 
 // ✨ use the resilient fetch with cache
 const { data, stale } = await iaFetchJSON(url, {
