@@ -243,6 +243,21 @@
 </style>
 </head>
 <body>
+<div id="statusBanner" hidden data-kind="warn" style="
+  position:sticky; top:0; z-index:9999; padding:10px 12px;
+  font-size:14px; line-height:1.2; text-align:center;
+  background:#fff3cd; color:#664d03; border-bottom:1px solid #ffe69c;
+">
+  <!-- message injected by JS -->
+  <button id="statusRetryBtn" style="margin-left:8px; padding:4px 8px; border:1px solid #d3a500; background:#ffec99; border-radius:6px; cursor:pointer">
+    Try again
+  </button>
+</div>
+<script>
+  // optional: wire the button to refresh current view
+  document.getElementById('statusRetryBtn')?.addEventListener('click', ()=> location.reload());
+</script>
+  
 <div class="wrap">
   <!-- Header -->
   <header>
@@ -442,8 +457,8 @@ const crumbText = crumbOverride ?? (
   $('#subHeader').classList.toggle('show', routeName==='band');
 }
 
-/* ------------ robust fetch ------------ */
-async function fetchWithTimeout(url, {timeout=12000}={}){
+// old helper — keep if you still use fetchJSON() anywhere
+async function fetchWithTimeoutLegacy(url, {timeout=12000}={}){
   const ctrl = new AbortController();
   const id = setTimeout(()=>ctrl.abort(), timeout);
   try{
@@ -453,7 +468,9 @@ async function fetchWithTimeout(url, {timeout=12000}={}){
     return res;
   }catch(e){ clearTimeout(id); throw e; }
 }
-async function fetchJSON(url){ const r = await fetchWithTimeout(url); return r.json(); }
+// and update this right below it:
+async function fetchJSON(url){ const r = await fetchWithTimeoutLegacy(url); return r.json(); }
+
 
 /* ------------ JSONP helper (defensive) ------------ */
 function fetchJSONP(url, {timeout=8000}={}) {
@@ -498,6 +515,83 @@ async function fetchIA(url){
 }
 
 /* ------------ IA helpers ------------ */
+// === Archive API fetch with timeout + retries + outage detection ===
+const IA_STATUS = { failCount: 0, circuitUntil: 0, lastError: '' };
+
+function showStatus(msg, kind='warn') {
+  // ensure you have a #statusBanner element in HTML (see snippet below)
+  const el = document.getElementById('statusBanner');
+  if (!el) return;
+  el.textContent = msg;
+  el.dataset.kind = kind;
+  el.hidden = false;
+}
+function hideStatus(){ const el = document.getElementById('statusBanner'); if (el) el.hidden = true; }
+
+function now(){ return Date.now(); }
+function circuitOpen(){ return now() < IA_STATUS.circuitUntil; }
+function openCircuit(ms=5*60*1000){ IA_STATUS.circuitUntil = now()+ms; }
+
+function fetchWithTimeout(url, ms=15000, opts={}) {
+  const ctl = new AbortController();
+  const t = setTimeout(()=>ctl.abort(), ms);
+  return fetch(url, {...opts, signal: ctl.signal}).finally(()=>clearTimeout(t));
+}
+
+// small cache helpers
+function setCache(key, data){ try{ localStorage.setItem(key, JSON.stringify({ts:Date.now(), data})); }catch{} }
+function getCache(key){ try{ const v = JSON.parse(localStorage.getItem(key)||''); return v && v.data; }catch{ return null; } }
+
+// One canonical way to call IA
+async function iaFetchJSON(url, { cacheKey, retries=2, timeoutMs=15000 } = {}) {
+  // If the circuit is open, jump straight to cache and message
+  if (circuitOpen()) {
+    const cached = cacheKey ? getCache(cacheKey) : null;
+    if (cached) {
+      showStatus('Archive.org is having trouble; showing cached results (stale).', 'info');
+      return { data: cached, stale: true };
+    }
+    throw new Error('Archive.org temporarily unavailable (cool-down active).');
+  }
+
+  let attempt = 0;
+  while (true) {
+    try {
+      const res = await fetchWithTimeout(url, timeoutMs);
+      if (!res.ok) throw new Error(`HTTP ${res.status}`);
+      const data = await res.json();
+      IA_STATUS.failCount = 0; IA_STATUS.lastError = ''; hideStatus();
+      if (cacheKey) setCache(cacheKey, data);
+      return { data, stale: false };
+    } catch (err) {
+      attempt++;
+      IA_STATUS.failCount++; IA_STATUS.lastError = String(err);
+      if (attempt > retries) {
+        // Decide if this looks like an outage
+        if (IA_STATUS.failCount >= 3) {
+          openCircuit(); // 5 minutes
+          showStatus('Archive.org seems unreachable. We’ll retry shortly. You can keep browsing cached items.', 'warn');
+        } else if (!navigator.onLine) {
+          showStatus('You appear to be offline. Reconnect and try again.', 'warn');
+        } else {
+          showStatus('Trouble reaching Archive.org. Retrying…', 'warn');
+        }
+        // Cache fallback
+        const cached = cacheKey ? getCache(cacheKey) : null;
+        if (cached) return { data: cached, stale: true };
+        throw err;
+      }
+      // Backoff: 500ms, 1000ms…
+      await new Promise(r=>setTimeout(r, 500 * attempt));
+    }
+  }
+}
+
+// Nice-to-have: react to browser online/offline
+window.addEventListener('offline', ()=> showStatus('You are offline. Some features won’t work.', 'warn'));
+window.addEventListener('online',  ()=> { hideStatus(); IA_STATUS.failCount = 0; IA_STATUS.circuitUntil = 0; });
+
+  
 const IA = {
   bandsUrl({ q='collection:(etree) AND mediatype:(collection)', sort='downloads desc', rows=120 }={}){
     const u=new URL('https://archive.org/advancedsearch.php');
@@ -705,7 +799,46 @@ async function showBands(){
 
   const load = async ()=>{
     try{
-      const data=await fetchIA(IA.bandsUrl({q,sort,rows:120}));
+// Map UI sort ("downloads desc") → API sort ("downloads:desc")
+// v1 likes title.raw for alpha sorts
+function mapSortForV1(s='downloads desc'){
+  const [field, dir] = s.split(/\s+/);      // e.g., ["downloads","desc"]
+  const f = field === 'title' ? 'title.raw' : field;
+  const d = (dir || 'desc').toLowerCase();
+  return `${f}:${d}`;
+}
+
+const sortExpr = mapSortForV1(sort);
+const params = new URLSearchParams({
+  q,                                        // e.g., collection:(etree) AND …
+  fields: 'identifier,title,downloads',
+  sort: sortExpr,                           // e.g., "downloads:desc"
+  count: '120'
+});
+const url = `https://api.archive.org/search/v1/scrape?${params}`;
+
+// ✨ use the resilient fetch with cache
+const { data, stale } = await iaFetchJSON(url, {
+  cacheKey: 'topCollections:v1',
+  retries: 2,
+  timeoutMs: 15000
+});
+
+// v1 returns { items: [...] }
+const items = (data.items || []).map(d => ({
+  id: d.identifier,
+  title: d.title || d.identifier,
+  downloads: d.downloads || 0
+}));
+
+if (stale) document.body.dataset.stale = '1'; // optional: mark UI as cached
+
+
+
+
+
+
+      
       const items=(data?.response?.docs||[]).map(d=>({id:d.identifier,title:d.title||d.identifier,downloads:d.downloads||0}));
       content.innerHTML = items.map(b=>`
         <div class="bandTile" data-id="${b.id}">
