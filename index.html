@@ -1324,19 +1324,35 @@ function persistShowQueue(){
 function setQueueFromTracks(){ queue = trackList.map(t=>t.url); }
 function updateMediaSession(title='Playing', artist='Setlist Streamer'){
   try{
-    if(!('mediaSession' in navigator)) return;
-    navigator.mediaSession.metadata = new MediaMetadata({
-      title,
-      artist: currentShowBand || artist,   // NEW: prefer live band name
-      album: 'Live Music Archive',
-      artwork: [
-        { src: 'icons/logo-96.png?v=3',  sizes:'96x96',  type:'image/png' },
-        { src: 'icons/logo-192.png?v=3', sizes:'192x192', type:'image/png' },
-        { src: 'icons/logo-256.png?v=3', sizes:'256x256', type:'image/png' },
-        { src: 'icons/logo-512.png?v=3', sizes:'512x512', type:'image/png' }
-      ]
+  if ('mediaSession' in navigator) {
+  const art = [
+    { src: coverURL,   sizes: '96x96',   type: 'image/png' },
+    { src: coverURL,   sizes: '192x192', type: 'image/png' },
+    { src: coverURL,   sizes: '512x512', type: 'image/png' }
+  ];
+
+  // Important part: album = location/date
+  navigator.mediaSession.metadata = new MediaMetadata({
+    title:  currentTrack.title,          // "Cumberland Blues"
+    artist: currentBand.name,            // "Grateful Dead"
+    album:  showLabel(currentShow),      // e.g., "Ithaca, NY • 1977-05-08"
+    artwork: art
+  });
+// Example shape your app likely already has:
+const currentShow = {
+  venue: meta.venue,          // e.g., "Barton Hall"
+  city:  meta.city,           // e.g., "Ithaca"
+  state: meta.state,          // e.g., "NY"
+  date:  meta.date            // "1977-05-08"
+};
+  // optional but nice: keeps scrubber/time in sync
+  try {
+    navigator.mediaSession.setPositionState({
+      duration:  A.duration || 0,
+      playbackRate: A.playbackRate || 1,
+      position: A.currentTime || 0
     });
-  }catch(e){}
+  } catch(_) {}
 }
 function playIndex(i){
   if(!trackList.length) return;
@@ -1649,6 +1665,11 @@ function startRecent(shuffle){
   playIndex(0);
 }
 
+  function showLabel(show){
+  // expects: { venue, city, state, date }  date like "1977-05-08"
+  const loc = [show.city, show.state].filter(Boolean).join(', ');
+  return [show.venue || loc || 'Live', show.date].filter(Boolean).join(' • ');
+}
 
   // Item interactions (favorite toggle / play single)
 listWrap.onclick = (e) => {
