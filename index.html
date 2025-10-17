@@ -832,14 +832,6 @@ const items = (data.items || []).map(d => ({
 }));
 
 if (stale) document.body.dataset.stale = '1'; // optional: mark UI as cached
-
-
-
-
-
-
-      
-      const items=(data?.response?.docs||[]).map(d=>({id:d.identifier,title:d.title||d.identifier,downloads:d.downloads||0}));
       content.innerHTML = items.map(b=>`
         <div class="bandTile" data-id="${b.id}">
           <img src="${IA.imgUrl(b.id)}" alt="${b.title}">
@@ -988,15 +980,24 @@ async function loadPage(){
   const content=$('#content');
   const sortExpr = resolveSort();
   const url = IA.concertsUrl({bandId:currentBandId, sort:sortExpr, rows:state.rows, page:state.page, year:state.year, term:state.term});
-  try{
-    const data = await fetchIA(url);
-    const resp = data?.response || {};
-    state.numFound = Number(resp.numFound || 0);
-    state.list = state.list.concat(resp.docs || []);
-    renderConcerts();
-  }catch(e){
-    showRetry(content, 'Network error while loading concerts.', ()=>loadPage());
-  }
+try{
+  const cacheKey = `concerts:${currentBandId}:${state.year}:${state.term}:${sortExpr}:p${state.page}`;
+  const { data, stale } = await iaFetchJSON(url, {
+    cacheKey,
+    retries: 2,
+    timeoutMs: 15000
+  });
+
+  if (stale) document.body.dataset.stale = '1'; // optional: tag UI as using cache
+
+  const resp = data?.response || {};
+  state.numFound = Number(resp.numFound || 0);
+  state.list = state.list.concat(resp.docs || []);
+  renderConcerts();
+}catch(e){
+  showRetry(content, 'Network error while loading concerts.', ()=>loadPage());
+}
+
 }
 
 function resetAndLoad(patch={}){
@@ -1873,11 +1874,7 @@ function renderFavSongsPlaylist(){
       <div class="tleft">
 <button class="songFav${ findSongIdx(t.url)>=0 ? ' is-on' : '' }" title="Favorite song">
   ${ findSongIdx(t.url)>=0 ? '★' : '☆' }
-</button>
-favBtn.classList.toggle('is-on', findSongIdx(trackList[idx].url) >= 0);
-
-
-        
+</button>       
         <div class="tnum">${i+1}</div>
         <div class="tname">${t.title}</div>
       </div>
