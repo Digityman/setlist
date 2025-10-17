@@ -248,7 +248,7 @@
   font-size:14px; line-height:1.2; text-align:center;
   background:#fff3cd; color:#664d03; border-bottom:1px solid #ffe69c;
 ">
-  <!-- message injected by JS -->
+  <span id="statusMsg"></span>
   <button id="statusRetryBtn" style="margin-left:8px; padding:4px 8px; border:1px solid #d3a500; background:#ffec99; border-radius:6px; cursor:pointer">
     Try again
   </button>
@@ -519,13 +519,14 @@ async function fetchIA(url){
 const IA_STATUS = { failCount: 0, circuitUntil: 0, lastError: '' };
 
 function showStatus(msg, kind='warn') {
-  // ensure you have a #statusBanner element in HTML (see snippet below)
   const el = document.getElementById('statusBanner');
-  if (!el) return;
-  el.textContent = msg;
+  const msgEl = document.getElementById('statusMsg');
+  if (!el || !msgEl) return;
+  msgEl.textContent = msg;       // preserve the button
   el.dataset.kind = kind;
   el.hidden = false;
 }
+
 function hideStatus(){ const el = document.getElementById('statusBanner'); if (el) el.hidden = true; }
 
 function now(){ return Date.now(); }
@@ -819,10 +820,11 @@ const url = `https://archive.org/services/search/v1/scrape?${params.toString()}`
 
 // ✨ use the resilient fetch with cache
 const { data, stale } = await iaFetchJSON(url, {
-  cacheKey: 'topCollections:v1',
+  cacheKey,
   retries: 2,
   timeoutMs: 15000
 });
+
 
 // v1 returns { items: [...] }
 const items = (data.items || []).map(d => ({
