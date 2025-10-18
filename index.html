@@ -1822,20 +1822,27 @@ listWrap.innerHTML = songs.map((t,i)=>`
         <div class="tnum">${i+1}</div>
         <div class="tname">${t.title}</div>
       </div>
-      ${t.band ? `<span class="pill pill-sm">${t.band}</span>` : ''}
+      ${t.band ? `<span class="pill pill-sm bandpill">${t.band}</span>` : ''}
     </div>
 
-    <div class="line2">
-      ${t.location ? `<span class="pill pill-sm">${t.location}</span>` : ''}
-      ${t.date ? `<span class="pill pill-sm">${t.date}</span>` : ''}
-    </div>
+<div class="line2">
+  ${t.location ? (
+    t.showId
+      ? `<a class="pill pill-sm locpill" href="#/show/${encodeURIComponent(t.showId)}">${t.location}</a>`
+      : `<span class="pill pill-sm locpill">${t.location}</span>`
+  ) : ''}
 
-    <div class="progressBar"></div>
+  ${t.date ? `<span class="pill pill-sm datepill">${t.date}</span>` : ''}
+</div>
+
+
+    <div class="progressBar" id="pb-${i}"></div>
   </div>
 `).join('');
 
-  content.appendChild(listWrap);
 
+  content.appendChild(listWrap);
+  trackEls = Array.from(listWrap.querySelectorAll('.track'));
   // Play All / Shuffle All
   $('#favSongsPlayAll').onclick = ()=> startFavSongs(false);
   $('#favSongsShuffleAll').onclick = ()=> startFavSongs(true);
@@ -1856,16 +1863,22 @@ function startFavSongs(shuffle){
 
   // Interactions
 listWrap.onclick = (e)=>{
+  // If user clicked the location link, remember the track and let the link navigate
+  const locLink = e.target.closest('a.locpill');
+  if (locLink) {
+    const row = e.target.closest('.track');
+    if (row) {
+      const i = Number(row.dataset.i);
+      const t = songs[i];
+      if (t?.url) store.set('jumpToUrl', t.url);
+    }
+    return; // allow default hash navigation
+  }
+
   const tr = e.target.closest('.track'); if (!tr) return;
   const i = Number(tr.dataset.i);
   const t = songs[i];
 
-  // Toggle star without starting playback
-  if (e.target.closest('.songFav')){
-    toggleFavSong(t);
-    Router.route();
-    return;
-  }
 
   // Play inline starting at the tapped song
   currentShowId   = 'favorites_songs';
