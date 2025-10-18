@@ -144,34 +144,46 @@
     padding:10px 12px calc(10px + env(safe-area-inset-bottom));
     z-index:9;
   }
-  .player .controls{
-    display:flex; align-items:center; gap:8px;
-    max-width:1000px; margin:0 auto;
-  }
-  .player .btn{min-width:42px; min-height:42px; border-radius:12px}
- /* space to keep the seek bar clear of the volume button */
-:root{ --seek-right-gutter: 120px; } /* ≈ vol btn + gaps; tweak if you add buttons */
-
-/* make seek area flex but cap its width so it stops before the gutter */
-.seekWrap{
-  display:flex; align-items:center; gap:10px;
-  flex:1 1 0;          /* allow shrinking */
-  min-width:0;         /* required for flex children to actually shrink */
-  margin-right: calc(42px + 8px); /* 42px button + 8px gap; adjust if you change sizes */
+/* ===== Player controls: grid layout so seek never overlaps volume ===== */
+.player .controls{
+  display:grid;
+  /* eq | prev | play | next | seek | volume */
+  grid-template-columns: auto auto auto auto 1fr auto;
+  align-items:center;
+  gap:8px;
+  max-width:1000px;
+  margin:0 auto;
 }
 
-#P_times{font-size:12px; color:var(--muted); white-space:nowrap}
+.player .btn{ min-width:42px; min-height:42px; border-radius:12px }
+
+/* keep seek inside its own grid cell; allow it to shrink safely */
+.seekWrap{
+  display:flex;
+  align-items:center;
+  gap:10px;
+  min-width:0;   /* lets the range actually shrink on narrow screens */
+  flex:unset;    /* don’t grow inside grid */
+  margin-right:0;/* no manual gutter needed with grid */
+}
+
+#P_times{ font-size:12px; color:var(--muted); white-space:nowrap }
 
 #P_seek{
-  flex:1; height:6px; border:none; outline:none;
-  border-radius:999px; background:#2a2b2f;
-  -webkit-appearance:none; appearance:none;
+  flex:1;
+  width:100%;
+  height:6px;
+  border:none;
+  outline:none;
+  border-radius:999px;
+  background:#2a2b2f;
+  -webkit-appearance:none;
+  appearance:none;
 }
 
-/* optional: slightly smaller gutter on very small screens */
-@media (max-width: 420px){
-  :root{ --seek-right-gutter: 100px; }
-}
+/* make sure the volume area holds its column width */
+.volWrap{ min-width:42px }
+
 
   #P_seek::-webkit-slider-thumb{ -webkit-appearance:none; appearance:none; width:14px; height:14px; border-radius:50%; background:#7bdcaa; border:none;}
   #P_seek::-moz-range-thumb{ width:14px; height:14px; border-radius:50%; background:#7bdcaa; border:none;}
