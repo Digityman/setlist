@@ -1101,16 +1101,23 @@ async function renderFavConcertsForBand(){
   }).join('');
 
   // Clicks (open / unfavorite)
-  content.onclick = ev => {
-    const favBtn = ev.target.closest('.favToggle');
-    if (favBtn){
-      const card = favBtn.closest('.card'); const id = card?.dataset.id;
-      if (id){ toggleFavShow(id); renderFavConcertsForBand(); }
-      return;
-    }
-    const card = ev.target.closest('.card.tap');
-    if (card) location.hash = '#/show/' + encodeURIComponent(card.dataset.id);
-  };
+content.onclick = ev => {
+  const favBtn = ev.target.closest('.favToggle');
+  if (favBtn){
+    const card = favBtn.closest('.card'); const id = card.dataset.id;
+    toggleFavShow(id); renderConcerts();
+    return;
+  }
+
+  const card = ev.target.closest('.card.tap');
+  if (card) {
+    // remember the origin so the Show header can offer “← Concerts”
+    store.set('cameFrom', 'band');
+    store.set('cameFromBandId', currentBandId || '');
+    location.hash = '#/show/' + encodeURIComponent(card.dataset.id);
+  }
+};
+
 }
 
 function renderConcerts(){
@@ -1153,16 +1160,22 @@ function renderConcerts(){
     $('#loadMoreBtn').onclick = ()=>{ state.page += 1; loadPage(); };
   }
 
-  content.onclick = ev => {
-    const favBtn = ev.target.closest('.favToggle');
-    if (favBtn){
-      const card = favBtn.closest('.card'); const id = card.dataset.id;
-      toggleFavShow(id); renderConcerts();
-      return;
-    }
-    const card = ev.target.closest('.card.tap');
-    if (card) location.hash = '#/show/' + encodeURIComponent(card.dataset.id);
-  };
+content.onclick = ev => {
+  const favBtn = ev.target.closest('.favToggle');
+  if (favBtn){
+    const card = favBtn.closest('.card'); const id = card ? card.dataset.id : null;
+    if (id){ toggleFavShow(id); renderFavConcertsForBand(); }
+    return;
+  }
+
+  const card = ev.target.closest('.card.tap');
+  if (card){
+    store.set('cameFrom', 'band');
+    store.set('cameFromBandId', currentBandId || '');
+    location.hash = '#/show/' + encodeURIComponent(card.dataset.id);
+  }
+};
+
 }
 
 /* ------------ Show (tracks) ------------ */
