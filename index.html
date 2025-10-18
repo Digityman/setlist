@@ -432,30 +432,53 @@ addEventListener('hashchange', Router.route); addEventListener('DOMContentLoaded
 
 function setHeader(routeName, crumbOverride=null){
   const titleEl = $('#pageTitle');
-const crumbText = crumbOverride ?? (
-  routeName==='band' ? '— Concerts' :
-  routeName==='show' ? '— Tracks'   :
-  routeName==='recent' ? '— Recently Played' :
-  (routeName==='fav' || routeName==='favorites' ? '— Favorites' :
-  (routeName==='playlist' ? '— Playlist' : '— Bands'))
-);
+  const crumbText = crumbOverride ?? (
+    routeName==='band' ? '— Concerts' :
+    routeName==='show' ? '— Tracks'   :
+    routeName==='recent' ? '— Recently Played' :
+    (routeName==='fav' || routeName==='favorites' ? '— Favorites' :
+    (routeName==='playlist' ? '— Playlist' : '— Bands'))
+  );
   titleEl.innerHTML = `Setlist Streamer <span class="crumb">${crumbText}</span>`;
+
   // Right side actions (Back buttons)
   const actions = $('#headerActions'); actions.innerHTML='';
+
   if(routeName==='band'){
     const btn = document.createElement('button');
     btn.className='btn ghost'; btn.title='Back'; btn.textContent='← Bands';
     btn.onclick=()=>{ location.hash = '#/bands'; };
     actions.appendChild(btn);
   }else if(routeName==='show'){
+    // Decide where we came from and set label/target
+    const cameFrom = store.get('cameFrom', '');
+    let backLabel = '← Concerts';
+    let backHash = ''; // when empty, we’ll fall back to history.back()
+
+    if (cameFrom === 'favorites-songs') {
+      backLabel = '← Favorite Songs';
+      backHash  = '#/favorites/songs';
+    } else if (cameFrom === 'favorites-concerts') {
+      backLabel = '← Favorite Concerts';
+      backHash  = '#/favorites/concerts';
+    } else if (cameFrom === 'recent') {
+      backLabel = '← Recently Played';
+      backHash  = '#/recent';
+    } else if (cameFrom === 'band') {
+      backLabel = '← Concerts';
+      backHash  = ''; // prefer history for band flow so year/sort filters persist
+    }
+
     const btn = document.createElement('button');
-    btn.className='btn ghost'; btn.title='Back'; btn.textContent='← Concerts';
-    btn.onclick=()=> history.back();
+    btn.className='btn ghost'; btn.title='Back'; btn.textContent=backLabel;
+    btn.onclick=()=>{ backHash ? (location.hash = backHash) : history.back(); };
     actions.appendChild(btn);
   }
+
   // Subheader visibility (band name row only on concerts)
   $('#subHeader').classList.toggle('show', routeName==='band');
 }
+
 
 // old helper — keep if you still use fetchJSON() anywhere
 async function fetchWithTimeoutLegacy(url, {timeout=12000}={}){
@@ -1582,128 +1605,133 @@ Router.on('recent', () => {
     </div>
   `).join('');
   content.appendChild(listWrap);
-  // After initial render, backfill old rows that are missing metadata.
-// Update the DOM pills once enrichment finishes.
-(async () => {
-  for (let i = 0; i < songs.length; i++) {
-    const t = songs[i];
-    if (t.band && t.location && t.date && t.showId) continue; // already good
 
-    const enriched = await enrichRecentItem(t);
-    if (!enriched) continue;
+  // After initial render, backfill old rows that are missing metadata and update DOM
+  (async () => {
+    for (let i = 0; i < songs.length; i++) {
+      const t = songs[i];
+      if (t.band && t.location && t.date && t.showId) continue;
 
-    // Update pills in the row
-    const row = listWrap.querySelector(`.track[data-i="${i}"]`);
-    if (!row) continue;
+      const enriched = await enrichRecentItem(t);
+      if (!enriched) continue;
 
-    // Line 1: band pill (right side)
-    const line1 = row.querySelector('.line1');
-    if (line1) {
-      let bandEl = line1.querySelector('.bandpill');
-      if (!bandEl) {
-        bandEl = document.createElement('span');
-        bandEl.className = 'pill pill-sm bandpill';
-        line1.appendChild(bandEl);
+      const row = listWrap.querySelector(`.track[data-i="${i}"]`);
+      if (!row) continue;
+
+      const line1 = row.querySelector('.line1');
+      if (line1) {
+        let bandEl = line1.querySelector('.bandpill');
+        if (!bandEl) {
+          bandEl = document.createElement('span');
+          bandEl.className = 'pill pill-sm bandpill';
+          line1.appendChild(bandEl);
+        }
+        bandEl.textContent = enriched.band || '';
+        bandEl.style.display = enriched.band ? '' : 'none';
       }
-      bandEl.textContent = enriched.band || '';
-      bandEl.style.display = enriched.band ? '' : 'none';
-    }
 
-    // Line 2: location (link to show) + date
-    const line2 = row.querySelector('.line2');
-    if (line2) {
-      // location
-      let locEl = line2.querySelector('.locpill');
-      const href = enriched.showId ? `#/show/${encodeURIComponent(enriched.showId)}` : '';
-      if (!locEl) {
-        if (href) {
-          locEl = document.createElement('a');
-          locEl.className = 'pill pill-sm locpill';
-          locEl.setAttribute('href', href);
+      const line2 = row.querySelector('.line2');
+      if (line2) {
+        let locEl = line2.querySelector('.locpill');
+        const href = enriched.showId ? `#/show/${encodeURIComponent(enriched.showId)}` : '';
+        if (!locEl) {
+          if (href) {
+            locEl = document.createElement('a');
+            locEl.className = 'pill pill-sm locpill';
+            locEl.setAttribute('href', href);
+          } else {
+            locEl = document.createElement('span');
+            locEl.className = 'pill pill-sm locpill';
+          }
+          line2.prepend(locEl);
         } else {
-          locEl = document.createElement('span');
-          locEl.className = 'pill pill-sm locpill';
+          if (href && locEl.tagName !== 'A') {
+            const replacement = document.createElement('a');
+            replacement.className = locEl.className;
+            replacement.textContent = locEl.textContent;
+            replacement.setAttribute('href', href);
+            locEl.replaceWith(replacement);
+            locEl = replacement;
+          } else if (!href && locEl.tagName === 'A') {
+            const replacement = document.createElement('span');
+            replacement.className = locEl.className;
+            replacement.textContent = locEl.textContent;
+            locEl.replaceWith(replacement);
+            locEl = replacement;
+          }
         }
-        line2.prepend(locEl);
-      } else {
-        // convert span→a if we learned showId
-        if (href && locEl.tagName !== 'A') {
-          const replacement = document.createElement('a');
-          replacement.className = locEl.className;
-          replacement.textContent = locEl.textContent;
-          replacement.setAttribute('href', href);
-          locEl.replaceWith(replacement);
-          locEl = replacement;
-        } else if (!href && locEl.tagName === 'A') {
-          const replacement = document.createElement('span');
-          replacement.className = locEl.className;
-          replacement.textContent = locEl.textContent;
-          locEl.replaceWith(replacement);
-          locEl = replacement;
-        }
-      }
-      locEl.textContent = enriched.location || '';
-      locEl.style.display = enriched.location ? '' : 'none';
+        locEl.textContent = enriched.location || '';
+        locEl.style.display = enriched.location ? '' : 'none';
 
-      // date
-      let dateEl = line2.querySelector('.datepill');
-      if (!dateEl) {
-        dateEl = document.createElement('span');
-        dateEl.className = 'pill pill-sm datepill';
-        line2.appendChild(dateEl);
+        let dateEl = line2.querySelector('.datepill');
+        if (!dateEl) {
+          dateEl = document.createElement('span');
+          dateEl.className = 'pill pill-sm datepill';
+          line2.appendChild(dateEl);
+        }
+        dateEl.textContent = enriched.date || '';
+        dateEl.style.display = enriched.date ? '' : 'none';
       }
-      dateEl.textContent = enriched.date || '';
-      dateEl.style.display = enriched.date ? '' : 'none';
+
+      songs[i] = enriched;
     }
+  })();
 
-    // Save back into the local array so play/shuffle pick up fresh fields
-    songs[i] = enriched;
-  }
-})();
-
-  trackEls = Array.from(listWrap.querySelectorAll('.track')); // NEW
+  trackEls = Array.from(listWrap.querySelectorAll('.track'));
 
   // Play All / Shuffle All
   $('#recentPlayAll').onclick   = ()=> startRecent(false);
   $('#recentShuffleAll').onclick= ()=> startRecent(true);
 
-function startRecent(shuffle){
-  const arr = songs.slice();
-  if (shuffle) shuffleArray(arr);
-  playlistMeta = arr;                                  // keep metadata
-  currentShowId = arr[0]?.showId || 'recent_playlist'; // seed id
-  trackList = arr.map(t => ({ url: t.url, title: t.title, length: '' }));
-  playIndex(0);
-}
-
-  function showLabel(show){
-  // expects: { venue, city, state, date }  date like "1977-05-08"
-  const loc = [show.city, show.state].filter(Boolean).join(', ');
-  return [show.venue || loc || 'Live', show.date].filter(Boolean).join(' • ');
-}
-
-  // Item interactions (favorite toggle / play single)
-listWrap.onclick = (e) => {
-if (e.target.closest('a[href^="#/show/"]')) return; // already correct; keep it
-
-  const tr = e.target.closest('.track'); if (!tr) return;
-  const i = Number(tr.dataset.i);
-  const t = songs[i];
-
-  if (e.target.closest('.songFav')) {
-    toggleFavSong(t);
-    e.target.textContent = findSongIdx(t.url) >= 0 ? '★' : '☆';
-    e.target.classList.toggle('is-on', findSongIdx(t.url) >= 0);
-    e.target.title = findSongIdx(t.url) >= 0 ? 'Unfavorite' : 'Favorite';
-    return;
+  function startRecent(shuffle){
+    const arr = songs.slice();
+    if (shuffle) shuffleArray(arr);
+    playlistMeta = arr;
+    currentShowId = arr[0]?.showId || 'recent_playlist';
+    trackList = arr.map(t => ({ url: t.url, title: t.title, length: '' }));
+    playIndex(0);
   }
 
-  // play in place
-  playlistMeta = songs;
-  trackList = songs.map(s => ({ url: s.url, title: s.title, length: '' }));
-  playIndex(i);
-};
+  function showLabel(show){
+    const loc = [show.city, show.state].filter(Boolean).join(', ');
+    return [show.venue || loc || 'Live', show.date].filter(Boolean).join(' • ');
+  }
+
+  // Item interactions (favorite toggle / play single)
+  listWrap.onclick = (e) => {
+    // If user clicks a location link to a concert, mark origin so Show header says "← Recently Played"
+    const concertLink = e.target.closest('a[href^="#/show/"]');
+    if (concertLink) {
+      store.set('cameFrom', 'recent');
+      // Optional: remember exact track for scroll-into-view (mirrors Favorites → Songs)
+      const row = e.target.closest('.track');
+      if (row) {
+        const i = Number(row.dataset.i);
+        const t = songs[i];
+        if (t?.url) store.set('jumpToUrl', t.url);
+      }
+      return; // allow navigation
+    }
+
+    const tr = e.target.closest('.track'); if (!tr) return;
+    const i = Number(tr.dataset.i);
+    const t = songs[i];
+
+    if (e.target.closest('.songFav')) {
+      toggleFavSong(t);
+      e.target.textContent = findSongIdx(t.url) >= 0 ? '★' : '☆';
+      e.target.classList.toggle('is-on', findSongIdx(t.url) >= 0);
+      e.target.title = findSongIdx(t.url) >= 0 ? 'Unfavorite' : 'Favorite';
+      return;
+    }
+
+    // play in place
+    playlistMeta = songs;
+    trackList = songs.map(s => ({ url: s.url, title: s.title, length: '' }));
+    playIndex(i);
+  };
 });
+
 
 Router.on('favorites/concerts', async ()=>{
   show($('#toolbar-bands'),false); show($('#toolbar-band'),false); show($('#showMeta'),false);
@@ -1772,7 +1800,7 @@ Router.on('favorites/concerts', async ()=>{
             </div>
           </div>`;
       }).join(''));
-    } // <-- THIS was missing
+    }
 
     // Wire the action buttons
     $('#favShowsPlayAll').onclick = ()=> startShowQueue(false);
@@ -1782,6 +1810,10 @@ Router.on('favorites/concerts', async ()=>{
       showQueue = ids.slice();
       if(shuffle) shuffleArray(showQueue);
       showQueuePos = 0; queueShowsActive = true; persistShowQueue();
+
+      // Mark origin before navigating into the first show
+      store.set('cameFrom', 'favorites-concerts');
+
       store.set('autoPlayOnLoad', true);
       location.hash = '#/show/' + encodeURIComponent(showQueue[0]);
     }
@@ -1789,14 +1821,30 @@ Router.on('favorites/concerts', async ()=>{
     // Card interactions (open / unfavorite)
     content.onclick = (e)=>{
       const card = e.target.closest('.card.tap');
+
       if (e.target.closest('.favToggle')){
         const id = card ? card.dataset.id : e.target.getAttribute('data-unfav');
         if(id){ toggleFavShow(id); Router.route(); }
         return;
       }
-      if (card){ location.hash = '#/show/' + encodeURIComponent(card.dataset.id); return; }
-      const open = e.target.getAttribute('data-open'); if(open){ location.hash = '#/show/'+encodeURIComponent(open); return; }
-      const unf  = e.target.getAttribute('data-unfav'); if(unf){ toggleFavShow(unf); Router.route(); return; }
+
+      if (card){
+        // Mark origin before navigating into a specific show
+        store.set('cameFrom', 'favorites-concerts');
+        location.hash = '#/show/' + encodeURIComponent(card.dataset.id);
+        return;
+      }
+
+      const open = e.target.getAttribute('data-open');
+      if(open){
+        // Mark origin for "Open" button as well
+        store.set('cameFrom', 'favorites-concerts');
+        location.hash = '#/show/'+encodeURIComponent(open);
+        return;
+      }
+
+      const unf  = e.target.getAttribute('data-unfav');
+      if(unf){ toggleFavShow(unf); Router.route(); return; }
     };
   }catch(e){
     const err = document.createElement('div'); err.className='card';
@@ -1804,6 +1852,8 @@ Router.on('favorites/concerts', async ()=>{
     content.appendChild(err);
   }
 });
+
+
 
 
 Router.on('favorites/songs', ()=>{
@@ -1884,6 +1934,8 @@ listWrap.onclick = (e)=>{
       const i = Number(row.dataset.i);
       const t = songs[i];
       if (t?.url) store.set('jumpToUrl', t.url);
+      // Mark origin so the Show header can say "← Favorite Songs"
+      store.set('cameFrom', 'favorites-songs');
     }
     return; // allow default hash navigation
   }
@@ -1891,7 +1943,6 @@ listWrap.onclick = (e)=>{
   const tr = e.target.closest('.track'); if (!tr) return;
   const i = Number(tr.dataset.i);
   const t = songs[i];
-
 
   // Play inline starting at the tapped song
   currentShowId   = 'favorites_songs';
@@ -1901,6 +1952,7 @@ listWrap.onclick = (e)=>{
 
   playIndex(i);
 };
+
 
 });
 
