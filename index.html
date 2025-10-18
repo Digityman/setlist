@@ -155,8 +155,9 @@
 /* make seek area flex but cap its width so it stops before the gutter */
 .seekWrap{
   display:flex; align-items:center; gap:10px;
-  flex:1 1 auto; min-width:180px;
-  max-width: calc(100% - var(--seek-right-gutter));
+  flex:1 1 0;          /* allow shrinking */
+  min-width:0;         /* required for flex children to actually shrink */
+  margin-right: calc(42px + 8px); /* 42px button + 8px gap; adjust if you change sizes */
 }
 
 #P_times{font-size:12px; color:var(--muted); white-space:nowrap}
