@@ -91,33 +91,63 @@
   .bandViews{font-size:10px; color:var(--muted)}
 
   /* Lists */
-  .grid{display:grid; grid-template-columns:1fr; gap:8px; padding:0 12px 120px}
-  .card{background:var(--panel); border:1px solid var(--ring); border-radius:14px; padding:12px; display:flex; justify-content:space-between; align-items:center}
-  .card.tap{cursor:pointer}
-  .card h3{margin:0 0 6px 0; font-size:15px}
-  /*Favorites → Concerts titles use the smaller Songs size */
-.card.fav h3,
-.card.fav .title{
-  font-size:13px;     /* matches .tname in Songs */
-  line-height:1.4;
-  font-weight:600;
-}
+.grid{display:grid; grid-template-columns:1fr; gap:8px; padding:0 12px 120px}
 
-  .row{display:flex; gap:8px; align-items:center; flex-wrap:wrap}
+/* Cards: ensure left column can shrink; right column (buttons) never pushes page wide */
+.card{
+  background:var(--panel); border:1px solid var(--ring); border-radius:14px;
+  padding:12px; display:flex; justify-content:space-between; align-items:center;
+}
+.card.tap{cursor:pointer}
+
+/* Let both direct children participate in flex shrinking */
+.card > *{ min-width:0; }
+.card > :first-child{ flex:1 1 auto; }   /* text side */
+.card > :last-child{  flex:0 0 auto; }   /* buttons */
+
+/* Long titles inside cards truncate instead of pushing layout */
+.card h3{ margin:0 0 6px 0; font-size:15px; white-space:nowrap; overflow:hidden; text-overflow:ellipsis }
+
+/* Row helper used inside cards — allow it to shrink within parent */
+.row{
+  display:flex; gap:8px; align-items:center; flex-wrap:wrap; min-width:0;
+}
+.small{font-size:12px; color:var(--muted)}
+.favToggle{min-width:40px}
+.loadMore{justify-content:center}
+
   .small{font-size:12px; color:var(--muted)}
   .favToggle{min-width:40px}
   .loadMore{justify-content:center}
 
   /* Tracks */
   .tracks{display:grid; gap:6px; padding:0 12px 120px}
-  .track{position:relative; background:var(--panel); border:1px solid var(--ring); border-radius:12px; padding:10px 12px; display:flex; align-items:center; justify-content:space-between; gap:10px}
-  .tleft{display:flex; gap:10px; align-items:center}
-  .tnum{width:18px; text-align:right; color:var(--muted); font-size:12px}
-  .tname{font-size:13px}
-  .tlen{font-size:12px; color:var(--muted)}
-  .track.playing{box-shadow:0 0 0 2px rgba(255,213,74,.25) inset}
-  .track.playing::before{content:""; position:absolute; left:0; top:0; bottom:0; width:6px; background:var(--warn); border-radius:12px 0 0 12px}
-  .progressBar{position:absolute; left:0; bottom:0; height:3px; background:var(--warn); border-radius:0 0 12px 12px; width:0%}
+/* Generic track row (used by Show page and “recent/fav songs”) */
+.track{
+  position:relative;
+  background:var(--panel); border:1px solid var(--ring); border-radius:12px;
+  padding:10px 12px;
+  display:flex; align-items:center; justify-content:space-between; gap:10px;
+  min-width:0; /* allow the whole row to shrink */
+}
+
+/* left side can grow/shrink; right side (length) stays tight */
+.tleft{ display:flex; gap:10px; align-items:center; flex:1 1 auto; min-width:0; }
+.tnum{ width:18px; text-align:right; color:var(--muted); font-size:12px; flex:0 0 auto; }
+.tname{
+  font-size:13px; flex:1 1 auto; min-width:0;
+  white-space:nowrap; overflow:hidden; text-overflow:ellipsis;
+}
+.tlen{ font-size:12px; color:var(--muted); flex:0 0 auto; }
+
+.track.playing{ box-shadow:0 0 0 2px rgba(255,213,74,.25) inset }
+.track.playing::before{ content:""; position:absolute; left:0; top:0; bottom:0; width:6px; background:var(--warn); border-radius:12px 0 0 12px }
+
+.progressBar{
+  position:absolute; left:0; bottom:0; height:3px; background:var(--warn);
+  border-radius:0 0 12px 12px; width:0%;
+}
+
 .songFav{
   min-width:32px; min-height:32px;
   border-radius:10px; border:1px solid var(--ring);
@@ -256,43 +286,38 @@
 }
 .card.fav a { color: var(--text); }
 
-/* Favorites → Songs: two-line layout (compact + single-line enforcement) */
+/* Favorites/Recent → Songs: two-line compact layout */
 .track.favsong{ display:block; padding:10px 12px }
 
+/* first line: number + title + (optional) band pill */
 .track.favsong .line1{
-  display:flex; align-items:center; gap:10px; flex-wrap:nowrap;
-  min-width:0;                /* allow row to shrink */
+  display:flex; align-items:center; gap:10px; flex-wrap:nowrap; min-width:0;
 }
 .track.favsong .line1 .tleft{
-  display:flex; align-items:center; gap:10px; min-width:0; flex:1 1 auto;
+  display:flex; align-items:center; gap:10px; flex:1 1 auto; min-width:0;
 }
 .track.favsong .line1 .tnum{ flex:0 0 auto; color:var(--muted) }
 .track.favsong .line1 .tname{
-  flex:1 1 auto; min-width:0;
-  white-space:nowrap; overflow:hidden; text-overflow:ellipsis; /* song title shrinks first */
+  flex:1 1 auto; min-width:0; white-space:nowrap; overflow:hidden; text-overflow:ellipsis;
 }
-
 /* band pill must not push the row wider than viewport */
 .track.favsong .line1 .bandpill{
-  flex:0 1 auto;                    /* allow shrink */
-  max-width:45vw;                   /* cap width on phones */
-  overflow:hidden; text-overflow:ellipsis; white-space:nowrap;
+  flex:0 1 auto; max-width:45vw; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;
 }
 
+/* second line: location (grows, truncates) + date (fixed) */
 .track.favsong .line2{
-  display:flex; gap:8px; flex-wrap:nowrap; margin-top:6px; margin-left:42px;
-  min-width:0;                      /* allow row to shrink */
+  display:flex; gap:8px; flex-wrap:nowrap; margin-top:6px; margin-left:42px; min-width:0;
 }
 .track.favsong .line2 .locpill{
-  flex:1 1 auto; min-width:0;
-  white-space:nowrap; overflow:hidden; text-overflow:ellipsis; /* location ellipsizes */
+  flex:1 1 auto; min-width:0; white-space:nowrap; overflow:hidden; text-overflow:ellipsis;
 }
-.track.favsong .line2 .datepill{ flex:0 0 auto; white-space:nowrap } /* date stays whole */
+.track.favsong .line2 .datepill{ flex:0 0 auto; white-space:nowrap }
+.track.favsong .pill-sm{ padding:3px 8px }
 
-.track.favsong .pill-sm{ padding:3px 8px } /* a touch tighter for this view */
+/* never allow these containers to create horizontal scroll */
+.wrap, #content, .tracks, .grid { overflow-x: hidden; }
 
-/* never create horizontal scroll from these containers */
-.wrap, #content, .tracks, .grid { overflow-x: clip; } /* (falls back to hidden where clip unsupported) */
 
 
 /* This is an override to try to fix it.  */
