@@ -95,6 +95,14 @@
   .card{background:var(--panel); border:1px solid var(--ring); border-radius:14px; padding:12px; display:flex; justify-content:space-between; align-items:center}
   .card.tap{cursor:pointer}
   .card h3{margin:0 0 6px 0; font-size:15px}
+  /*Favorites → Concerts titles use the smaller Songs size */
+.card.fav h3,
+.card.fav .title{
+  font-size:13px;     /* matches .tname in Songs */
+  line-height:1.4;
+  font-weight:600;
+}
+
   .row{display:flex; gap:8px; align-items:center; flex-wrap:wrap}
   .small{font-size:12px; color:var(--muted)}
   .favToggle{min-width:40px}
@@ -274,6 +282,19 @@
 :root { --playerH: 96px; }            /* fallback player height */
 
 html, body { overflow-x: hidden; }    /* kill horizontal scroll globally */
+/* EL5: let card content shrink so it never pushes off-screen */
+.card > *{ min-width:0; }            /* allow children to shrink */
+.card > :first-child{ flex:1 1 auto; }/* text column grows/shrinks */
+.card > :last-child{  flex:0 0 auto; }/* button column stays tight */
+
+/* Truncate long concert titles instead of overflowing */
+.card h3{ white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+
+/* Extra safety: rows inside cards can wrap and also shrink */
+.card .row{ min-width:0; flex-wrap:wrap; }
+
+/* Already helpful globally, but ensure no x-scroll */
+html, body{ overflow-x:hidden; }
 
 /* Make list rows shrink correctly and ellipsize long text */
 .trackRow, .songRow, .listItem, .row {
