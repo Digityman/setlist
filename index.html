@@ -243,18 +243,25 @@
   /* Page actions row for favorites lists */
   .pageActions{display:flex; gap:8px; padding:8px 12px; align-items:center}
 /* Keep text white in Favorites lists; only star buttons stay yellow via .is-on */
-.card.fav .title { color: var(--text) !important; }
+.card.fav .title {
+  color: var(--text) !important;
+  /* ↓ match Favorites → Songs (tname is 13px) */
+  font-size: 13px;
+  font-weight: 600;
+}
 .card.fav .btn:not(.is-on) {
   color: var(--text);
   border-color: var(--ring);
   background: var(--btn);
 }
 .card.fav a { color: var(--text); }
+
 /* Favorites → Songs: two-line layout (compact + single-line enforcement) */
 .track.favsong{ display:block; padding:10px 12px }
 
 .track.favsong .line1{
   display:flex; align-items:center; gap:10px; flex-wrap:nowrap;
+  min-width:0;                /* allow row to shrink */
 }
 .track.favsong .line1 .tleft{
   display:flex; align-items:center; gap:10px; min-width:0; flex:1 1 auto;
@@ -262,39 +269,38 @@
 .track.favsong .line1 .tnum{ flex:0 0 auto; color:var(--muted) }
 .track.favsong .line1 .tname{
   flex:1 1 auto; min-width:0;
-  white-space:nowrap; overflow:hidden; text-overflow:ellipsis;  /* song title shrinks first */
+  white-space:nowrap; overflow:hidden; text-overflow:ellipsis; /* song title shrinks first */
 }
-.track.favsong .line1 .bandpill{ flex:0 0 auto; white-space:nowrap } /* band stays whole */
+
+/* band pill must not push the row wider than viewport */
+.track.favsong .line1 .bandpill{
+  flex:0 1 auto;                    /* allow shrink */
+  max-width:45vw;                   /* cap width on phones */
+  overflow:hidden; text-overflow:ellipsis; white-space:nowrap;
+}
 
 .track.favsong .line2{
   display:flex; gap:8px; flex-wrap:nowrap; margin-top:6px; margin-left:42px;
+  min-width:0;                      /* allow row to shrink */
 }
 .track.favsong .line2 .locpill{
   flex:1 1 auto; min-width:0;
-  white-space:nowrap; overflow:hidden; text-overflow:ellipsis;  /* location ellipsizes */
+  white-space:nowrap; overflow:hidden; text-overflow:ellipsis; /* location ellipsizes */
 }
 .track.favsong .line2 .datepill{ flex:0 0 auto; white-space:nowrap } /* date stays whole */
 
 .track.favsong .pill-sm{ padding:3px 8px } /* a touch tighter for this view */
 
+/* never create horizontal scroll from these containers */
+.wrap, #content, .tracks, .grid { overflow-x: clip; } /* (falls back to hidden where clip unsupported) */
+
+
 /* This is an override to try to fix it.  */
-  /* --- Recently Played overflow + sticky player fixes --- */
+  
+/* --- Recently Played overflow + sticky player fixes --- */
 :root { --playerH: 96px; }            /* fallback player height */
 
 html, body { overflow-x: hidden; }    /* kill horizontal scroll globally */
-/* EL5: let card content shrink so it never pushes off-screen */
-.card > *{ min-width:0; }            /* allow children to shrink */
-.card > :first-child{ flex:1 1 auto; }/* text column grows/shrinks */
-.card > :last-child{  flex:0 0 auto; }/* button column stays tight */
-
-/* Truncate long concert titles instead of overflowing */
-.card h3{ white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
-
-/* Extra safety: rows inside cards can wrap and also shrink */
-.card .row{ min-width:0; flex-wrap:wrap; }
-
-/* Already helpful globally, but ensure no x-scroll */
-html, body{ overflow-x:hidden; }
 
 /* Make list rows shrink correctly and ellipsize long text */
 .trackRow, .songRow, .listItem, .row {
@@ -327,6 +333,17 @@ html, body{ overflow-x:hidden; }
   white-space: nowrap;
 }
 
+/* Cards: let left column shrink, right column stay tight (prevents overflow) */
+.card > *{ min-width:0; }
+.card > :first-child{ flex:1 1 auto; }
+.card > :last-child{  flex:0 0 auto; }
+
+/* Long titles inside cards never cause horizontal scroll */
+.card h3{
+  margin:0 0 6px 0; font-size:15px;   /* keeps existing sizing for general cards */
+  white-space:nowrap; overflow:hidden; text-overflow:ellipsis;
+}
+
 /* Pin the player; content leaves room for it */
 #P_bar, #playerBar, .playerBar {
   position: fixed;
@@ -338,6 +355,7 @@ html, body{ overflow-x:hidden; }
 main, #app, .content, .scrollArea, .routeView {
   padding-bottom: var(--playerH);
 }
+
 
 
 
