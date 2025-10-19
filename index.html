@@ -321,6 +321,36 @@
 
 
 /* This is an override to try to fix it.  */
+
+/* --- Fix concert card overflow (Band -> Concerts, Favorites -> Concerts) --- */
+/* Make the left content column shrinkable */
+.card.tap > div:first-child {
+  min-width: 0;           /* critical: allow inner content to shrink */
+  flex: 1 1 auto;         /* keep it flexible */
+}
+
+/* Inside that column, make rows shrink and wrap cleanly */
+.card.tap > div:first-child .row {
+  min-width: 0;
+  flex-wrap: wrap;
+}
+.card.tap > div:first-child .row > * {
+  min-width: 0;           /* children can shrink instead of forcing overflow */
+}
+
+/* The long venue/city line: wrap or break as needed (no horizontal scroll) */
+.card.tap > div:first-child .small {
+  min-width: 0;
+  overflow-wrap: anywhere; /* break long tokens if needed */
+  word-break: break-word;
+}
+
+/* Stars shouldn’t force the row wide */
+.card.tap .stars {
+  flex: 0 1 auto;
+  min-width: 0;
+}
+
   
 /* --- Recently Played overflow + sticky player fixes --- */
 :root { --playerH: 96px; }            /* fallback player height */
