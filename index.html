@@ -269,6 +269,54 @@
 
 .track.favsong .pill-sm{ padding:3px 8px } /* a touch tighter for this view */
 
+/* This is an override to try to fix it.  */
+  /* --- Recently Played overflow + sticky player fixes --- */
+:root { --playerH: 96px; }            /* fallback player height */
+
+html, body { overflow-x: hidden; }    /* kill horizontal scroll globally */
+
+/* Make list rows shrink correctly and ellipsize long text */
+.trackRow, .songRow, .listItem, .row {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  min-width: 0;                       /* allow shrinking */
+}
+
+/* Every direct child can shrink */
+.trackRow > *, .songRow > *, .listItem > *, .row > * {
+  min-width: 0;
+}
+
+/* The main text column grows and truncates with ellipsis */
+.titleWrap, .title, .mainCol, .midCol, .row .title {
+  flex: 1 1 auto;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+/* The right-side meta stays visible but never pushes layout off screen */
+.metaRight, .rightCol, .row .right {
+  flex: 0 0 auto;
+  max-width: 40vw;                    /* keep it compact on phones */
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+/* Pin the player; content leaves room for it */
+#P_bar, #playerBar, .playerBar {
+  position: fixed;
+  left: 0; right: 0; bottom: 0;
+  z-index: 1000;
+}
+
+/* Ensure scroll areas don’t hide behind the player */
+main, #app, .content, .scrollArea, .routeView {
+  padding-bottom: var(--playerH);
+}
 
 
 
@@ -2161,5 +2209,22 @@ function shuffleArray(arr){
   }
 }
 </script>
+  <script>
+/* Measure player height and set padding so content never hides underneath */
+(function () {
+  function setPlayerHeightPadding(){
+    const bar = document.getElementById('P_bar')
+              || document.querySelector('#playerBar, .playerBar, #P_now');
+    if (!bar) return;
+    const h = bar.offsetHeight || 96;
+    document.documentElement.style.setProperty('--playerH', h + 'px');
+  }
+  window.addEventListener('resize', setPlayerHeightPadding);
+  document.addEventListener('DOMContentLoaded', setPlayerHeightPadding);
+  // In case the player renders after JS init (route change, etc.)
+  setTimeout(setPlayerHeightPadding, 0);
+})();
+</script>
+
 </body>
 </html>
