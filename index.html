@@ -1118,15 +1118,16 @@ async function showBands(){
       content.innerHTML = `<div class="card"><span class="small">No favorite bands yet.</span></div>`;
       return;
     }
-    content.innerHTML = fav.map(id=>{
-      const title = decodeURIComponent(id).replace(/[_+]+/g,' ').trim();
-      return `
-        <div class="bandTile" data-id="${id}">
-          <img src="${IA.imgUrl(id)}" alt="${title}">
-          <div class="bandTitle">${title}</div>
-          <div class="bandViews small">Favorited</div>
-        </div>`;
-    }).join('');
+content.innerHTML = fav.map(id=>{
+  const title = bandTitleFromCache(id);
+  return `
+    <div class="bandTile" data-id="${id}">
+      <img src="${IA.imgUrl(id)}" alt="${title}">
+      <div class="bandTitle">${title}</div>
+      <div class="bandViews small">Favorited</div>
+    </div>`;
+}).join('');
+
     content.onclick = ev => { const tile=ev.target.closest('.bandTile'); if(!tile) return; location.hash='#/band/'+encodeURIComponent(tile.dataset.id); };
     return;
   }
