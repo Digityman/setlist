@@ -87,8 +87,23 @@
   .bandsGrid{display:grid; grid-template-columns: repeat(auto-fill, minmax(80px, 1fr)); gap:8px; padding:0 12px 120px}
   .bandTile{background:var(--panel); border:1px solid var(--ring); border-radius:12px; padding:6px; display:flex; flex-direction:column; gap:6px; cursor:pointer}
   .bandTile img{width:100%; aspect-ratio:1/1; object-fit:cover; border-radius:8px; background:#0c0c0d}
-  .bandTitle{font-weight:600; font-size:12px}
-  .bandViews{font-size:10px; color:var(--muted)}
+/* Make band titles in tiles truncate cleanly on one line */
+.bandTitle{
+  font-weight:600;
+  font-size:12px;
+  white-space:nowrap;         /* keep to one line */
+  overflow:hidden;            /* prevent pushing the card wide */
+  text-overflow:ellipsis;     /* show … when too long */
+}
+
+/* Ensure the little "Favorited" line never pushes the card */
+.bandViews{
+  font-size:10px;
+  color:var(--muted);
+  white-space:nowrap;
+  overflow:hidden;
+  text-overflow:ellipsis;
+}
 
   /* Lists */
 .grid{display:grid; grid-template-columns:1fr; gap:8px; padding:0 12px 120px}
@@ -1810,7 +1825,7 @@ async function showOnThisDay(){
   const content = $('#content');
   content.className = 'grid';
   content.innerHTML = `<div class="card"><span class="small">Loading shows for this date…</span></div>`;
-
+  
   const rows = await loadOnThisDayAllFavs();
 
   if (!rows.length){
@@ -1863,10 +1878,6 @@ async function showOnThisDay(){
     }
   };
 }
-
-
-
-
 
   
 /* ------------ Favorites pages ------------ */
