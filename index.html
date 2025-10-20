@@ -516,6 +516,7 @@ main, #app, .content, .scrollArea, .routeView {
   <div class="menuItem sub" data-nav="#/favorites/concerts"><span class="icon">🎫</span> <span>Concerts</span></div>
   <div class="menuItem sub" data-nav="#/favorites/songs"><span class="icon">🎵</span> <span>Songs</span></div>
   <div class="menuItem" data-nav="#/recent"><span class="icon">🕒</span> <span>Recently Played</span></div>
+  <div class="menuItem" data-nav="#/onthisday"><span class="icon">📅</span> <span>This Day in History</span></div>
 </div>
       <div class="menuGroup">
         <div class="menuTitle">Other</div>
@@ -618,6 +619,13 @@ const fmtTime = secs => { secs = Math.max(0, Math.floor(secs||0)); const m=Math.
 const fmtCompact = n => { n=Number(n||0); if(n>=1e9) return (n/1e9).toFixed(1)+'B'; if(n>=1e6) return (n/1e6).toFixed(1)+'M'; if(n>=1e3) return (n/1e3).toFixed(1)+'K'; return String(n); };
 function show(el,on=true){ if(!el) return; el.style.display=on?'':'none'; }
 const store = { get(k,f){ try{return JSON.parse(localStorage.getItem(k))??f;}catch{return f;}}, set(k,v){ localStorage.setItem(k,JSON.stringify(v)); } };
+  
+  function todayMMDD(){
+  const d = new Date();
+  const mm = String(d.getMonth()+1).padStart(2,'0');
+  const dd = String(d.getDate()).padStart(2,'0');
+  return { mm, dd };
+}
 
 /* ------------ drawer ------------ */
 const drawer = $('#drawer'); const drawerBack = $('#drawerBack');
@@ -655,13 +663,15 @@ addEventListener('hashchange', Router.route); addEventListener('DOMContentLoaded
 
 function setHeader(routeName, crumbOverride=null){
   const titleEl = $('#pageTitle');
-  const crumbText = crumbOverride ?? (
-    routeName==='band' ? '— Concerts' :
-    routeName==='show' ? '— Tracks'   :
-    routeName==='recent' ? '— Recently Played' :
-    (routeName==='fav' || routeName==='favorites' ? '— Favorites' :
-    (routeName==='playlist' ? '— Playlist' : '— Bands'))
-  );
+const crumbText = crumbOverride ?? (
+  routeName==='band' ? '— Concerts' :
+  routeName==='show' ? '— Tracks'   :
+  routeName==='recent' ? '— Recently Played' :
+  routeName==='onthisday' ? '— This Day in History' :
+  (routeName==='fav' || routeName==='favorites' ? '— Favorites' :
+  (routeName==='playlist' ? '— Playlist' : '— Bands'))
+);
+
   titleEl.innerHTML = `Setlist Streamer <span class="crumb">${crumbText}</span>`;
 
   // Right side actions (Back buttons)
@@ -875,16 +885,27 @@ const IA = {
     u.searchParams.append('sort[]','date asc');
     return u.toString();
   },
-  facetYearsJSONP({ bandId }){
-    const u=new URL('https://archive.org/advancedsearch.php');
-    u.searchParams.set('q',`collection:(${bandId}) AND mediatype:(etree OR audio)`);
-    u.searchParams.set('rows','0'); u.searchParams.set('output','json');
-    u.searchParams.append('facet[]','year'); u.searchParams.set('facet_limit','10000'); u.searchParams.set('facet_mincount','1');
-    return fetchJSONP(u.toString(), {timeout:12000});
-  },
+  facetYearsJSONP({ bandId }){ /* ... */ return fetchJSONP(u.toString(), {timeout:12000}); },
   metaUrl:id=>`https://archive.org/metadata/${id}`,
-  imgUrl:id=>`https://archive.org/services/img/${id}`
+  imgUrl:id=>`https://archive.org/services/img/${id}`,
+
+  // NEW: shows in a band collection that happened on *-MM-DD (any year)
+  onThisDayUrl({ bandId, mm, dd, rows=200, page=1, sort='date desc' }){
+    const u = new URL('https://archive.org/advancedsearch.php');
+    const q = `collection:(${bandId}) AND (mediatype:(etree) OR mediatype:(audio)) AND date:*-${mm}-${dd}`;
+    u.searchParams.set('q', q);
+    [
+      'identifier','title','date','year','downloads',
+      'avg_rating','num_reviews','venue','coverage','creator','publicdate'
+    ].forEach(f => u.searchParams.append('fl[]', f));
+    u.searchParams.append('sort[]', sort);
+    u.searchParams.set('rows', rows);
+    u.searchParams.set('page', page);
+    u.searchParams.set('output', 'json');
+    return u.toString();
+  }
 };
+
 
 /* ------------ retry card ------------ */
 function showRetry(contentEl, message, retryFn){
@@ -1011,6 +1032,75 @@ async function showBands(){
   show($('#toolbar-bands'),true); show($('#toolbar-band'),false); show($('#showMeta'),false);
   $('#subHeader').classList.remove('show');
 
+async function showOnThisDay(){
+  // Hide toolbars and show a clean list view
+  show($('#toolbar-bands'), false);
+  show($('#toolbar-band'), false);
+  show($('#showMeta'), false);
+  $('#subHeader').classList.remove('show');
+
+  const content = $('#content');
+  content.className = 'grid';
+  content.innerHTML = `<div class="card"><span class="small">Loading shows for this date…</span></div>`;
+
+  const rows = await loadOnThisDayAllFavs();
+
+  if (!rows.length){
+    content.innerHTML = `<div class="card"><span class="small">No shows found for your favorite bands on this date.</span></div>`;
+    return;
+  }
+
+  content.innerHTML = rows.map(it => {
+    const dateStr   = it.date ? new Date(it.date).toLocaleDateString() : (it.year || '');
+    const venueLine = [it.venue, it.coverage].filter(Boolean).join(', ');
+    const viewsChip = `<span class="chip">${fmtCompact(it.downloads)} views</span>`;
+    const stars     = renderStars(it.rating);
+    return `
+      <div class="card tap" data-id="${it.id}">
+        <div>
+          <h3>${it.title}</h3>
+          <div class="row">
+            <span class="chip">${dateStr}</span>
+            <span class="chip">${it.band}</span>
+            ${viewsChip}
+            ${stars} <span class="small">(${it.reviews})</span>
+          </div>
+          <div class="small">${venueLine}</div>
+        </div>
+        <div class="row">
+          <button class="btn ghost favToggle${ isFav(it.id) ? ' is-on' : '' }" title="Favorite">
+            ${ isFav(it.id) ? '★' : '☆' }
+          </button>
+        </div>
+      </div>
+    `;
+  }).join('');
+
+  // open show / toggle favorite
+  content.onclick = (e) => {
+    const favBtn = e.target.closest('.favToggle');
+    if (favBtn){
+      const card = favBtn.closest('.card'); const id = card?.dataset.id;
+      if (!id) return;
+      toggleFavShow(id);
+      // re-render only that button’s state quickly
+      favBtn.classList.toggle('is-on', isFav(id));
+      favBtn.textContent = isFav(id) ? '★' : '☆';
+      return;
+    }
+
+    const card = e.target.closest('.card.tap');
+    if (card){
+      // mark origin so Show header can present a sensible back button
+      store.set('cameFrom', 'onthisday');
+      location.hash = '#/show/' + encodeURIComponent(card.dataset.id);
+    }
+  };
+}
+
+
+
+  
   // Visual ON state
   $('#favToggle').classList.toggle('is-on', !!onlyFavBands);
   $('#favToggle').textContent = onlyFavBands ? '★ Favorites' : '☆ Favorites';
@@ -1741,6 +1831,50 @@ if (navigator.mediaDevices && 'ondevicechange' in navigator.mediaDevices){
   navigator.mediaDevices.ondevicechange = () => { tryAutoResume(); };
 }
 
+async function fetchOnThisDayForBand(bandId, mm, dd){
+  const url = IA.onThisDayUrl({ bandId, mm, dd, rows: 400, sort: 'date desc' });
+  const cacheKey = `onthisday:${bandId}:${mm}-${dd}`;
+  const { data } = await iaFetchJSON(url, { cacheKey, retries: 2, timeoutMs: 15000 });
+  const docs = data?.response?.docs || [];
+  return docs.map(it => ({
+    id: it.identifier,
+    title: it.title || it.identifier,
+    date: it.date || it.publicdate || '',
+    year: it.year || (it.date ? it.date.slice(0,4) : ''),
+    downloads: it.downloads || 0,
+    rating: it.avg_rating || 0,
+    reviews: it.num_reviews || 0,
+    venue: it.venue || '',
+    coverage: it.coverage || '',
+    band: it.creator || decodeURIComponent(bandId).replace(/[_+]+/g,' ').trim()
+  }));
+}
+
+async function loadOnThisDayAllFavs(){
+  const favs = favBands();      // array of bandId collections (e.g., gratefuldead)
+  if (!favs.length) return [];
+  const { mm, dd } = todayMMDD();
+
+  const all = [];
+  for (const id of favs){
+    try{
+      const rows = await fetchOnThisDayForBand(id, mm, dd);
+      all.push(...rows);
+    }catch(e){
+      console.warn('onthisday failed for', id, e);
+    }
+  }
+  // newest first, then downloads as tiebreaker
+  all.sort((a,b) => (String(b.year).localeCompare(String(a.year)) || (b.downloads - a.downloads)));
+  return all;
+}
+
+
+
+
+
+
+  
 /* ------------ Favorites pages ------------ */
 Router.on('favorites', (params)=>{ location.hash = '#/favorites/bands'; });
 Router.on('fav', (params)=>{ location.hash = '#/favorites/bands'; });
@@ -2316,6 +2450,8 @@ Router.on('playlist', (params)=>{
 Router.on('bands', showBands);
 Router.on('band', showBand);
 Router.on('show', showShow);
+Router.on('onthisday', showOnThisDay);  // NEW
+
 
 /* ------------ bands filters ------------ */
 $('#sortSel')?.addEventListener('change', showBands);
