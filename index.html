@@ -673,7 +673,18 @@ const store = { get(k,f){ try{return JSON.parse(localStorage.getItem(k))??f;}cat
   return { mm, dd };
 }
 
+/* ------------ dra/* Title helpers (reuse full-list titles in favorites) */
+function prettyId(id=''){
+  const raw = decodeURIComponent(id).replace(/[_+]+/g, ' ').trim();
+  return raw.replace(/([a-z])([A-Z])/g, '$1 $2').replace(/\s+/g,' ').trim();
+}
+function bandTitleFromCache(id){
+  const map = store.get('bandTitleMap', {}) || {};
+  return map[id] || prettyId(id);
+}
+
 /* ------------ drawer ------------ */
+wer ------------ */
 const drawer = $('#drawer'); const drawerBack = $('#drawerBack');
 $('#hamburger').addEventListener('click', ()=>{ drawer.classList.add('open'); drawerBack.classList.add('open'); });
 $('#drawerClose').addEventListener('click', closeDrawer);
