@@ -84,26 +84,54 @@
   .menu .item:hover{background:#202124}
 
   /* Bands grid */
-  .bandsGrid{display:grid; grid-template-columns: repeat(auto-fill, minmax(80px, 1fr)); gap:8px; padding:0 12px 120px}
-  .bandTile{background:var(--panel); border:1px solid var(--ring); border-radius:12px; padding:6px; display:flex; flex-direction:column; gap:6px; cursor:pointer}
-  .bandTile img{width:100%; aspect-ratio:1/1; object-fit:cover; border-radius:8px; background:#0c0c0d}
-/* Make band titles in tiles truncate cleanly on one line */
-.bandTitle{
-  font-weight:600;
-  font-size:12px;
-  white-space:nowrap;         /* keep to one line */
-  overflow:hidden;            /* prevent pushing the card wide */
-  text-overflow:ellipsis;     /* show … when too long */
+.bandsGrid{
+  /* ~150–180px tiles usually render 4–5 across on laptops */
+  display:grid;
+  grid-template-columns: repeat(auto-fill, minmax(156px, 1fr));
+  gap:10px;
+  padding:0 12px 120px;
 }
 
-/* Ensure the little "Favorited" line never pushes the card */
-.bandViews{
-  font-size:10px;
-  color:var(--muted);
-  white-space:nowrap;
-  overflow:hidden;
-  text-overflow:ellipsis;
+.bandTile{
+  background:var(--panel);
+  border:1px solid var(--ring);
+  border-radius:12px;
+  padding:10px;
+  display:flex;
+  flex-direction:column;
+  gap:8px;
+  cursor:pointer;
 }
+
+.bandTile img{
+  width:100%;
+  aspect-ratio:1/1;
+  object-fit:cover;
+  border-radius:10px;
+  background:#0c0c0d;
+}
+
+/* Let titles wrap (no ellipsis); clamp to 2 rows to keep cards tidy */
+.bandTitle{
+  font-weight:600;
+  font-size:13px;
+  line-height:1.25;
+  white-space:normal;
+  overflow:hidden;
+  display:-webkit-box;
+  -webkit-box-orient:vertical;
+  -webkit-line-clamp:2;       /* up to two lines, no “…” */
+}
+
+/* Views line should never truncate either */
+.bandViews{
+  font-size:11px;
+  color:var(--muted);
+  white-space:normal;
+  overflow:visible;
+  text-overflow:clip;
+}
+
 
   /* Lists */
 .grid{display:grid; grid-template-columns:1fr; gap:8px; padding:0 12px 120px}
@@ -903,6 +931,22 @@ const IA = {
   facetYearsJSONP({ bandId }){ /* ... */ return fetchJSONP(u.toString(), {timeout:12000}); },
   metaUrl:id=>`https://archive.org/metadata/${id}`,
   imgUrl:id=>`https://archive.org/services/img/${id}`,
+
+  // NEW V1: shows in a band collection that happened on *-MM-DD (any year)
+    onThisDayV1Url({ bandId, mm, dd, rows = 400, sort = 'date desc' }){
+    const q = `collection:(${bandId}) AND (mediatype:(etree) OR mediatype:(audio)) AND date:*-${mm}-${dd}`;
+    const u = new URL('https://archive.org/services/search/v1/scrape');
+    u.searchParams.set('q', q);
+    u.searchParams.set('count', String(rows));
+    // ask v1 for the same fields we display
+    u.searchParams.set('fields', [
+      'identifier','title','date','year','downloads',
+      'avg_rating','num_reviews','venue','coverage','creator','publicdate'
+    ].join(','));
+    // v1 uses space-separated sorts (you already map this elsewhere)
+    u.searchParams.set('sorts', sort);
+    return u.toString();
+  },
 
   // NEW: shows in a band collection that happened on *-MM-DD (any year)
   onThisDayUrl({ bandId, mm, dd, rows=200, page=1, sort='date desc' }){
@@ -1778,15 +1822,32 @@ if (navigator.mediaDevices && 'ondevicechange' in navigator.mediaDevices){
 }
 
 async function fetchOnThisDayForBand(bandId, mm, dd){
-  const url = IA.onThisDayUrl({ bandId, mm, dd, rows: 400, sort: 'date desc' });
-  const cacheKey = `onthisday:${bandId}:${mm}-${dd}`;
-  const { data } = await iaFetchJSON(url, { cacheKey, retries: 2, timeoutMs: 15000 });
-  const docs = data?.response?.docs || [];
+  // 1) Try advancedsearch.php
+  const advUrl   = IA.onThisDayUrl({ bandId, mm, dd, rows: 400, sort: 'date desc' });
+  const advKey   = `onthisday:adv:${bandId}:${mm}-${dd}`;
+  let advDocs    = [];
+  try{
+    const { data } = await iaFetchJSON(advUrl, { cacheKey: advKey, retries: 2, timeoutMs: 15000 });
+    advDocs = data?.response?.docs || [];
+  }catch(_){ /* fall through to v1 */ }
+
+  // 2) If nothing came back, try v1 “scrape”
+  let docs = advDocs;
+  if (!docs.length){
+    const v1Url = IA.onThisDayV1Url({ bandId, mm, dd, rows: 400, sort: 'date desc' });
+    const v1Key = `onthisday:v1:${bandId}:${mm}-${dd}`;
+    try{
+      const { data } = await iaFetchJSON(v1Url, { cacheKey: v1Key, retries: 2, timeoutMs: 15000 });
+      docs = (data?.items) || [];
+    }catch(_){ /* leave docs as-is */ }
+  }
+
+  // Normalize both shapes to a common object
   return docs.map(it => ({
     id: it.identifier,
     title: it.title || it.identifier,
     date: it.date || it.publicdate || '',
-    year: it.year || (it.date ? it.date.slice(0,4) : ''),
+    year: it.year || (it.date ? String(it.date).slice(0,4) : ''),
     downloads: it.downloads || 0,
     rating: it.avg_rating || 0,
     reviews: it.num_reviews || 0,
@@ -1795,6 +1856,7 @@ async function fetchOnThisDayForBand(bandId, mm, dd){
     band: it.creator || decodeURIComponent(bandId).replace(/[_+]+/g,' ').trim()
   }));
 }
+
 
 async function loadOnThisDayAllFavs(){
   const favs = favBands();      // array of bandId collections (e.g., gratefuldead)
