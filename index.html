@@ -1177,6 +1177,11 @@ const items = (data.items || []).map(d => ({
   downloads: d.downloads || 0
 }));
 
+/* cache titles for reuse (favorites, etc) */
+const titleMap = store.get('bandTitleMap', {}) || {};
+items.forEach(b => { titleMap[b.id] = b.title; });
+store.set('bandTitleMap', titleMap);
+
 if (stale) document.body.dataset.stale = '1'; // optional: mark UI as cached
       content.innerHTML = items.map(b=>`
         <div class="bandTile" data-id="${b.id}">
