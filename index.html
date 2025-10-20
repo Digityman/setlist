@@ -1858,8 +1858,9 @@ if (navigator.mediaDevices && 'ondevicechange' in navigator.mediaDevices){
 async function fetchOnThisDayForBand(bandId, mm, dd){
   mm = String(mm).padStart(2,'0');
   dd = String(dd).padStart(2,'0');
+  const want = `${mm}-${dd}`;
 
-  // Try advancedsearch, then v1 scrape (same as before)
+  // 1) advancedsearch, 2) v1 scrape fallback (same as before)
   const advUrl = IA.onThisDayUrl({ bandId, mm, dd, rows: 400, sort: 'date desc' });
   const advKey = `onthisday:adv:${bandId}:${mm}-${dd}`;
   let docs = [];
@@ -1867,7 +1868,6 @@ async function fetchOnThisDayForBand(bandId, mm, dd){
     const { data } = await iaFetchJSON(advUrl, { cacheKey: advKey, retries: 2, timeoutMs: 15000 });
     docs = data?.response?.docs || [];
   }catch(_){}
-
   if (!docs.length){
     const v1Url = IA.onThisDayV1Url({ bandId, mm, dd, rows: 400, sort: 'date desc' });
     const v1Key = `onthisday:v1:${bandId}:${mm}-${dd}`;
@@ -1877,39 +1877,53 @@ async function fetchOnThisDayForBand(bandId, mm, dd){
     }catch(_){}
   }
 
-  // Helper: pull MM-DD from a raw YYYY-MM-DD* string without timezone shifts
-  const pickMd = (s='') => {
+  // Helpers (no Date parsing → no timezone drift)
+  const pickYmd = (s='') => {
     const m = /^(\d{4})[-/](\d{2})[-/](\d{2})/.exec(String(s).trim());
-    return m ? (m[2] + '-' + m[3]) : '';
+    return m ? `${m[1]}-${m[2]}-${m[3]}` : '';
+  };
+  const pickMd   = (s='') => { const m = /^(\d{4})[-/](\d{2})[-/](\d{2})/.exec(String(s).trim()); return m ? (m[2]+'-'+m[3]) : ''; };
+  const findYmdInTitle = (t='') => {
+    const m = /(\d{4})[-/](\d{2})[-/](\d{2})/.exec(String(t));
+    return m ? `${m[1]}-${m[2]}-${m[3]}` : '';
   };
 
-  // Keep only items whose metadata.date (or publicdate) matches today’s MM-DD
-  const filtered = [];
+  const out = [];
   for (const it of docs){
-    const rawDate = it.date || '';
-    const rawPub  = it.publicdate || '';
-    const md = pickMd(rawDate) || pickMd(rawPub);
-    if (md === `${mm}-${dd}`){
-      filtered.push({
-        id: it.identifier,
-        title: it.title || it.identifier,
-        date: rawDate || rawPub,          // keep original raw date string
-        matchDate: `${mm}-${dd}`,         // exact MM-DD we matched on
-        year: it.year || (rawDate ? String(rawDate).slice(0,4) : (rawPub ? String(rawPub).slice(0,4) : '')),
-        downloads: it.downloads || 0,
-        rating: it.avg_rating || 0,
-        reviews: it.num_reviews || 0,
-        venue: it.venue || '',
-        coverage: it.coverage || '',
-        band: it.creator || decodeURIComponent(bandId).replace(/[_+]+/g,' ').trim()
-      });
-    }
+    const rawMeta = pickYmd(it.date || '') || pickYmd(it.publicdate || '');
+    const mdMeta  = pickMd(rawMeta);
+    const rawTitle= findYmdInTitle(it.title || '');
+    const mdTitle = pickMd(rawTitle);
+
+    let matchedYmd = '';
+    let matchedBy  = '';
+
+    if (mdMeta === want) { matchedYmd = rawMeta;  matchedBy = 'meta'; }
+    else if (mdTitle === want) { matchedYmd = rawTitle; matchedBy = 'title'; }
+
+    if (!matchedYmd) continue;
+
+    const year = matchedYmd.slice(0,4) || it.year || '';
+    out.push({
+      id: it.identifier,
+      title: it.title || it.identifier,
+      date: matchedYmd,           // use the exact Y-M-D we matched
+      matchBy: matchedBy,         // 'meta' or 'title' (for debugging, optional)
+      downloads: it.downloads || 0,
+      rating: it.avg_rating || 0,
+      reviews: it.num_reviews || 0,
+      venue: it.venue || '',
+      coverage: it.coverage || '',
+      band: it.creator || decodeURIComponent(bandId).replace(/[_+]+/g,' ').trim(),
+      year
+    });
   }
 
   // Newest first, then by downloads
-  filtered.sort((a,b) => (String(b.year).localeCompare(String(a.year)) || (b.downloads - a.downloads)));
-  return filtered;
+  out.sort((a,b) => (String(b.year).localeCompare(String(a.year)) || (b.downloads - a.downloads)));
+  return out;
 }
+
 
 
 
