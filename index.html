@@ -1032,75 +1032,6 @@ async function showBands(){
   show($('#toolbar-bands'),true); show($('#toolbar-band'),false); show($('#showMeta'),false);
   $('#subHeader').classList.remove('show');
 
-async function showOnThisDay(){
-  // Hide toolbars and show a clean list view
-  show($('#toolbar-bands'), false);
-  show($('#toolbar-band'), false);
-  show($('#showMeta'), false);
-  $('#subHeader').classList.remove('show');
-
-  const content = $('#content');
-  content.className = 'grid';
-  content.innerHTML = `<div class="card"><span class="small">Loading shows for this date…</span></div>`;
-
-  const rows = await loadOnThisDayAllFavs();
-
-  if (!rows.length){
-    content.innerHTML = `<div class="card"><span class="small">No shows found for your favorite bands on this date.</span></div>`;
-    return;
-  }
-
-  content.innerHTML = rows.map(it => {
-    const dateStr   = it.date ? new Date(it.date).toLocaleDateString() : (it.year || '');
-    const venueLine = [it.venue, it.coverage].filter(Boolean).join(', ');
-    const viewsChip = `<span class="chip">${fmtCompact(it.downloads)} views</span>`;
-    const stars     = renderStars(it.rating);
-    return `
-      <div class="card tap" data-id="${it.id}">
-        <div>
-          <h3>${it.title}</h3>
-          <div class="row">
-            <span class="chip">${dateStr}</span>
-            <span class="chip">${it.band}</span>
-            ${viewsChip}
-            ${stars} <span class="small">(${it.reviews})</span>
-          </div>
-          <div class="small">${venueLine}</div>
-        </div>
-        <div class="row">
-          <button class="btn ghost favToggle${ isFav(it.id) ? ' is-on' : '' }" title="Favorite">
-            ${ isFav(it.id) ? '★' : '☆' }
-          </button>
-        </div>
-      </div>
-    `;
-  }).join('');
-
-  // open show / toggle favorite
-  content.onclick = (e) => {
-    const favBtn = e.target.closest('.favToggle');
-    if (favBtn){
-      const card = favBtn.closest('.card'); const id = card?.dataset.id;
-      if (!id) return;
-      toggleFavShow(id);
-      // re-render only that button’s state quickly
-      favBtn.classList.toggle('is-on', isFav(id));
-      favBtn.textContent = isFav(id) ? '★' : '☆';
-      return;
-    }
-
-    const card = e.target.closest('.card.tap');
-    if (card){
-      // mark origin so Show header can present a sensible back button
-      store.set('cameFrom', 'onthisday');
-      location.hash = '#/show/' + encodeURIComponent(card.dataset.id);
-    }
-  };
-}
-
-
-
-  
   // Visual ON state
   $('#favToggle').classList.toggle('is-on', !!onlyFavBands);
   $('#favToggle').textContent = onlyFavBands ? '★ Favorites' : '☆ Favorites';
@@ -1869,6 +1800,69 @@ async function loadOnThisDayAllFavs(){
   return all;
 }
 
+async function showOnThisDay(){
+  // Hide toolbars and show a clean list view
+  show($('#toolbar-bands'), false);
+  show($('#toolbar-band'), false);
+  show($('#showMeta'), false);
+  $('#subHeader').classList.remove('show');
+
+  const content = $('#content');
+  content.className = 'grid';
+  content.innerHTML = `<div class="card"><span class="small">Loading shows for this date…</span></div>`;
+
+  const rows = await loadOnThisDayAllFavs();
+
+  if (!rows.length){
+    content.innerHTML = `<div class="card"><span class="small">No shows found for your favorite bands on this date.</span></div>`;
+    return;
+  }
+
+  content.innerHTML = rows.map(it => {
+    const dateStr   = it.date ? new Date(it.date).toLocaleDateString() : (it.year || '');
+    const venueLine = [it.venue, it.coverage].filter(Boolean).join(', ');
+    const viewsChip = `<span class="chip">${fmtCompact(it.downloads)} views</span>`;
+    const stars     = renderStars(it.rating);
+    return `
+      <div class="card tap" data-id="${it.id}">
+        <div>
+          <h3>${it.title}</h3>
+          <div class="row">
+            <span class="chip">${dateStr}</span>
+            <span class="chip">${it.band}</span>
+            ${viewsChip}
+            ${stars} <span class="small">(${it.reviews})</span>
+          </div>
+          <div class="small">${venueLine}</div>
+        </div>
+        <div class="row">
+          <button class="btn ghost favToggle${ isFav(it.id) ? ' is-on' : '' }" title="Favorite">
+            ${ isFav(it.id) ? '★' : '☆' }
+          </button>
+        </div>
+      </div>
+    `;
+  }).join('');
+
+  // open show / toggle favorite
+  content.onclick = (e) => {
+    const favBtn = e.target.closest('.favToggle');
+    if (favBtn){
+      const card = favBtn.closest('.card'); const id = card?.dataset.id;
+      if (!id) return;
+      toggleFavShow(id);
+      favBtn.classList.toggle('is-on', isFav(id));
+      favBtn.textContent = isFav(id) ? '★' : '☆';
+      return;
+    }
+
+    const card = e.target.closest('.card.tap');
+    if (card){
+      store.set('cameFrom', 'onthisday');
+      location.hash = '#/show/' + encodeURIComponent(card.dataset.id);
+    }
+  };
+}
 
 
 
