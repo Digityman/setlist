@@ -687,31 +687,26 @@ function bandTitleFromCache(id){
 }
 
 /* ------------ drawer ------------ */
-const drawer = $('#drawer'); 
+const drawer = $('#drawer');
 const drawerBack = $('#drawerBack');
-$('#hamburger').addEventListener('click', ()=>{ 
-  drawer.classList.add('open'); 
-  drawerBack.classList.add('open'); 
+
+function closeDrawer(){
+  drawer.classList.remove('open');
+  drawerBack.classList.remove('open');
+}
+
+$('#hamburger').addEventListener('click', ()=>{
+  drawer.classList.add('open');
+  drawerBack.classList.add('open');
 });
 $('#drawerClose').addEventListener('click', closeDrawer);
 drawerBack.addEventListener('click', closeDrawer);
-function closeDrawer(){ 
-  drawer.classList.remove('open'); 
-  drawerBack.classList.remove('open'); 
-}
+
 $$('.drawer .menuItem').forEach(it => it.addEventListener('click', ()=>{
-  const nav = it.getAttribute('data-nav'); 
-  if(nav){ location.hash = nav; closeDrawer(); }
+  const nav = it.getAttribute('data-nav');
+  if (nav){ location.hash = nav; closeDrawer(); }
 }));
 
-const drawer = $('#drawer'); const drawerBack = $('#drawerBack');
-$('#hamburger').addEventListener('click', ()=>{ drawer.classList.add('open'); drawerBack.classList.add('open'); });
-$('#drawerClose').addEventListener('click', closeDrawer);
-drawerBack.addEventListener('click', closeDrawer);
-function closeDrawer(){ drawer.classList.remove('open'); drawerBack.classList.remove('open'); }
-$$('.drawer .menuItem').forEach(it=>it.addEventListener('click', ()=>{
-  const nav=it.getAttribute('data-nav'); if(nav){ location.hash=nav; closeDrawer(); }
-}));
 
 /* ------------ router ------------ */
 const Router = (() => {
