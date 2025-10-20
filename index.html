@@ -83,11 +83,10 @@
   .menu .item{padding:9px 12px; cursor:pointer; white-space:nowrap}
   .menu .item:hover{background:#202124}
 
-  /* Bands grid */
+/* Bands grid — tighter tiles so you get ~5 across on laptops */
 .bandsGrid{
-  /* ~150–180px tiles usually render 4–5 across on laptops */
   display:grid;
-  grid-template-columns: repeat(auto-fill, minmax(156px, 1fr));
+  grid-template-columns: repeat(auto-fit, minmax(132px, 1fr)); /* was 156px + auto-fill */
   gap:10px;
   padding:0 12px 120px;
 }
@@ -96,7 +95,7 @@
   background:var(--panel);
   border:1px solid var(--ring);
   border-radius:12px;
-  padding:10px;
+  padding:8px;                 /* was 10px */
   display:flex;
   flex-direction:column;
   gap:8px;
@@ -111,19 +110,19 @@
   background:#0c0c0d;
 }
 
-/* Let titles wrap (no ellipsis); clamp to 2 rows to keep cards tidy */
+/* Title wraps but never overflows; keep cards tidy */
 .bandTitle{
   font-weight:600;
-  font-size:13px;
+  font-size:12px;              /* was 13px */
   line-height:1.25;
   white-space:normal;
   overflow:hidden;
   display:-webkit-box;
   -webkit-box-orient:vertical;
-  -webkit-line-clamp:2;       /* up to two lines, no “…” */
+  -webkit-line-clamp:2;        /* two natural lines, no ellipsis overflow */
 }
 
-/* Views line should never truncate either */
+/* Views never truncate */
 .bandViews{
   font-size:11px;
   color:var(--muted);
@@ -132,6 +131,10 @@
   text-overflow:clip;
 }
 
+/* Optional: nudge sizes back up on wide screens while keeping 5+ across */
+@media (min-width: 1200px){
+  .bandsGrid{ grid-template-columns: repeat(auto-fit, minmax(140px, 1fr)); }
+}
 
   /* Lists */
 .grid{display:grid; grid-template-columns:1fr; gap:8px; padding:0 12px 120px}
