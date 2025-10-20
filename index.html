@@ -1976,7 +1976,7 @@ content.innerHTML = bands.map(id=>
     <div class="row">
       <img src="${IA.imgUrl(id)}" alt="" style="width:42px;height:42px;border-radius:8px;object-fit:cover;background:#0c0c0d;border:1px solid var(--ring)">
       <div>
-        <div class="title" style="font-weight:600">${decodeURIComponent(id).replace(/[_+]+/g,' ').trim()}</div>
+        <div class="title" style="font-weight:600">${bandTitleFromCache(id)}</div>
         <div class="small">${id}</div>
       </div>
     </div>
