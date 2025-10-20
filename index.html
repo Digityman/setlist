@@ -676,7 +676,7 @@ const store = { get(k,f){ try{return JSON.parse(localStorage.getItem(k))??f;}cat
   return { mm, dd };
 }
 
-/* ------------ dra/* Title helpers (reuse full-list titles in favorites) */
+/* ------------ Title helpers (reuse full-list titles in favorites) ------------ */
 function prettyId(id=''){
   const raw = decodeURIComponent(id).replace(/[_+]+/g, ' ').trim();
   return raw.replace(/([a-z])([A-Z])/g, '$1 $2').replace(/\s+/g,' ').trim();
@@ -687,7 +687,23 @@ function bandTitleFromCache(id){
 }
 
 /* ------------ drawer ------------ */
-wer ------------ */
+const drawer = $('#drawer'); 
+const drawerBack = $('#drawerBack');
+$('#hamburger').addEventListener('click', ()=>{ 
+  drawer.classList.add('open'); 
+  drawerBack.classList.add('open'); 
+});
+$('#drawerClose').addEventListener('click', closeDrawer);
+drawerBack.addEventListener('click', closeDrawer);
+function closeDrawer(){ 
+  drawer.classList.remove('open'); 
+  drawerBack.classList.remove('open'); 
+}
+$$('.drawer .menuItem').forEach(it => it.addEventListener('click', ()=>{
+  const nav = it.getAttribute('data-nav'); 
+  if(nav){ location.hash = nav; closeDrawer(); }
+}));
+
 const drawer = $('#drawer'); const drawerBack = $('#drawerBack');
 $('#hamburger').addEventListener('click', ()=>{ drawer.classList.add('open'); drawerBack.classList.add('open'); });
 $('#drawerClose').addEventListener('click', closeDrawer);
