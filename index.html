@@ -1856,28 +1856,31 @@ if (navigator.mediaDevices && 'ondevicechange' in navigator.mediaDevices){
 }
 
 async function fetchOnThisDayForBand(bandId, mm, dd){
+  // pad month/day
+  mm = String(mm).padStart(2,'0');
+  dd = String(dd).padStart(2,'0');
+
   // 1) Try advancedsearch.php
-  const advUrl   = IA.onThisDayUrl({ bandId, mm, dd, rows: 400, sort: 'date desc' });
-  const advKey   = `onthisday:adv:${bandId}:${mm}-${dd}`;
-  let advDocs    = [];
+  const advUrl = IA.onThisDayUrl({ bandId, mm, dd, rows: 400, sort: 'date desc' });
+  const advKey = `onthisday:adv:${bandId}:${mm}-${dd}`;
+  let docs = [];
   try{
     const { data } = await iaFetchJSON(advUrl, { cacheKey: advKey, retries: 2, timeoutMs: 15000 });
-    advDocs = data?.response?.docs || [];
-  }catch(_){ /* fall through to v1 */ }
+    docs = data?.response?.docs || [];
+  }catch(_){}
 
-  // 2) If nothing came back, try v1 “scrape”
-  let docs = advDocs;
+  // 2) If nothing came back, try v1 scrape
   if (!docs.length){
     const v1Url = IA.onThisDayV1Url({ bandId, mm, dd, rows: 400, sort: 'date desc' });
     const v1Key = `onthisday:v1:${bandId}:${mm}-${dd}`;
     try{
       const { data } = await iaFetchJSON(v1Url, { cacheKey: v1Key, retries: 2, timeoutMs: 15000 });
       docs = (data?.items) || [];
-    }catch(_){ /* leave docs as-is */ }
+    }catch(_){}
   }
 
-  // Normalize both shapes to a common object
-  return docs.map(it => ({
+  // Normalize to a common shape
+  const rows = docs.map(it => ({
     id: it.identifier,
     title: it.title || it.identifier,
     date: it.date || it.publicdate || '',
@@ -1889,7 +1892,23 @@ async function fetchOnThisDayForBand(bandId, mm, dd){
     coverage: it.coverage || '',
     band: it.creator || decodeURIComponent(bandId).replace(/[_+]+/g,' ').trim()
   }));
+
+  // Keep only entries that are actually on MM-DD
+  const onThisDay = rows.filter(r => {
+    const d = r.date ? new Date(r.date) : null;
+    if (d && !isNaN(d)) {
+      const m = String(d.getMonth() + 1).padStart(2,'0');
+      const day = String(d.getDate()).padStart(2,'0');
+      if (m === mm && day === dd) return true;
+    }
+    // fallback: parse YYYY-MM-DD directly if Date() failed
+    const m = /(\d{4})[-/](\d{2})[-/](\d{2})/.exec(r.date || '');
+    return !!(m && m[2] === mm && m[3] === dd);
+  });
+
+  return onThisDay;
 }
+
 
 
 async function loadOnThisDayAllFavs(){
