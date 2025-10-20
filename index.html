@@ -1856,11 +1856,10 @@ if (navigator.mediaDevices && 'ondevicechange' in navigator.mediaDevices){
 }
 
 async function fetchOnThisDayForBand(bandId, mm, dd){
-  // pad month/day
   mm = String(mm).padStart(2,'0');
   dd = String(dd).padStart(2,'0');
 
-  // 1) Try advancedsearch.php
+  // Try advancedsearch, then v1 scrape (same as before)
   const advUrl = IA.onThisDayUrl({ bandId, mm, dd, rows: 400, sort: 'date desc' });
   const advKey = `onthisday:adv:${bandId}:${mm}-${dd}`;
   let docs = [];
@@ -1869,7 +1868,6 @@ async function fetchOnThisDayForBand(bandId, mm, dd){
     docs = data?.response?.docs || [];
   }catch(_){}
 
-  // 2) If nothing came back, try v1 scrape
   if (!docs.length){
     const v1Url = IA.onThisDayV1Url({ bandId, mm, dd, rows: 400, sort: 'date desc' });
     const v1Key = `onthisday:v1:${bandId}:${mm}-${dd}`;
@@ -1879,35 +1877,40 @@ async function fetchOnThisDayForBand(bandId, mm, dd){
     }catch(_){}
   }
 
-  // Normalize to a common shape
-  const rows = docs.map(it => ({
-    id: it.identifier,
-    title: it.title || it.identifier,
-    date: it.date || it.publicdate || '',
-    year: it.year || (it.date ? String(it.date).slice(0,4) : ''),
-    downloads: it.downloads || 0,
-    rating: it.avg_rating || 0,
-    reviews: it.num_reviews || 0,
-    venue: it.venue || '',
-    coverage: it.coverage || '',
-    band: it.creator || decodeURIComponent(bandId).replace(/[_+]+/g,' ').trim()
-  }));
+  // Helper: pull MM-DD from a raw YYYY-MM-DD* string without timezone shifts
+  const pickMd = (s='') => {
+    const m = /^(\d{4})[-/](\d{2})[-/](\d{2})/.exec(String(s).trim());
+    return m ? (m[2] + '-' + m[3]) : '';
+  };
 
-  // Keep only entries that are actually on MM-DD
-  const onThisDay = rows.filter(r => {
-    const d = r.date ? new Date(r.date) : null;
-    if (d && !isNaN(d)) {
-      const m = String(d.getMonth() + 1).padStart(2,'0');
-      const day = String(d.getDate()).padStart(2,'0');
-      if (m === mm && day === dd) return true;
+  // Keep only items whose metadata.date (or publicdate) matches today’s MM-DD
+  const filtered = [];
+  for (const it of docs){
+    const rawDate = it.date || '';
+    const rawPub  = it.publicdate || '';
+    const md = pickMd(rawDate) || pickMd(rawPub);
+    if (md === `${mm}-${dd}`){
+      filtered.push({
+        id: it.identifier,
+        title: it.title || it.identifier,
+        date: rawDate || rawPub,          // keep original raw date string
+        matchDate: `${mm}-${dd}`,         // exact MM-DD we matched on
+        year: it.year || (rawDate ? String(rawDate).slice(0,4) : (rawPub ? String(rawPub).slice(0,4) : '')),
+        downloads: it.downloads || 0,
+        rating: it.avg_rating || 0,
+        reviews: it.num_reviews || 0,
+        venue: it.venue || '',
+        coverage: it.coverage || '',
+        band: it.creator || decodeURIComponent(bandId).replace(/[_+]+/g,' ').trim()
+      });
     }
-    // fallback: parse YYYY-MM-DD directly if Date() failed
-    const m = /(\d{4})[-/](\d{2})[-/](\d{2})/.exec(r.date || '');
-    return !!(m && m[2] === mm && m[3] === dd);
-  });
+  }
 
-  return onThisDay;
+  // Newest first, then by downloads
+  filtered.sort((a,b) => (String(b.year).localeCompare(String(a.year)) || (b.downloads - a.downloads)));
+  return filtered;
 }
+
 
 
 
@@ -1949,7 +1952,19 @@ async function showOnThisDay(){
   }
 
   content.innerHTML = rows.map(it => {
-    const dateStr   = it.date ? new Date(it.date).toLocaleDateString() : (it.year || '');
+  // Prefer the exact MM-DD we matched, formatted with the detected year if available
+let dateStr = '';
+if (it.date && /^\d{4}-\d{2}-\d{2}/.test(it.date)) {
+  // use the raw string to avoid timezone shifting
+  const y = it.date.slice(0,4), m = it.date.slice(5,7), d = it.date.slice(8,10);
+  dateStr = `${Number(m)}/${Number(d)}/${y}`;
+} else if (it.matchDate && it.year) {
+  const [m,d] = it.matchDate.split('-');
+  dateStr = `${Number(m)}/${Number(d)}/${it.year}`;
+} else {
+  dateStr = it.year || '';
+}
+
     const venueLine = [it.venue, it.coverage].filter(Boolean).join(', ');
     const viewsChip = `<span class="chip">${fmtCompact(it.downloads)} views</span>`;
     const stars     = renderStars(it.rating);
