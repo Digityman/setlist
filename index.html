@@ -113,14 +113,17 @@
 /* Title wraps but never overflows; keep cards tidy */
 .bandTitle{
   font-weight:600;
-  font-size:12px;              /* was 13px */
+  font-size:12px;
   line-height:1.25;
   white-space:normal;
   overflow:hidden;
   display:-webkit-box;
   -webkit-box-orient:vertical;
-  -webkit-line-clamp:2;        /* two natural lines, no ellipsis overflow */
+  -webkit-line-clamp:2;       /* up to two lines, no “…” */
+  overflow-wrap:anywhere;      /* prevent long words from overflowing */
+  word-break:break-word;
 }
+
 
 /* Views never truncate */
 .bandViews{
