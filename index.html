@@ -90,6 +90,16 @@
   gap:8px;
   padding:0 12px 120px;  /* was  padding:0 12px 120px;  */
 }
+/* Favorites → Bands: keep tiles a fixed size so they don't stretch */
+.bandsGrid.favGrid{
+  grid-template-columns: repeat(auto-fill, 160px); /* fixed column width */
+  justify-content: start;                           /* left-align leftover space */
+}
+
+/* bump size a bit on wide screens */
+@media (min-width: 1200px){
+  .bandsGrid.favGrid{ grid-template-columns: repeat(auto-fill, 180px); }
+}
 
 .bandTile{
   background:var(--panel);
@@ -2041,8 +2051,8 @@ Router.on('fav', (params)=>{ location.hash = '#/favorites/bands'; });
 Router.on('favorites/bands', ()=>{
   show($('#toolbar-bands'),false); show($('#toolbar-band'),false); show($('#showMeta'),false);
 
-  const content = $('#content');
-  content.className = 'bandsGrid';         // tile grid like the Bands home
+const content = $('#content');
+content.className = 'bandsGrid favGrid'; // fixed-size tiles for favorites
 
   const bands = favBands();
   if (!bands.length){
