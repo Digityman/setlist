@@ -30,6 +30,20 @@ const EQ = document.querySelector('#P_now .eqBars');
 function updateEqAnim(){ if (EQ) EQ.classList.toggle('paused', A.paused); }
 document.addEventListener('DOMContentLoaded', updateEqAnim);
 
+// expose a tiny initializer for callers that expect it
+export function initEQ() {
+  try { 
+    // run once to sync the button state
+    const evt = new Event('DOMContentLoaded');
+    document.dispatchEvent(evt); // triggers the existing listener
+  } catch {
+    // fallback: call directly
+    const EQ = document.querySelector('#P_now .eqBars');
+    if (EQ) EQ.classList.toggle('paused', document.getElementById('audio')?.paused);
+  }
+}
+
+
 // Media Session
 function updateMediaSession(title = 'Playing') {
   if (!('mediaSession' in navigator)) return;
