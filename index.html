@@ -1996,30 +1996,65 @@ const { data } = await iaFetchJSON(u.toString(), {
       const m = /(\d{4})[-/](\d{2})[-/](\d{2})/.exec(title);
       matchedYMD = m ? `${m[1]}-${m[2]}-${m[3]}` : (it.year ? `${it.year}-${mm}-${dd}` : '');
       matchedBy  = 'title';
-    }
+    }const { data } = await iaFetchJSON(u.toString(), {
+  cacheKey,
+  retries: 2,
+  timeoutMs: 15000
+});
 
-    if (!matchedYMD) continue;
+// Normalize result rows from either endpoint
+const items = (data && Array.isArray(data.items)) ? data.items
+            : (data && data.response && Array.isArray(data.response.docs)) ? data.response.docs
+            : [];
 
-    const year = matchedYMD.slice(0,4) || it.year || '';
-    out.push({
-      id: it.identifier,
-      title,
-      date: matchedYMD,          // exact Y-M-D we matched
-      matchBy: matchedBy,        // 'meta' or 'title'
-      downloads: it.downloads || 0,
-      rating: it.avg_rating || 0,
-      reviews: it.num_reviews || 0,
-      venue: it.venue || '',
-      coverage: it.coverage || '',
-      band: it.creator || decodeURIComponent(bandId).replace(/[_+]+/g,' ').trim(),
-      year
-    });
+// Helpers (string-only; no Date parsing → no TZ drift)
+const pickYmd = (s='') => {
+  const m = /^(\d{4})[-/](\d{2})[-/](\d{2})/.exec(String(s).trim());
+  return m ? `${m[1]}-${m[2]}-${m[3]}` : '';
+};
+const pickMd  = (ymd='') => (ymd ? `${ymd.slice(5,7)}-${ymd.slice(8,10)}` : '');
+const titleHasMd = (t='') => {
+  const S = String(t);
+  return S.includes(`-${mm}-${dd}`) || S.includes(`${mm}/${dd}`) || S.includes(`${mm}-${dd}`);
+};
+
+const out = [];
+for (const it of items){
+  const title = it.title || '';
+  const metaYMD = pickYmd(it.date || it.publicdate || '');
+  const metaMD  = pickMd(metaYMD);
+
+  let matchedYMD = '';
+  let matchedBy  = '';
+
+  if (metaMD === wantMD) { matchedYMD = metaYMD; matchedBy = 'meta'; }
+  else if (titleHasMd(title)) {
+    const m = /(\d{4})[-/](\d{2})[-/](\d{2})/.exec(title);
+    matchedYMD = m ? `${m[1]}-${m[2]}-${m[3]}` : (it.year ? `${it.year}-${mm}-${dd}` : '');
+    matchedBy  = 'title';
   }
 
-  // Newest first, then most-downloaded
-  out.sort((a,b) => (String(b.year).localeCompare(String(a.year)) || (b.downloads - a.downloads)));
-  return out;
+  if (!matchedYMD) continue;
+
+  const year = matchedYMD.slice(0,4) || it.year || '';
+  out.push({
+    id: it.identifier,
+    title,
+    date: matchedYMD,
+    matchBy: matchedBy,
+    downloads: it.downloads || 0,
+    rating: it.avg_rating || 0,
+    reviews: it.num_reviews || 0,
+    venue: it.venue || '',
+    coverage: it.coverage || '',
+    band: it.creator || decodeURIComponent(bandId).replace(/[_+]+/g,' ').trim(),
+    year
+  });
 }
+
+out.sort((a,b) => (String(b.year).localeCompare(String(a.year)) || (b.downloads - a.downloads)));
+return out;
+
 
 
 
