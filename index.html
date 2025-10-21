@@ -1117,10 +1117,17 @@ function renderStars(r){
 function favBands(){ return store.get('favBands',[]); }
 function setFavBands(arr){ store.set('favBands',arr); }
 function toggleFavBand(bandId){
-  const arr=favBands(); const i=arr.indexOf(bandId);
-  if(i>=0) arr.splice(i,1); else arr.push(bandId);
-  setFavBands(arr); updateFavBandBtn();
+  const arr = favBands();
+  const i = arr.indexOf(bandId);
+  if (i >= 0) arr.splice(i, 1); else arr.push(bandId);
+  setFavBands(arr);
+
+  // bump a version so any cached “This Day” queries refresh
+  store.set('favVersion', Date.now());
+
+  updateFavBandBtn();
 }
+
 function favShows(){ return store.get('favShows',[]); }
 function isFavShow(id){ return favShows().includes(id); }
 function toggleFavShow(id){ const fav=favShows(); const i=fav.indexOf(id); if(i>=0) fav.splice(i,1); else fav.push(id); store.set('favShows',fav); }
@@ -1952,9 +1959,16 @@ async function fetchOnThisDayForBand(bandId, mm, dd){
   u.searchParams.set('sorts', 'date desc');
   u.searchParams.set('count', '400');
 
-  const cacheKey = `onthisday:v1:${bandId}:${wantMD}`;
-  const { data } = await iaFetchJSON(u.toString(), { cacheKey, retries: 2, timeoutMs: 15000 });
-  const rows = data?.items || [];
+// tie cache to today's date *and* current favorites version
+const favVer = store.get('favVersion', 0);
+const todayKey = new Date().toISOString().slice(0,10);  // YYYY-MM-DD
+const cacheKey = `onthisday:v1:${bandId}:${wantMD}:${todayKey}:fv${favVer}`;
+
+const { data } = await iaFetchJSON(u.toString(), {
+  cacheKey,
+  retries: 2,
+  timeoutMs: 15000
+});
 
   // Helpers (string-only; no Date parsing → no TZ drift)
   const pickYmd = (s='') => {
@@ -2013,7 +2027,8 @@ async function fetchOnThisDayForBand(bandId, mm, dd){
 
 
 async function loadOnThisDayAllFavs(){
-  const favs = favBands();      // array of bandId collections (e.g., gratefuldead)
+// always read fresh from localStorage right before querying
+const favs = (store.get('favBands', []) || []).slice();
   if (!favs.length) return [];
   const { mm, dd } = todayMMDD();
 
