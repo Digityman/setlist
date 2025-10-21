@@ -222,19 +222,19 @@ function onRoute(){
   closeDrawer();
 
   const [base, a, b] = seg.split('/');
-  switch(base){
-    case 'bands': return renderBands();
-    case 'band': return renderBand(a);           // a = bandId
-    case 'show': return renderShow(a);           // a = showId
-    case 'favorites': return renderFavorites();
-    case 'recent':
-    case 'playlist':
-      if (a==='fav-songs' || (base==='playlist' && a==='fav-songs')) return renderPlaylist('fav-songs');
-      if (a==='recent-songs' || base==='recent') return renderPlaylist('recent-songs');
-      return renderRecent();
-    case 'about': return renderAbout();
-    default: return renderBands();
-  }
+switch(base){
+  case 'bands': return renderBands();
+  case 'band': return renderBand(a);
+  case 'show': return renderShow(a);
+  case 'favorites': return renderFavorites();
+  case 'recent':
+  case 'playlist':
+    if (a==='fav-songs' || (base==='playlist' && a==='fav-songs')) return renderPlaylist('fav-songs');
+    if (a==='recent-songs' || base==='recent') return renderPlaylist('recent-songs');
+    return renderRecent();
+  case 'about': return renderAbout();
+  case 'onthisday': return showOnThisDay();   // ← new
+  default: return renderBands();
 }
 
 /* UI: Drawer toggles */
