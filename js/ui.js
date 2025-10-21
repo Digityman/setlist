@@ -1,7 +1,9 @@
 export const $ = (s)=> document.querySelector(s);
 export const $$ = (s)=> Array.from(document.querySelectorAll(s));
 export function show(el,on=true){ if(!el) return; el.style.display=on?'':'none'; }
+export function hide(el){ show(el, false); }            // <-- add this
 export function setHTML(el, html){ el.innerHTML = html; }
+
 
 export function fmtTime(secs){
   secs = Math.max(0, Math.floor(secs||0));
