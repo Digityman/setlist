@@ -91,15 +91,31 @@
   padding:0 12px 120px;  /* was  padding:0 12px 120px;  */
 }
 /* Favorites → Bands: keep tiles a fixed size so they don't stretch */
+/* Favorites → Bands: smaller tiles on phones, scale up gracefully */
 .bandsGrid.favGrid{
-  grid-template-columns: repeat(auto-fill, 160px); /* fixed column width */
-  justify-content: start;                           /* left-align leftover space */
+  grid-template-columns: repeat(auto-fill, minmax(110px, 1fr)); /* 3–4 across on most phones */
+  gap:6px;
+  justify-content:start;
 }
 
-/* bump size a bit on wide screens */
-@media (min-width: 1200px){
-  .bandsGrid.favGrid{ grid-template-columns: repeat(auto-fill, 180px); }
+/* tighten tile + star just for this grid */
+.bandsGrid.favGrid .bandTile{ padding:6px; }
+.bandsGrid.favGrid .starBtn{
+  min-width:28px; min-height:28px;
+  top:6px; right:6px;
 }
+
+/* step up sizes as space allows */
+@media (min-width: 480px){
+  .bandsGrid.favGrid{ grid-template-columns: repeat(auto-fill, minmax(120px, 1fr)); }
+}
+@media (min-width: 768px){
+  .bandsGrid.favGrid{ grid-template-columns: repeat(auto-fill, minmax(140px, 1fr)); }
+}
+@media (min-width: 1200px){
+  .bandsGrid.favGrid{ grid-template-columns: repeat(auto-fill, minmax(160px, 1fr)); }
+}
+
 
 .bandTile{
   background:var(--panel);
