@@ -55,6 +55,13 @@
   #favBandBtn{background:transparent; border:1px solid var(--ring); border-radius:999px; padding:4px 10px; cursor:pointer}
   #favBandBtn.fav{color:var(--warn); border-color:#4a3b0a; background:#1c1a12}
 
+  /* Tracks header: make Favorited button yellow like other favorites */
+#favShowBtn.fav{
+  color: var(--warn);
+  border-color: #4a3b0a;
+  background: #1c1a12;
+}
+  
   /* Toolbars */
   .toolbar{display:flex; gap:8px; padding:10px 12px; align-items:center; flex-wrap:wrap}
   .pill{background:var(--panel); border:1px solid var(--ring); border-radius:999px; padding:8px 12px; display:flex; align-items:center; gap:8px}
@@ -244,11 +251,31 @@
 .track.pulse { animation: pulseTrack .9s ease-out 2; }
 
   
-  /* Show meta */
-  .showMeta{display:flex; gap:8px; flex-wrap:wrap; align-items:center; padding:6px 12px 8px}
-  .showTitle{font-weight:600; margin-right:6px}
-  .showMeta .end{margin-left:auto; display:flex; align-items:center}
-  .stars{display:inline-flex; align-items:center; gap:4px}
+/* Show meta */
+.showMeta{
+  display:flex;
+  flex-direction:column;            /* force two rows */
+  gap:6px;
+  padding:6px 12px 8px;
+}
+.showHeadRow{
+  display:flex;
+  align-items:center;
+  gap:8px;
+}
+.showTitle{ font-weight:600; margin-right:6px; }
+.showHeadRow .end{ margin-left:auto; display:flex; align-items:center; }
+
+/* row 2: left group = location + date */
+.metaRow{ display:flex; }
+.metaLeft{
+  display:flex;
+  align-items:center;
+  gap:8px;
+  flex-wrap:wrap;
+}
+.stars{ display:inline-flex; align-items:center; gap:4px; }
+
 
   /* Player (bottom) */
   .player{
@@ -653,15 +680,25 @@ main, #app, .content, .scrollArea, .routeView {
     <button id="resetConcerts" class="btn ghost muted">Reset</button>
   </div>
 
-  <!-- Show header metadata -->
-  <div id="showMeta" class="showMeta" style="display:none;">
+<!-- Show header metadata -->
+<div id="showMeta" class="showMeta" style="display:none;">
+  <!-- row 1: title (left) + Favorited button (right) -->
+  <div class="showHeadRow">
     <span class="showTitle" id="showTitle"></span>
-    <span class="chip" id="showDate" style="display:none;"></span>
-    <span class="chip" id="showLoc"  style="display:none;"></span>
     <div class="end">
       <button class="pillBtn" id="favShowBtn" title="Favorite">☆ Favorite</button>
     </div>
   </div>
+
+  <!-- row 2: location (left) + date (left, next to location) -->
+  <div class="metaRow">
+    <div class="metaLeft">
+      <span class="chip" id="showLoc"  style="display:none;"></span>
+      <span class="chip" id="showDate" style="display:none;"></span>
+    </div>
+  </div>
+</div>
+
 
   <!-- Dynamic content -->
   <div id="content" class="grid" aria-live="polite"></div>
