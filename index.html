@@ -1936,18 +1936,19 @@ if (navigator.mediaDevices && 'ondevicechange' in navigator.mediaDevices){
 }
 
 // Clean “This Day” search that mirrors archive.org UI logic but scoped to one band
+// Clean “This Day” search that mirrors archive.org UI logic but scoped to one band
 async function fetchOnThisDayForBand(bandId, mm, dd){
   mm = String(mm).padStart(2,'0');
   dd = String(dd).padStart(2,'0');
   const wantMD = `${mm}-${dd}`;          // compare as MM-DD only
 
-  // Build the same idea as IA’s UI:
-  //   title:"-MM-DD"  OR  date:*-MM-DD
-  // and scope to the band’s collection + etree/audio
+  // Archive.org UI equivalent:
+  //   title:"-MM-DD" OR "MM/DD"  OR  date:*-MM-DD
+  // …scoped to the band's collection + etree/audio
   const q = [
     `collection:(${bandId})`,
     `(mediatype:(etree) OR mediatype:(audio))`,
-    `(title:("-${mm}-${dd}" OR "${mm}/${dd}") OR date:*-${mm}-${dd})`
+    `(title:("-${mm}-${dd}" OR "${mm}/${dd}" OR "${mm}-${dd}") OR date:*-${mm}-${dd})`
   ].join(' AND ');
 
   const u = new URL('https://archive.org/services/search/v1/scrape');
@@ -1959,16 +1960,21 @@ async function fetchOnThisDayForBand(bandId, mm, dd){
   u.searchParams.set('sorts', 'date desc');
   u.searchParams.set('count', '400');
 
-// tie cache to today's date *and* current favorites version
-const favVer = store.get('favVersion', 0);
-const todayKey = new Date().toISOString().slice(0,10);  // YYYY-MM-DD
-const cacheKey = `onthisday:v1:${bandId}:${wantMD}:${todayKey}:fv${favVer}`;
+  // tie cache to today's date *and* current favorites version
+  const favVer   = store.get('favVersion', 0);
+  const todayKey = new Date().toISOString().slice(0,10);  // YYYY-MM-DD
+  const cacheKey = `onthisday:v1:${bandId}:${wantMD}:${todayKey}:fv${favVer}`;
 
-const { data } = await iaFetchJSON(u.toString(), {
-  cacheKey,
-  retries: 2,
-  timeoutMs: 15000
-});
+  const { data } = await iaFetchJSON(u.toString(), {
+    cacheKey,
+    retries: 2,
+    timeoutMs: 15000
+  });
+
+  // ---- normalize response and iterate ITEMS (not "rows") ----
+  const items = (data && Array.isArray(data.items)) ? data.items
+              : (data && data.response && Array.isArray(data.response.docs)) ? data.response.docs
+              : [];
 
   // Helpers (string-only; no Date parsing → no TZ drift)
   const pickYmd = (s='') => {
@@ -1982,8 +1988,8 @@ const { data } = await iaFetchJSON(u.toString(), {
   };
 
   const out = [];
-  for (const it of rows){
-    const title = it.title || '';
+  for (const it of items){
+    const title   = it.title || '';
     const metaYMD = pickYmd(it.date || it.publicdate || '');
     const metaMD  = pickMd(metaYMD);
 
@@ -1992,94 +1998,57 @@ const { data } = await iaFetchJSON(u.toString(), {
 
     if (metaMD === wantMD) { matchedYMD = metaYMD; matchedBy = 'meta'; }
     else if (titleHasMd(title)) {
-      // If title shows something like YYYY-MM-DD, keep that; else synthesize with year if present.
+      // pull YYYY-MM-DD from title if present, otherwise synthesize with year
       const m = /(\d{4})[-/](\d{2})[-/](\d{2})/.exec(title);
       matchedYMD = m ? `${m[1]}-${m[2]}-${m[3]}` : (it.year ? `${it.year}-${mm}-${dd}` : '');
       matchedBy  = 'title';
-    }const { data } = await iaFetchJSON(u.toString(), {
-  cacheKey,
-  retries: 2,
-  timeoutMs: 15000
-});
+    }
 
-// Normalize result rows from either endpoint
-const items = (data && Array.isArray(data.items)) ? data.items
-            : (data && data.response && Array.isArray(data.response.docs)) ? data.response.docs
-            : [];
+    if (!matchedYMD) continue;
 
-// Helpers (string-only; no Date parsing → no TZ drift)
-const pickYmd = (s='') => {
-  const m = /^(\d{4})[-/](\d{2})[-/](\d{2})/.exec(String(s).trim());
-  return m ? `${m[1]}-${m[2]}-${m[3]}` : '';
-};
-const pickMd  = (ymd='') => (ymd ? `${ymd.slice(5,7)}-${ymd.slice(8,10)}` : '');
-const titleHasMd = (t='') => {
-  const S = String(t);
-  return S.includes(`-${mm}-${dd}`) || S.includes(`${mm}/${dd}`) || S.includes(`${mm}-${dd}`);
-};
-
-const out = [];
-for (const it of items){
-  const title = it.title || '';
-  const metaYMD = pickYmd(it.date || it.publicdate || '');
-  const metaMD  = pickMd(metaYMD);
-
-  let matchedYMD = '';
-  let matchedBy  = '';
-
-  if (metaMD === wantMD) { matchedYMD = metaYMD; matchedBy = 'meta'; }
-  else if (titleHasMd(title)) {
-    const m = /(\d{4})[-/](\d{2})[-/](\d{2})/.exec(title);
-    matchedYMD = m ? `${m[1]}-${m[2]}-${m[3]}` : (it.year ? `${it.year}-${mm}-${dd}` : '');
-    matchedBy  = 'title';
+    const year = matchedYMD.slice(0,4) || it.year || '';
+    out.push({
+      id: it.identifier,
+      title,
+      date: matchedYMD,          // exact Y-M-D we matched
+      matchBy: matchedBy,        // 'meta' or 'title'
+      downloads: it.downloads || 0,
+      rating: it.avg_rating || 0,
+      reviews: it.num_reviews || 0,
+      venue: it.venue || '',
+      coverage: it.coverage || '',
+      band: it.creator || decodeURIComponent(bandId).replace(/[_+]+/g,' ').trim(),
+      year
+    });
   }
 
-  if (!matchedYMD) continue;
-
-  const year = matchedYMD.slice(0,4) || it.year || '';
-  out.push({
-    id: it.identifier,
-    title,
-    date: matchedYMD,
-    matchBy: matchedBy,
-    downloads: it.downloads || 0,
-    rating: it.avg_rating || 0,
-    reviews: it.num_reviews || 0,
-    venue: it.venue || '',
-    coverage: it.coverage || '',
-    band: it.creator || decodeURIComponent(bandId).replace(/[_+]+/g,' ').trim(),
-    year
-  });
+  // Newest first, then most-downloaded
+  out.sort((a,b) => (String(b.year).localeCompare(String(a.year)) || (b.downloads - a.downloads)));
+  return out;
 }
 
-out.sort((a,b) => (String(b.year).localeCompare(String(a.year)) || (b.downloads - a.downloads)));
-return out;
-
-
-
-
-
-
-
 async function loadOnThisDayAllFavs(){
-// always read fresh from localStorage right before querying
-const favs = (store.get('favBands', []) || []).slice();
+  // always read fresh from localStorage right before querying
+  const favs = (store.get('favBands', []) || []).slice();
   if (!favs.length) return [];
-  const { mm, dd } = todayMMDD();
 
+  const { mm, dd } = todayMMDD();
   const all = [];
+
   for (const id of favs){
     try{
-      const rows = await fetchOnThisDayForBand(id, mm, dd);
-      all.push(...rows);
+      const results = await fetchOnThisDayForBand(id, mm, dd); // renamed from "rows"
+      all.push(...results);
     }catch(e){
       console.warn('onthisday failed for', id, e);
     }
   }
+
   // newest first, then downloads as tiebreaker
   all.sort((a,b) => (String(b.year).localeCompare(String(a.year)) || (b.downloads - a.downloads)));
   return all;
 }
+
 
 async function showOnThisDay(){
   // Hide toolbars and show a clean list view
