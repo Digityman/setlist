@@ -72,4 +72,116 @@ function renderConcerts(content) {
     `;
   }).join(''));
 
-  if (!onlyFavConcerts && state.list.length < s
+  if (!onlyFavConcerts && state.list.length < state.numFound) {
+    const more = document.createElement('div');
+    more.className = 'card loadMore';
+    more.innerHTML = `<button class="btn" id="loadMoreBtn">Load more (${state.list.length} / ${state.numFound})</button>`;
+    content.appendChild(more);
+    document.getElementById('loadMoreBtn')?.addEventListener('click', () => {
+      state.page += 1;
+      loadPage(content);
+    });
+  }
+
+  content.onclick = (ev) => {
+    const favBtn = ev.target.closest('.favToggle');
+    const card = ev.target.closest('.card.tap');
+    if (favBtn && card) {
+      toggleFavShow(card.dataset.id);
+      renderConcerts(content);
+      return;
+    }
+    if (card) {
+      store.set('cameFrom', 'band');
+      store.set('cameFromBandId', state.bandId || '');
+      location.hash = '#/show/' + encodeURIComponent(card.dataset.id);
+    }
+  };
+}
+
+function onRoute(params) {
+  const bandId = decodeURIComponent((params || [])[0] || '');
+  state = { bandId, year: '', term: '', sortSel: 'auto', page: 1, rows: 200, list: [], numFound: 0 };
+
+  // toolbars visibility
+  document.getElementById('toolbar-bands').style.display = 'none';
+  document.getElementById('toolbar-band').style.display = '';
+  document.getElementById('showMeta').style.display = 'none';
+  const sub = document.getElementById('subHeader');
+  sub.classList.add('show');
+  document.getElementById('bandName').textContent = decodeURIComponent(bandId).replace(/[_+]+/g, ' ').replace(/\s+/g, ' ').trim();
+
+  // band favorite toggle
+  const favBandBtn = document.getElementById('favBandBtn');
+  favBandBtn.onclick = () => {
+    const wasFav = favBands().includes(bandId);
+    toggleFavBand(bandId);
+    favBandBtn.textContent = wasFav ? '☆' : '★';
+    favBandBtn.classList.toggle('fav', !wasFav);
+  };
+  favBandBtn.textContent = favBands().includes(bandId) ? '★' : '☆';
+  favBandBtn.classList.toggle('fav', favBands().includes(bandId));
+
+  // favorites filter state
+  const favToggle = document.getElementById('favConcertsToggle');
+  favToggle.classList.toggle('is-on', !!onlyFavConcerts);
+  favToggle.textContent = onlyFavConcerts ? '★ Favorites' : '☆ Favorites';
+  favToggle.onclick = () => {
+    onlyFavConcerts = !onlyFavConcerts;
+    favToggle.textContent = onlyFavConcerts ? '★ Favorites' : '☆ Favorites';
+    favToggle.classList.toggle('is-on', !!onlyFavConcerts);
+    renderConcerts(document.getElementById('content'));
+  };
+
+  // reset controls
+  document.getElementById('resetConcerts').onclick = () => {
+    onlyFavConcerts = false;
+    document.getElementById('concertSearch').value = '';
+    document.getElementById('favConcertsToggle').textContent = '☆ Favorites';
+    document.getElementById('favConcertsToggle').classList.remove('is-on');
+    document.getElementById('sortBtn').textContent = 'Sort';
+    state.sortSel = 'auto';
+    resetAndLoad(document.getElementById('content'), { year: '', term: '', sortSel: 'auto' });
+  };
+
+  // sort dropdown
+  const sortWrap = document.getElementById('sortMenu');
+  sortWrap.innerHTML = `
+    <div class="item" data-value="auto">Auto</div>
+    <div class="item" data-value="date asc">Date ↑</div>
+    <div class="item" data-value="date desc">Date ↓</div>
+    <div class="item" data-value="avg_rating desc">Reviews ↓</div>
+    <div class="item" data-value="downloads desc">Views ↓</div>
+  `;
+  document.getElementById('sortDrop').addEventListener('click', (e) => {
+    const it = e.target.closest('.item');
+    if (!it) return;
+    state.sortSel = it.dataset.value || 'auto';
+    document.getElementById('sortBtn').textContent = state.sortSel === 'auto'
+      ? 'Sort' : it.textContent;
+    resetAndLoad(document.getElementById('content'), { sortSel: state.sortSel });
+  });
+
+  // year menu placeholder (you can add facet years later if needed)
+  document.getElementById('yearMenu').innerHTML = `<div class="item" data-value="">All years</div>`;
+  document.getElementById('yearDrop').addEventListener('click', (e) => {
+    const it = e.target.closest('.item');
+    if (!it) return;
+    state.year = it.dataset.value || '';
+    document.getElementById('yearBtn').textContent = it.textContent || 'All years';
+    resetAndLoad(document.getElementById('content'), { year: state.year });
+  });
+
+  // search filter
+  document.getElementById('concertSearch').onchange = () => {
+    const term = (document.getElementById('concertSearch').value || '').trim().toLowerCase();
+    resetAndLoad(document.getElementById('content'), { term });
+  };
+
+  // load
+  const content = document.getElementById('content');
+  content.className = 'grid';
+  resetAndLoad(content, {});
+}
+
+on('band', onRoute);
