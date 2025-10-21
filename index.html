@@ -1928,60 +1928,70 @@ if (navigator.mediaDevices && 'ondevicechange' in navigator.mediaDevices){
   navigator.mediaDevices.ondevicechange = () => { tryAutoResume(); };
 }
 
+// Clean “This Day” search that mirrors archive.org UI logic but scoped to one band
 async function fetchOnThisDayForBand(bandId, mm, dd){
   mm = String(mm).padStart(2,'0');
   dd = String(dd).padStart(2,'0');
-  const want = `${mm}-${dd}`;
+  const wantMD = `${mm}-${dd}`;          // compare as MM-DD only
 
-  // 1) advancedsearch, 2) v1 scrape fallback (same as before)
-  const advUrl = IA.onThisDayUrl({ bandId, mm, dd, rows: 400, sort: 'date desc' });
-  const advKey = `onthisday:adv:${bandId}:${mm}-${dd}`;
-  let docs = [];
-  try{
-    const { data } = await iaFetchJSON(advUrl, { cacheKey: advKey, retries: 2, timeoutMs: 15000 });
-    docs = data?.response?.docs || [];
-  }catch(_){}
-  if (!docs.length){
-    const v1Url = IA.onThisDayV1Url({ bandId, mm, dd, rows: 400, sort: 'date desc' });
-    const v1Key = `onthisday:v1:${bandId}:${mm}-${dd}`;
-    try{
-      const { data } = await iaFetchJSON(v1Url, { cacheKey: v1Key, retries: 2, timeoutMs: 15000 });
-      docs = (data?.items) || [];
-    }catch(_){}
-  }
+  // Build the same idea as IA’s UI:
+  //   title:"-MM-DD"  OR  date:*-MM-DD
+  // and scope to the band’s collection + etree/audio
+  const q = [
+    `collection:(${bandId})`,
+    `(mediatype:(etree) OR mediatype:(audio))`,
+    `(title:("-${mm}-${dd}" OR "${mm}/${dd}") OR date:*-${mm}-${dd})`
+  ].join(' AND ');
 
-  // Helpers (no Date parsing → no timezone drift)
+  const u = new URL('https://archive.org/services/search/v1/scrape');
+  u.searchParams.set('q', q);
+  u.searchParams.set('fields', [
+    'identifier','title','date','year','downloads',
+    'avg_rating','num_reviews','venue','coverage','creator','publicdate'
+  ].join(','));
+  u.searchParams.set('sorts', 'date desc');
+  u.searchParams.set('count', '400');
+
+  const cacheKey = `onthisday:v1:${bandId}:${wantMD}`;
+  const { data } = await iaFetchJSON(u.toString(), { cacheKey, retries: 2, timeoutMs: 15000 });
+  const rows = data?.items || [];
+
+  // Helpers (string-only; no Date parsing → no TZ drift)
   const pickYmd = (s='') => {
     const m = /^(\d{4})[-/](\d{2})[-/](\d{2})/.exec(String(s).trim());
     return m ? `${m[1]}-${m[2]}-${m[3]}` : '';
   };
-  const pickMd   = (s='') => { const m = /^(\d{4})[-/](\d{2})[-/](\d{2})/.exec(String(s).trim()); return m ? (m[2]+'-'+m[3]) : ''; };
-  const findYmdInTitle = (t='') => {
-    const m = /(\d{4})[-/](\d{2})[-/](\d{2})/.exec(String(t));
-    return m ? `${m[1]}-${m[2]}-${m[3]}` : '';
+  const pickMd  = (ymd='') => (ymd ? `${ymd.slice(5,7)}-${ymd.slice(8,10)}` : '');
+  const titleHasMd = (t='') => {
+    const S = String(t);
+    return S.includes(`-${mm}-${dd}`) || S.includes(`${mm}/${dd}`) || S.includes(`${mm}-${dd}`);
   };
 
   const out = [];
-  for (const it of docs){
-    const rawMeta = pickYmd(it.date || '') || pickYmd(it.publicdate || '');
-    const mdMeta  = pickMd(rawMeta);
-    const rawTitle= findYmdInTitle(it.title || '');
-    const mdTitle = pickMd(rawTitle);
+  for (const it of rows){
+    const title = it.title || '';
+    const metaYMD = pickYmd(it.date || it.publicdate || '');
+    const metaMD  = pickMd(metaYMD);
 
-    let matchedYmd = '';
+    let matchedYMD = '';
     let matchedBy  = '';
 
-    if (mdMeta === want) { matchedYmd = rawMeta;  matchedBy = 'meta'; }
-    else if (mdTitle === want) { matchedYmd = rawTitle; matchedBy = 'title'; }
+    if (metaMD === wantMD) { matchedYMD = metaYMD; matchedBy = 'meta'; }
+    else if (titleHasMd(title)) {
+      // If title shows something like YYYY-MM-DD, keep that; else synthesize with year if present.
+      const m = /(\d{4})[-/](\d{2})[-/](\d{2})/.exec(title);
+      matchedYMD = m ? `${m[1]}-${m[2]}-${m[3]}` : (it.year ? `${it.year}-${mm}-${dd}` : '');
+      matchedBy  = 'title';
+    }
 
-    if (!matchedYmd) continue;
+    if (!matchedYMD) continue;
 
-    const year = matchedYmd.slice(0,4) || it.year || '';
+    const year = matchedYMD.slice(0,4) || it.year || '';
     out.push({
       id: it.identifier,
-      title: it.title || it.identifier,
-      date: matchedYmd,           // use the exact Y-M-D we matched
-      matchBy: matchedBy,         // 'meta' or 'title' (for debugging, optional)
+      title,
+      date: matchedYMD,          // exact Y-M-D we matched
+      matchBy: matchedBy,        // 'meta' or 'title'
       downloads: it.downloads || 0,
       rating: it.avg_rating || 0,
       reviews: it.num_reviews || 0,
@@ -1992,10 +2002,11 @@ async function fetchOnThisDayForBand(bandId, mm, dd){
     });
   }
 
-  // Newest first, then by downloads
+  // Newest first, then most-downloaded
   out.sort((a,b) => (String(b.year).localeCompare(String(a.year)) || (b.downloads - a.downloads)));
   return out;
 }
+
 
 
 
