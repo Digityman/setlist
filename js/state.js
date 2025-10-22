@@ -7,6 +7,12 @@ export const store = {
   del(k) { try { localStorage.removeItem(k); } catch {} }
 };
 
+// Generic app-state accessors for compatibility with `State.get(...)` calls
+export function get(key, fallback = null) { return store.get(key, fallback); }
+export function set(key, value) { store.set(key, value); return value; }
+export function del(key) { store.del(key); }
+
+
 // band title cache (for favorites grid)
 export function bandTitleFromCache(id) {
   const map = store.get('bandTitleMap', {}) || {};
