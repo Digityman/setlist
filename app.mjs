@@ -629,7 +629,7 @@ async function renderAllBands(content) {
   }
 }
 
-function onRoute() {
+function routeBands() {
   const tbBands = document.getElementById('toolbar-bands');
   const tbBand = document.getElementById('toolbar-band');
   const showMeta = document.getElementById('showMeta');
@@ -665,14 +665,14 @@ function onRoute() {
   };
 }
 
-on('bands', onRoute);
+on('bands', routeBands);
 
 // toolbar events (live on page once)
 document.getElementById('sortSel')?.addEventListener('change', () => onRoute());
 document.getElementById('searchBox')?.addEventListener('change', () => onRoute());
 document.getElementById('favToggle')?.addEventListener('click', () => {
   onlyFavBands = !onlyFavBands;
-  onRoute();
+  routeBands();
 });
 document.getElementById('resetBtn')?.addEventListener('click', () => {
   const sortSel = document.getElementById('sortSel');
@@ -680,8 +680,10 @@ document.getElementById('resetBtn')?.addEventListener('click', () => {
   onlyFavBands = false;
   if (sortSel) sortSel.value = 'downloads desc';
   if (searchBox) searchBox.value = '';
-  onRoute();
+  routeBands();
 });
+
+
 /* ==== js/routes/band.js ==== */
 let state = { bandId: '', year: '', term: '', sortSel: 'auto', page: 1, rows: 200, list: [], numFound: 0 };
 let onlyFavConcerts = false;
@@ -779,7 +781,7 @@ function renderConcerts(content) {
   };
 }
 
-function onRoute(params) {
+function routeBand(params) {
   const bandId = decodeURIComponent((params || [])[0] || '');
   state = { bandId, year: '', term: '', sortSel: 'auto', page: 1, rows: 200, list: [], numFound: 0 };
 
@@ -864,7 +866,7 @@ function onRoute(params) {
   resetAndLoad(content, {});
 }
 
-on('band', onRoute);
+on('band', routeBand);
 
 // Provide a Router namespace for callers
 export const Router = { on, route };
