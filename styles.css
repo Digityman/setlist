@@ -464,3 +464,42 @@ padding-bottom: var(--playerH);
   animation-play-state: paused !important;
 }
 
+/* --- Help page + general card text defaults --- */
+.card h2 {
+  margin: 0 0 8px;
+  font-size: 15px;
+  font-weight: 700;
+}
+.card p {
+  margin: 6px 0 10px;
+  line-height: 1.45;
+}
+.card ul {
+  /* your reset likely nuked default spacing; restore it nicely */
+  margin: 6px 0 0 18px;
+  padding: 0;
+  list-style: disc;
+}
+.card li { margin: 6px 0; }
+.card kbd {
+  font: 12px/1.1 ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace;
+  padding: 2px 6px;
+  border-radius: 6px;
+  background: var(--bg2, #121214);
+  border: 1px solid var(--ring, #2a2a2f);
+}
+
+/* Small pills/icons used in Help to match rest of app */
+.card .icon { display:inline-block; width: 1.25em; text-align: center; }
+.pill { display:inline-block; padding: 2px 8px; border-radius: 999px; background: var(--bg2, #121214); border: 1px solid var(--ring, #2a2a2f); }
+.pill-sm { padding: 1px 6px; font-size: 12px; }
+
+/* --- Make sure content never hides behind the fixed player --- */
+.wrap {
+  /* if you already have padding-bottom here, keep the larger of the two */
+  padding-bottom: max(var(--playerH, 96px), 96px);
+}
+.player {
+  position: fixed;
+  left:
+
