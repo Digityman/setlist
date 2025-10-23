@@ -489,21 +489,11 @@ padding-bottom: var(--playerH);
   border: 1px solid var(--ring, #2a2a2f);
 }
 
-/* Small pills/icons used in Help to match rest of app */
-.card .icon { display:inline-block; width: 1.25em; text-align: center; }
-.pill { display:inline-block; padding: 2px 8px; border-radius: 999px; background: var(--bg2, #121214); border: 1px solid var(--ring, #2a2a2f); }
-.pill-sm { padding: 1px 6px; font-size: 12px; }
+/* Help-only small pills/icons (scoped) */
+#content.doc .card .icon { display:inline-block; width: 1.25em; text-align:center; }
+#content.doc .pill { display:inline-block; padding: 2px 8px; border-radius: 999px; background: var(--bg2, #121214); border: 1px solid var(--ring, #2a2a2f); }
+#content.doc .pill-sm { padding: 1px 6px; font-size: 12px; }
 
-/* --- Make sure content never hides behind the fixed player --- */
-.wrap {
-  /* if you already have padding-bottom here, keep the larger of the two */
-  padding-bottom: max(var(--playerH, 96px), 96px);
-}
-.player {
-  position: fixed;
-  left:
-
-  
 /* ============= HELP PAGE TYPOGRAPHY LAYOUT ============= */
 #content.doc{
   display:block;
