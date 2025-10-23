@@ -497,34 +497,36 @@ padding-bottom: var(--playerH);
 /* ============= HELP PAGE TYPOGRAPHY LAYOUT ============= */
 #content.doc{
   display:block;
-  max-width: 760px;       /* comfortable reading width */
+  max-width: 760px;                /* comfortable reading width */
   margin: 0 auto;
-  padding: 12px;
-  padding-bottom: calc(var(--playerH, 96px) + 16px); /* clear the player */
+  padding: 14px 14px calc(var(--playerH, 96px) + 18px);
+  font-size: 13.5px;               /* ~+0.5 step */
+  line-height: 1.5;
 }
 
 /* Cards on Help should be regular blocks, not the flex/tile style */
 #content.doc .card{
-  display:block;          /* override any flex card rules */
-  padding: 12px 14px;
-  margin: 10px 0;
+  display:block;
+  padding: 14px 16px;              /* a touch more breathing room */
+  margin: 12px 0;
+  border-radius: 14px;
 }
 
 /* Headings, paragraphs, lists restored for readable text */
 #content.doc .card h2{
   margin: 0 0 8px;
-  font-size: 15px;
+  font-size: 15.5px;               /* slight bump on headings too */
   line-height: 1.25;
   font-weight: 700;
 }
 #content.doc .card p{
   margin: 6px 0 10px;
   line-height: 1.5;
-  white-space: normal;    /* avoid any inherited nowrap */
+  white-space: normal;             /* avoid any inherited nowrap */
 }
 #content.doc .card ul{
   list-style: disc;
-  margin: 6px 0 0 18px;
+  margin: 6px 0 0 18px;            /* restore bullets and indent */
   padding: 0;
 }
 #content.doc .card li{ margin: 6px 0; }
@@ -537,19 +539,12 @@ padding-bottom: var(--playerH);
   background: var(--bg2, #121214);
   border: 1px solid var(--ring, #2a2a2f);
 }
-#content.doc .icon{
-  display:inline-block;
-  width: 1.25em;
-  text-align: center;
-}
-#content.doc .pill{ 
-  display:inline-block; 
-  padding: 2px 8px; 
-  border-radius: 999px; 
-  background: var(--bg2, #121214); 
-  border: 1px solid var(--ring, #2a2a2f);
-}
-#content.doc .pill-sm{ padding: 1px 6px; font-size: 12px; }
+
+/* Help-only small pills/icons (scoped) */
+#content.doc .icon { display:inline-block; width: 1.25em; text-align:center; }
+#content.doc .pill { display:inline-block; padding: 2px 8px; border-radius: 999px; background: var(--bg2, #121214); border: 1px solid var(--ring, #2a2a2f); }
+#content.doc .pill-sm { padding: 1px 6px; font-size: 12px; }
+
 
 /* Keep the player truly fixed + above content */
 .player{
