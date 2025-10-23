@@ -1261,6 +1261,10 @@ function updateEqAnim(){
 
 A.addEventListener('play',  ()=>{ P.play.textContent='⏸'; store.set('wasPlaying', true); updateEqAnim(); });
 A.addEventListener('pause', ()=>{ P.play.textContent='▶️'; store.set('wasPlaying', false); updateEqAnim(); });
+A.addEventListener('loadeddata',  updateEqAnim);
+A.addEventListener('waiting',      updateEqAnim);
+A.addEventListener('stalled',      updateEqAnim);
+A.addEventListener('ended',        updateEqAnim);
 
 A.addEventListener('ended', ()=>{
 updateEqAnim();
