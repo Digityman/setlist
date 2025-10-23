@@ -567,26 +567,6 @@ $('#favToggle').textContent = onlyFavBands ? '★ Favorites' : '☆ Favorites';
 
 const content=$('#content'); content.className='bandsGrid';
 
-// If filtering to favorite bands, render from local storage (fast, no network needed)
-if (onlyFavBands) {
-const fav = favBands();
-if (!fav.length) {
-content.innerHTML = `<div class="card"><span class="small">No favorite bands yet.</span></div>`;
-return;
-}
-content.innerHTML = fav.map(id=>{
-const title = decodeURIComponent(id).replace(/[_+]+/g,' ').trim();
-return `
-       <div class="bandTile" data-id="${id}">
-         <img src="${IA.imgUrl(id)}" alt="${title}">
-         <div class="bandTitle">${title}</div>
-         <div class="bandViews small">Favorited</div>
-       </div>`;
-}).join('');
-content.onclick = ev => { const tile=ev.target.closest('.bandTile'); if(!tile) return; location.hash='#/band/'+encodeURIComponent(tile.dataset.id); };
-return;
-}
-
 // Otherwise, fetch and render all bands
 content.innerHTML=`<div class="card"><span class="small">Loading bands…</span></div>`;
 const sort=$('#sortSel')?.value||'downloads desc';
@@ -627,20 +607,39 @@ timeoutMs: 15000
 
 
 // v1 returns { items: [...] }
-const items = (data.items || []).map(d => ({
-id: d.identifier,
-title: d.title || d.identifier,
-downloads: d.downloads || 0
+let items = (data.items || []).map(d => ({
+  id: d.identifier,
+  title: d.title || d.identifier,
+  downloads: d.downloads || 0
 }));
+
+// If the Favorites toggle is on, filter the fetched list to favs
+if (onlyFavBands) {
+  const favSet = new Set(favBands());
+  items = items.filter(b => favSet.has(b.id));
+  if (!items.length) {
+    content.innerHTML = `<div class="card"><span class="small">No favorite bands yet.</span></div>`;
+    content.onclick = null;
+    return;
+  }
+}
 
 if (stale) document.body.dataset.stale = '1'; // optional: mark UI as cached
 content.innerHTML = items.map(b=>`
-       <div class="bandTile" data-id="${b.id}">
-         <img src="${IA.imgUrl(b.id)}" alt="${b.title}">
-         <div class="bandTitle">${b.title}</div>
-         <div class="bandViews">${b.downloads.toLocaleString()} views</div>
-       </div>`).join('');
-content.onclick = ev => { const tile=ev.target.closest('.bandTile'); if(!tile) return; location.hash='#/band/'+encodeURIComponent(tile.dataset.id); };
+  <div class="bandTile" data-id="${b.id}">
+    <img src="${IA.imgUrl(b.id)}" alt="${b.title}">
+    <div class="bandTitle">${b.title}</div>
+    <div class="bandViews">${b.downloads.toLocaleString()} views</div>
+  </div>`).join('');
+
+content.onclick = ev => {
+  const tile = ev.target.closest('.bandTile');
+  if (!tile) return;
+  location.hash = '#/band/' + encodeURIComponent(tile.dataset.id);
+};
+
+
+ 
 }catch(e){
 console.error('bands load failed:', e, { url });
 const msg = navigator.onLine ? 'Network error while loading bands.' : 'You appear to be offline.';
