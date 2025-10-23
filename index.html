@@ -1808,21 +1808,66 @@ playIndex(0);
 
 
 // Interactions
-listWrap.onclick = (e)=>{
+listWrap.onclick = (e) => {
 // If user clicked the location link, remember the track and let the link navigate
 const locLink = e.target.closest('a.locpill');
 if (locLink) {
-const row = e.target.closest('.track');
-if (row) {
-const i = Number(row.dataset.i);
-const t = songs[i];
-if (t?.url) store.set('jumpToUrl', t.url);
-// Mark origin so the Show header can say "← Favorite Songs"
-store.set('cameFrom', 'favorites-songs');
-}
-return; // allow default hash navigation
+  const row = e.target.closest('.track');
+  if (row) {
+    const i = Number(row.dataset.i);
+    const t = songs[i];
+    if (t?.url) store.set('jumpToUrl', t.url);
+    // Mark origin so the Show header can say "← Favorite Songs"
+    store.set('cameFrom', 'favorites-songs');
+  }
+  return; // allow default hash navigation
 }
 
+// Star toggle (favorite/unfavorite) — handle inline and do not navigate
+const starBtn = e.target.closest('.songFav');
+if (starBtn) {
+  const row = e.target.closest('.track');
+  if (!row) return;
+  const i = Number(row.dataset.i);
+  const t = songs[i];
+  if (!t) return;
+
+  // Toggle stored favorite state
+  toggleFavSong(t);
+  const isNowFav = findSongIdx(t.url) >= 0;
+
+  // Update star UI
+  starBtn.classList.toggle('is-on', isNowFav);
+  starBtn.textContent = isNowFav ? '★' : '☆';
+  starBtn.title = isNowFav ? 'Unfavorite' : 'Favorite';
+
+  // If it was unfavorited, remove from the list and renumber
+  if (!isNowFav) {
+    // remove from local array and DOM
+    songs.splice(i, 1);
+    row.remove();
+
+    // Renumber visible rows (data-i and .tnum)
+    Array.from(listWrap.querySelectorAll('.track')).forEach((el, idx) => {
+      el.dataset.i = String(idx);
+      const n = el.querySelector('.tnum');
+      if (n) n.textContent = String(idx + 1);
+    });
+
+    // If list is empty, show empty state
+    if (songs.length === 0) {
+      content.innerHTML = '';
+      content.appendChild(actions);
+      const empty = document.createElement('div');
+      empty.className = 'card';
+      empty.innerHTML = `<span class="small">No favorite songs yet.</span>`;
+      content.appendChild(empty);
+    }
+  }
+  return;
+}
+
+// Play inline if user tapped anywhere else on the row
 const tr = e.target.closest('.track'); if (!tr) return;
 const i = Number(tr.dataset.i);
 const t = songs[i];
@@ -1835,6 +1880,7 @@ trackList       = songs.map(s => ({ url: s.url, title: s.title, length: '' }));
 
 playIndex(i);
 };
+
 
 
 });
