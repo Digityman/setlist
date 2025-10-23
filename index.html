@@ -71,7 +71,8 @@ document.getElementById('statusRetryBtn')?.addEventListener('click', ()=> locati
 
 <div class="menuGroup">
 <div class="menuTitle">Other</div>
-<div class="menuItem"><span class="icon">🔧</span> <span>Settings (placeholder)</span></div>
+<div class="menuItem" data-nav="#/settings"><span class="icon">🔧</span> <span>Settings</span></div>
+
 <div class="menuItem" data-nav="#/help"><span class="icon">❓</span> <span>Help</span></div>
 </div>
 </div>
@@ -167,6 +168,22 @@ const fmtTime = secs => { secs = Math.max(0, Math.floor(secs||0)); const m=Math.
 const fmtCompact = n => { n=Number(n||0); if(n>=1e9) return (n/1e9).toFixed(1)+'B'; if(n>=1e6) return (n/1e6).toFixed(1)+'M'; if(n>=1e3) return (n/1e3).toFixed(1)+'K'; return String(n); };
 function show(el,on=true){ if(!el) return; el.style.display=on?'':'none'; }
 const store = { get(k,f){ try{return JSON.parse(localStorage.getItem(k))??f;}catch{return f;}}, set(k,v){ localStorage.setItem(k,JSON.stringify(v)); } };
+
+/* ---- Settings helpers (defaults + get/set) ---- */
+const SETTINGS_KEY = 'settings';
+const DEFAULT_SETTINGS = {
+  autoClearRecent: false,           // auto-clear on exit
+  rememberVolume:  true,            // persist volume in localStorage
+  crossfadeSec:    0                // 0, 1, 2 (simulated fade)
+};
+function getSettings(){
+  const s = store.get(SETTINGS_KEY, {});
+  return { ...DEFAULT_SETTINGS, ...(s||{}) };
+}
+function setSettings(patch){
+  const s = getSettings();
+  store.set(SETTINGS_KEY, { ...s, ...(patch||{}) });
+}
 
 /* ------------ drawer ------------ */
 const drawer = $('#drawer'); const drawerBack = $('#drawerBack');
@@ -1312,23 +1329,22 @@ volLabel.textContent = pct+'%';
 P_mute.textContent = (A.muted || v===0) ? '🔇' : '🔈';
 }
 const P_mute = $('#P_mute');
-const savedVol = Number(store.get('volume', 1));
-A.volume = isNaN(savedVol)?1:Math.max(0,Math.min(1,savedVol));
+ 
+const _S0 = getSettings();
+const savedVol = _S0.rememberVolume ? Number(store.get('volume', 1)) : NaN;
+A.volume = Number.isFinite(savedVol) ? Math.max(0, Math.min(1, savedVol)) : 1;
 P_vol.value = String(A.volume);
 setVolumeUI(A.volume);
 
-P_mute.addEventListener('click', ()=>{ volPop.classList.toggle('open'); });
-document.addEventListener('click',(e)=>{
-const w = $('.volWrap');
-if(!w.contains(e.target)) volPop.classList.remove('open');
-});
 P_vol.addEventListener('input', ()=>{
-const v = Number(P_vol.value);
-A.volume = Math.max(0,Math.min(1,v));
-A.muted = (A.volume===0);
-store.set('volume', A.volume);
-setVolumeUI(A.volume);
+  const v = Number(P_vol.value);
+  A.volume = Math.max(0,Math.min(1,v));
+  A.muted = (A.volume===0);
+  const S = getSettings();
+  if (S.rememberVolume) store.set('volume', A.volume);
+  setVolumeUI(A.volume);
 });
+
 
 /* Seek & time */
 P.seek?.addEventListener('input', ()=>{ if(!A.duration||isNaN(A.duration)) return; A.currentTime=(P.seek.value/1000)*A.duration; });
@@ -1381,6 +1397,14 @@ if(document.hidden) markHideState(); else tryAutoResume();
 });
 window.addEventListener('pageshow', tryAutoResume);
 window.addEventListener('focus', tryAutoResume);
+// Auto-clear Recently Played on exit if enabled
+window.addEventListener('beforeunload', () => {
+  const S = getSettings();
+  if (S.autoClearRecent) {
+    try { localStorage.removeItem('recentSongs'); } catch {}
+  }
+});
+
 if (navigator.mediaDevices && 'ondevicechange' in navigator.mediaDevices){
 navigator.mediaDevices.ondevicechange = () => { tryAutoResume(); };
 }
@@ -1506,6 +1530,124 @@ Router.on('help', () => {
   `;
 });
 
+/* ------------ Settings ------------ */
+Router.on('settings', () => {
+  show($('#toolbar-bands'), false);
+  show($('#toolbar-band'), false);
+  show($('#showMeta'), false);
+
+  const S = getSettings();
+  const content = $('#content');
+  content.className = 'doc';
+
+  content.innerHTML = `
+    <div class="card">
+      <h2>Recently Played</h2>
+      <div class="row" style="justify-content:space-between">
+        <label class="small"><input id="set-autoClearRecent" type="checkbox" ${S.autoClearRecent?'checked':''}> Auto-clear on exit</label>
+        <button class="btn" id="btn-clearRecent">Clear now</button>
+      </div>
+      <p class="small muted">Auto-clear removes the “Recently Played” list when the app/tab closes.</p>
+    </div>
+
+    <div class="card">
+      <h2>Audio</h2>
+      <div class="row" style="gap:10px; flex-wrap:wrap">
+        <label class="small"><input id="set-rememberVolume" type="checkbox" ${S.rememberVolume?'checked':''}> Remember volume level</label>
+        <div class="pill dropdown" id="cfDrop">
+          <button class="dropBtn" id="cfBtn">Crossfade: ${S.crossfadeSec===0?'Off':S.crossfadeSec+'s'}</button>
+          <div class="menu" id="cfMenu" role="listbox">
+            <div class="item" data-val="0">Off</div>
+            <div class="item" data-val="1">1s</div>
+            <div class="item" data-val="2">2s</div>
+          </div>
+        </div>
+      </div>
+      <p class="small muted">Crossfade is a quick fade-out/in between tracks for smoother transitions.</p>
+    </div>
+
+    <div class="card">
+      <h2>Backup & Data</h2>
+      <div class="row" style="gap:10px; flex-wrap:wrap">
+        <button class="btn" id="btn-exportFavs">Export favorites</button>
+        <button class="btn ghost" id="btn-clearAll">Clear cache & data</button>
+      </div>
+      <p class="small muted">Export creates a JSON file with favorite Bands/Concerts/Songs.</p>
+    </div>
+  `;
+
+  // Handlers
+  $('#set-autoClearRecent').addEventListener('change', e => {
+    setSettings({ autoClearRecent: !!e.target.checked });
+  });
+  $('#set-rememberVolume').addEventListener('change', e => {
+    setSettings({ rememberVolume: !!e.target.checked });
+    if (!e.target.checked) {
+      // If turning off, drop any saved volume
+      localStorage.removeItem('volume');
+    }
+  });
+
+  // Crossfade dropdown
+  const cfWrap = $('#cfDrop'), cfBtn = $('#cfBtn'), cfMenu = $('#cfMenu');
+  cfWrap.addEventListener('click', (e)=>{ if(e.target.closest('.item')) return; cfMenu.classList.toggle('open'); });
+  document.addEventListener('click', (e)=>{ if(!cfWrap.contains(e.target)) cfMenu.classList.remove('open'); });
+  cfMenu.addEventListener('click', (e)=>{
+    const it = e.target.closest('.item'); if(!it) return;
+    const v = Math.max(0, Math.min(2, Number(it.dataset.val||0)));
+    setSettings({ crossfadeSec: v });
+    cfBtn.textContent = 'Crossfade: ' + (v===0 ? 'Off' : (v+'s'));
+    cfMenu.classList.remove('open');
+  });
+
+  // Clear Recently Played
+  $('#btn-clearRecent').addEventListener('click', ()=>{
+    localStorage.removeItem('recentSongs');
+    alert('Recently Played cleared.');
+  });
+
+  // Export favorites
+  $('#btn-exportFavs').addEventListener('click', ()=>{
+    const out = {
+      exportedAt: new Date().toISOString(),
+      favBands:   store.get('favBands', []),
+      favShows:   store.get('favShows', []),
+      favSongs:   store.get('favSongs', [])
+    };
+    const blob = new Blob([JSON.stringify(out, null, 2)], { type:'application/json' });
+    const a = document.createElement('a');
+    const dt = new Date();
+    const y = dt.getFullYear(), m = String(dt.getMonth()+1).padStart(2,'0'), d = String(dt.getDate()).padStart(2,'0');
+    a.download = `setlist-favorites-${y}${m}${d}.json`;
+    a.href = URL.createObjectURL(blob);
+    a.click();
+    URL.revokeObjectURL(a.href);
+  });
+
+  // Clear EVERYTHING (favorites/history/cache)
+  $('#btn-clearAll').addEventListener('click', ()=>{
+    if (!confirm('Clear all app data (favorites, recent, cached lists)?')) return;
+    const keys = Object.keys(localStorage);
+    const prefixKill = [
+      'bands:v1:', 'concerts:', 'years_', 'onthisday:title:',
+      'playlist_', 'cameFrom', 'cameFromBandId'
+    ];
+    // Specific known keys
+    const exactKill = [
+      'favBands','favShows','favSongs','recentSongs',
+      'volume','onthisdaySelectedBands','onthisdaySort',
+      'showQueue','showQueuePos','queueShowsActive',
+      'currentShowId','wasPlaying','wasPlayingOnHide'
+    ];
+    for (const k of keys) {
+      if (exactKill.includes(k) || prefixKill.some(p => k.startsWith(p))) {
+        localStorage.removeItem(k);
+      }
+    }
+    alert('All app data cleared.');
+    location.hash = '#/bands';
+  });
+});
 
 
  
