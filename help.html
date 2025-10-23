@@ -1,0 +1,204 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8"/>
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover"/>
+  <title>Setlist Streamer — Help</title>
+
+  <!-- PWA + Icons (match index.html) -->
+  <link rel="manifest" href="manifest.json?v=3">
+  <meta name="theme-color" content="#0f0f10">
+  <link rel="icon" href="icons/logo-32.png?v=3" sizes="32x32" type="image/png">
+  <link rel="icon" href="icons/logo-192.png?v=3" sizes="192x192" type="image/png">
+  <link rel="apple-touch-icon" href="icons/logo-180.png?v=3" sizes="180x180">
+  <link rel="shortcut icon" href="icons/logo-32.png?v=3" type="image/png">
+  <link rel="preconnect" href="https://archive.org">
+  <link rel="stylesheet" href="styles.css?v=1">
+  <style>
+    /* Light layout helpers so this renders nicely with your tokens */
+    .help-wrap{min-height:100%;display:flex;flex-direction:column}
+    .help-header{padding:8px 10px;display:flex;align-items:center;gap:10px;background:var(--panel);position:sticky;top:0;z-index:8;box-shadow:0 1px 0 #000 inset,0 1px 0 rgba(255,255,255,.03)}
+    .help-title{margin:0;font-size:16px;font-weight:600;letter-spacing:.2px}
+    .spacer{flex:1}
+    .btn{display:inline-flex;align-items:center;gap:6px;background:var(--btn);border:1px solid var(--ring);border-radius:10px;padding:6px 10px;cursor:pointer}
+    .content{max-width:980px;margin:18px auto;padding:0 12px;display:grid;gap:14px}
+    .card{background:var(--panel);border:1px solid var(--ring);border-radius:14px;padding:14px}
+    .card h2{font-size:15px;margin:0 0 8px}
+    .muted{color:var(--muted)}
+    .toc a{display:block;padding:6px 0}
+    details{border:1px solid var(--ring);border-radius:12px;padding:10px 12px;background:#131416}
+    details+details{margin-top:10px}
+    summary{cursor:pointer;font-weight:600}
+    code,kbd{background:#1c1d21;border:1px solid var(--ring);border-radius:6px;padding:0 6px;font-family:ui-monospace, SFMono-Regular, Menlo, Consolas, "Liberation Mono", monospace;font-size:12px}
+    ul{margin:8px 0 0 18px}
+    li{margin:4px 0}
+    .pill{display:inline-flex;align-items:center;border:1px solid var(--ring);border-radius:999px;padding:2px 8px;margin:0 6px 6px 0}
+  </style>
+</head>
+<body>
+<div class="help-wrap">
+
+  <header class="help-header">
+    <a class="btn" href="index.html" aria-label="Back to app">← Back</a>
+    <h1 class="help-title">Setlist Streamer — Help</h1>
+    <div class="spacer"></div>
+    <a class="btn" href="#top">Top</a>
+  </header>
+
+  <main id="top" class="content">
+
+    <section class="card">
+      <h2>Quick start</h2>
+      <p>Three-step flow: <span class="pill">Bands</span> → <span class="pill">Concerts</span> → <span class="pill">Tracks</span>. Tap a track to play. Use ★ to favorite bands, concerts, tracks, or songs for fast access later.</p>
+      <ul>
+        <li><strong>Search</strong>: type to filter; results update as you type.</li>
+        <li><strong>Player</strong>: stays at the bottom; play/pause, scrub, next/prev.</li>
+        <li><strong>On This Day</strong>: shows shows from today’s date in past years, sortable.</li>
+      </ul>
+    </section>
+
+    <section class="card">
+      <h2>Navigation</h2>
+      <ul>
+        <li><strong>Bands</strong>: your library of archive bands. Tap a band to see concerts.</li>
+        <li><strong>Concerts</strong>: date-sorted list for that band. Tap a date to see tracks.</li>
+        <li><strong>Tracks</strong>: the setlist. Tap a track to play; long-listens show progress.</li>
+        <li><strong>Recently Played</strong>: your last sessions, newest first.</li>
+        <li><strong>Favorites</strong>: quick access to favorited <em>Bands</em>, <em>Concerts</em>, <em>Tracks</em>, and <em>Songs</em>.</li>
+        <li><strong>Help</strong>: this page.</li>
+      </ul>
+    </section>
+
+    <section class="card">
+      <h2>Search & filters</h2>
+      <ul>
+        <li><strong>Band search</strong>: narrows the band list.</li>
+        <li><strong>Concert filters</strong> (per band): year, city/venue when available.</li>
+        <li><strong>On This Day</strong> has:
+          <ul>
+            <li><strong>Band filter</strong>: multi-select your favorited bands to show only those.</li>
+            <li><strong>Sort</strong>: <em>Views ↓</em> (default), <em>Date ↑</em>, <em>Date ↓</em>.</li>
+          </ul>
+        </li>
+      </ul>
+      <p class="muted">Tip: Filters and sort “stick” for the session so you don’t have to keep re-setting.</p>
+    </section>
+
+    <section class="card">
+      <h2>Favorites (★)</h2>
+      <ul>
+        <li><strong>Bands</strong>: star a band on the Bands page.</li>
+        <li><strong>Concerts</strong>: star at the top of a concert’s track list. When favorited, the star shows solid yellow with a yellow border (to match the app).</li>
+        <li><strong>Tracks</strong>: star any individual track.</li>
+        <li><strong>Songs</strong>: star a song title from the Songs tab in Favorites to build a cross-band song list.</li>
+      </ul>
+      <p class="muted">Everything starred appears under Favorites, split by type (Bands / Concerts / Tracks / Songs).</p>
+    </section>
+
+    <section class="card">
+      <h2>On This Day</h2>
+      <ul>
+        <li>Shows past concerts that happened on today’s month/day.</li>
+        <li><strong>Sort default:</strong> Views descending (most played at top).</li>
+        <li><strong>Band filter:</strong> pick from your favorited bands to narrow the list.</li>
+      </ul>
+    </section>
+
+    <section class="card">
+      <h2>Recently Played</h2>
+      <ul>
+        <li>Lists your latest sessions (band → concert → track).</li>
+        <li>Tap any item to jump back in.</li>
+        <li>UI is clamped to screen width (no right-side overflow).</li>
+      </ul>
+    </section>
+
+    <section class="card">
+      <h2>Player & queue</h2>
+      <ul>
+        <li><strong>Controls:</strong> play/pause, seek bar, time elapsed/left.</li>
+        <li><strong>Next/Prev:</strong> moves through the current concert’s tracks.</li>
+        <li><strong>Resume:</strong> many tracks remember position in the current session.</li>
+      </ul>
+    </section>
+
+    <section class="card">
+      <h2>Offline & PWA</h2>
+      <ul>
+        <li><strong>Add to Home Screen</strong> on mobile to install as an app.</li>
+        <li>Caching speeds up UI and lists. Audio streams from Archive.org, so playback still needs internet.</li>
+      </ul>
+    </section>
+
+    <section class="card">
+      <h2>Keyboard tips</h2>
+      <ul>
+        <li><kbd>Space</kbd>: play/pause (when the page focus is on the document)</li>
+        <li><kbd>←</kbd>/<kbd>→</kbd>: seek back/forward a few seconds</li>
+        <li><kbd>J</kbd>/<kbd>L</kbd>: bigger seek back/forward</li>
+        <li><kbd>K</kbd>: play/pause</li>
+      </ul>
+      <p class="muted">Note: exact keys depend on current focus and browser.</p>
+    </section>
+
+    <section class="card">
+      <h2>Troubleshooting</h2>
+      <details>
+        <summary>Audio won’t play</summary>
+        <ul>
+          <li>Check connection (streams load from Archive.org).</li>
+          <li>Try a different concert/source for that show.</li>
+          <li>Reload the page; if still stuck, fully close the PWA and reopen.</li>
+        </ul>
+      </details>
+      <details>
+        <summary>UI looks off after an update</summary>
+        <ul>
+          <li>Hard refresh to clear stale CSS (<kbd>Ctrl</kbd>+<kbd>F5</kbd> / <kbd>Cmd</kbd>+<kbd>Shift</kbd>+<kbd>R</kbd>).</li>
+        </ul>
+      </details>
+      <details>
+        <summary>Favorites missing</summary>
+        <ul>
+          <li>Favorites are local to this device/browser. If you switched devices or cleared site data, the list resets.</li>
+        </ul>
+      </details>
+    </section>
+
+    <section class="card">
+      <h2>Privacy</h2>
+      <p>Favorites, filters, and recent history are stored only in your browser. Nothing is uploaded.</p>
+    </section>
+
+    <section class="card">
+      <h2>Known limits</h2>
+      <ul>
+        <li>Not all Archive.org entries include full metadata (venue, city, views), so some filters may be partial.</li>
+        <li>Offline playback is not supported (streaming source).</li>
+      </ul>
+    </section>
+
+    <section class="card">
+      <h2>Contact</h2>
+      <p>Found a bug or have an idea? Open an issue on the repo or message the maintainer.</p>
+    </section>
+
+    <section class="card muted">
+      <h2>Version</h2>
+      <p id="appVersion">Current build: <em>unknown</em></p>
+    </section>
+
+  </main>
+</div>
+
+<script>
+  /* Optional: show a version if your app sets one on window or localStorage */
+  (function(){
+    try{
+      const v = window.APP_VERSION || localStorage.getItem('setlist_app_version');
+      if(v) document.querySelector('#appVersion').textContent = 'Current build: ' + v;
+    }catch(e){}
+  })();
+</script>
+</body>
+</html>
