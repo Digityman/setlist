@@ -503,3 +503,71 @@ padding-bottom: var(--playerH);
   position: fixed;
   left:
 
+  
+/* ============= HELP PAGE TYPOGRAPHY LAYOUT ============= */
+#content.doc{
+  display:block;
+  max-width: 760px;       /* comfortable reading width */
+  margin: 0 auto;
+  padding: 12px;
+  padding-bottom: calc(var(--playerH, 96px) + 16px); /* clear the player */
+}
+
+/* Cards on Help should be regular blocks, not the flex/tile style */
+#content.doc .card{
+  display:block;          /* override any flex card rules */
+  padding: 12px 14px;
+  margin: 10px 0;
+}
+
+/* Headings, paragraphs, lists restored for readable text */
+#content.doc .card h2{
+  margin: 0 0 8px;
+  font-size: 15px;
+  line-height: 1.25;
+  font-weight: 700;
+}
+#content.doc .card p{
+  margin: 6px 0 10px;
+  line-height: 1.5;
+  white-space: normal;    /* avoid any inherited nowrap */
+}
+#content.doc .card ul{
+  list-style: disc;
+  margin: 6px 0 0 18px;
+  padding: 0;
+}
+#content.doc .card li{ margin: 6px 0; }
+
+/* Inline bits that appear in Help */
+#content.doc .card kbd{
+  font: 12px/1.1 ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace;
+  padding: 2px 6px;
+  border-radius: 6px;
+  background: var(--bg2, #121214);
+  border: 1px solid var(--ring, #2a2a2f);
+}
+#content.doc .icon{
+  display:inline-block;
+  width: 1.25em;
+  text-align: center;
+}
+#content.doc .pill{ 
+  display:inline-block; 
+  padding: 2px 8px; 
+  border-radius: 999px; 
+  background: var(--bg2, #121214); 
+  border: 1px solid var(--ring, #2a2a2f);
+}
+#content.doc .pill-sm{ padding: 1px 6px; font-size: 12px; }
+
+/* Keep the player truly fixed + above content */
+.player{
+  position: fixed;
+  left: 0; right: 0; bottom: 0;
+  z-index: 1000;
+}
+
+/* Also give the page wrapper a safety bottom pad everywhere */
+.wrap{ padding-bottom: max(var(--playerH, 96px), 96px); }
+
