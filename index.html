@@ -1441,12 +1441,12 @@ Router.on('help', () => {
   show($('#showMeta'), false);
 
   const content = $('#content');
-  content.className = 'doc';  // use your existing card/grid styling
+  content.className = 'doc';
 
   content.innerHTML = `
     <div class="card">
-      <h2 style="margin:0 0 8px;font-size:15px">Quick Start</h2>
-      <p>Three-step flow: <span class="pill">Bands</span> → <span class="pill">Concerts</span> → <span class="pill">Tracks</span>. Tap a track to play. Use ★ to favorite anything.</p>
+      <h2>Quick Start</h2>
+      <p>Three-step flow: <span class="pill">Bands</span> → <span class="pill">Concerts</span> → <span class="pill">Songs</span>. Tap a track to play. Use ★ to favorite anything.</p>
       <ul>
         <li><strong>Search</strong>: type to filter; results update as you type.</li>
         <li><strong>Player</strong>: bottom bar stays visible; play/pause, seek, next/prev.</li>
@@ -1455,11 +1455,11 @@ Router.on('help', () => {
     </div>
 
     <div class="card">
-      <h2 style="margin:0 0 8px;font-size:15px">Navigation</h2>
+      <h2>Navigation</h2>
       <ul>
         <li><span class="icon">🏠</span> <strong>Bands</strong> — your library. Tap a band to see concerts.</li>
         <li><span class="icon">🎫</span> <strong>Concerts</strong> — date-sorted for that band; tap to view tracks.</li>
-        <li><span class="icon">🎵</span> <strong>Tracks</strong> — the setlist; tap to play.</li>
+        <li><span class="icon">🎵</span> <strong>Songs</strong> — the setlist; tap to play.</li>
         <li><span class="icon">🕒</span> <strong>Recently Played</strong> — jump back into recent listens.</li>
         <li><span class="icon">⭐</span> <strong>Favorites</strong> — Bands / Concerts / Songs.</li>
         <li><span class="icon">🎟️</span> <strong>This Day</strong> — shows from this month/day in past years.</li>
@@ -1467,17 +1467,18 @@ Router.on('help', () => {
     </div>
 
     <div class="card">
-      <h2 style="margin:0 0 8px;font-size:15px">Favorites (★)</h2>
+      <h2>Favorites (★)</h2>
       <ul>
         <li><strong>Bands</strong>: star on Bands page.</li>
         <li><strong>Concerts</strong>: star at the top of the concert page (solid yellow with yellow border when on).</li>
         <li><strong>Songs</strong>: star any track; view/play from Favorites → Songs.</li>
+        <li><strong>Shortcut</strong>: on <em>Favorites → Songs</em> and <em>Recently Played</em>, tap the <em>location pill</em> to open that concert. From <em>Favorites → Concerts</em>, tapping the card opens the concert.</li>
       </ul>
       <p class="small muted">Favorites are stored on this device only.</p>
     </div>
 
     <div class="card">
-      <h2 style="margin:0 0 8px;font-size:15px">Search & Filters</h2>
+      <h2>Search & Filters</h2>
       <ul>
         <li><strong>Bands</strong>: sort by Views/Title; search by name.</li>
         <li><strong>Concerts</strong>: Sort, Year filter, text filter (venue/city/title).</li>
@@ -1486,7 +1487,7 @@ Router.on('help', () => {
     </div>
 
     <div class="card">
-      <h2 style="margin:0 0 8px;font-size:15px">Player Tips</h2>
+      <h2>Player Tips</h2>
       <ul>
         <li><strong>Now Playing</strong> button jumps to the current track’s concert.</li>
         <li><strong>Keyboard</strong>: Space/K = play/pause, ←/→ = small seek, J/L = bigger seek.</li>
@@ -1494,16 +1495,8 @@ Router.on('help', () => {
       </ul>
     </div>
 
-    <div class="card">
-      <h2 style="margin:0 0 8px;font-size:15px">Troubleshooting</h2>
-      <ul>
-        <li><strong>No audio?</strong> Check internet; streams come from Archive.org.</li>
-        <li><strong>Weird layout after update?</strong> Hard refresh (<kbd>Ctrl</kbd>+<kbd>F5</kbd> / <kbd>Cmd</kbd>+<kbd>Shift</kbd>+<kbd>R</kbd>).</li>
-      </ul>
-    </div>
-
     <div class="card muted">
-      <h2 style="margin:0 0 8px;font-size:15px">Privacy & Limits</h2>
+      <h2>Privacy & Limits</h2>
       <ul>
         <li>Favorites and history stay in your browser.</li>
         <li>Some Archive.org items have limited metadata; filters may be partial.</li>
