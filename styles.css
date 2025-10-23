@@ -281,8 +281,33 @@ flex:1 1 auto; min-width:0;
 .wrap, #content, .tracks, .grid { overflow-x: clip; } /* (falls back to hidden where clip unsupported) */
 
 
-/* This is an override to try to fix it.  */
-  /* --- Recently Played overflow + sticky player fixes --- */
+/* START This is fix for Recently Played overflowing to the right. ----------------------------- */
+
+/* Global: make width calculations sane everywhere */
+*, *::before, *::after { box-sizing: border-box; }
+
+/* Recently Played (and other track lists): never exceed the viewport */
+.tracks,
+.track,
+.track > * { min-width: 0; max-width: 100%; }
+
+/* Favorited/Recent song rows are flex blocks — clip any accidental spill */
+.track.favsong { overflow: hidden; }
+
+/* Line 1: allow the title column to shrink; keep pills from forcing overflow */
+.track.favsong .line1 { min-width: 0; }
+.track.favsong .line1 .tleft { min-width: 0; flex: 1 1 auto; }
+.track.favsong .line1 .tname { min-width: 0; flex: 1 1 auto; }
+
+/* Band pill: cap width so it can’t push the row wider than the screen */
+.track.favsong .line1 .bandpill { max-width: 40vw; }
+
+/* Line 2: ensure the location pill can shrink and ellipsize inside the row */
+.track.favsong .line2 { min-width: 0; }
+.track.favsong .line2 .locpill { min-width: 0; flex: 1 1 auto; }
+
+/* END This is fix for Recently Played overflowing to the right. ----------------------------- */
+
   
 /* --- Recently Played overflow + sticky player fixes --- */
 :root { --playerH: 96px; }            /* fallback player height */
