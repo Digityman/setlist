@@ -200,56 +200,64 @@ setHeader(r.name, crumbOverride); // header uses top-level route name with optio
 }
 return {on,route};
 })();
-addEventListener('hashchange', Router.route); addEventListener('DOMContentLoaded', Router.route);
 
-const crumbText = crumbOverride ?? (
-  routeName==='band' ? '— Concerts' :
-  routeName==='show' ? '— Tracks'   :
-  routeName==='recent' ? '— Recently Played' :
-  routeName==='onthisday' ? '— This Day' :
-  (routeName==='fav' || routeName==='favorites' ? '— Favorites' :
-  (routeName==='playlist' ? '— Playlist' : '— Bands'))
-);
+addEventListener('hashchange', Router.route);
+addEventListener('DOMContentLoaded', Router.route);
 
-titleEl.innerHTML = `Setlist Streamer <span class="crumb">${crumbText}</span>`;
+function setHeader(routeName, crumbOverride=null){
+  const titleEl = $('#pageTitle');
+  const crumbText = crumbOverride ?? (
+    routeName==='band' ? '— Concerts' :
+    routeName==='show' ? '— Tracks'   :
+    routeName==='recent' ? '— Recently Played' :
+    routeName==='onthisday' ? '— This Day' :
+    (routeName==='fav' || routeName==='favorites' ? '— Favorites' :
+    (routeName==='playlist' ? '— Playlist' : '— Bands'))
+  );
 
-// Right side actions (Back buttons)
-const actions = $('#headerActions'); actions.innerHTML='';
+  titleEl.innerHTML = `Setlist Streamer <span class="crumb">${crumbText}</span>`;
 
-if(routeName==='band'){
-const btn = document.createElement('button');
-btn.className='btn ghost'; btn.title='Back'; btn.textContent='← Bands';
-btn.onclick=()=>{ location.hash = '#/bands'; };
-actions.appendChild(btn);
-}else if(routeName==='show'){
-// Decide where we came from and set label/target
-const cameFrom = store.get('cameFrom', '');
-let backLabel = '← Concerts';
-let backHash = ''; // when empty, we’ll fall back to history.back()
+  // Right side actions (Back buttons)
+  const actions = $('#headerActions'); actions.innerHTML='';
 
-if (cameFrom === 'favorites-songs') {
-backLabel = '← Favorite Songs';
-backHash  = '#/favorites/songs';
-} else if (cameFrom === 'favorites-concerts') {
-backLabel = '← Favorite Concerts';
-backHash  = '#/favorites/concerts';
-} else if (cameFrom === 'recent') {
-backLabel = '← Recently Played';
-backHash  = '#/recent';
-} else if (cameFrom === 'band') {
-backLabel = '← Concerts';
-backHash  = ''; // prefer history for band flow so year/sort filters persist
+  if (routeName==='band'){
+    const btn = document.createElement('button');
+    btn.className='btn ghost'; btn.title='Back'; btn.textContent='← Bands';
+    btn.onclick=()=>{ location.hash = '#/bands'; };
+    actions.appendChild(btn);
+  } else if (routeName==='show'){
+    // Decide where we came from and set label/target
+    const cameFrom = store.get('cameFrom', '');
+    let backLabel = '← Concerts';
+    let backHash = ''; // when empty, we’ll fall back to history.back()
+
+    if (cameFrom === 'favorites-songs') {
+      backLabel = '← Favorite Songs';
+      backHash  = '#/favorites/songs';
+    } else if (cameFrom === 'favorites-concerts') {
+      backLabel = '← Favorite Concerts';
+      backHash  = '#/favorites/concerts';
+    } else if (cameFrom === 'recent') {
+      backLabel = '← Recently Played';
+      backHash  = '#/recent';
+    } else if (cameFrom === 'onthisday') {
+      backLabel = '← This Day';
+      backHash  = '#/onthisday';
+    } else if (cameFrom === 'band') {
+      backLabel = '← Concerts';
+      backHash  = ''; // prefer history for band flow so year/sort filters persist
+    }
+
+    const btn = document.createElement('button');
+    btn.className='btn ghost'; btn.title='Back'; btn.textContent=backLabel;
+    btn.onclick=()=>{ backHash ? (location.hash = backHash) : history.back(); };
+    actions.appendChild(btn);
+  }
+
+  // Subheader visibility (band name row only on concerts)
+  $('#subHeader').classList.toggle('show', routeName==='band');
 }
 
-const btn = document.createElement('button');
-btn.className='btn ghost'; btn.title='Back'; btn.textContent=backLabel;
-btn.onclick=()=>{ backHash ? (location.hash = backHash) : history.back(); };
-actions.appendChild(btn);
-}
-
-// Subheader visibility (band name row only on concerts)
-$('#subHeader').classList.toggle('show', routeName==='band');
-}
 
 
 // old helper — keep if you still use fetchJSON() anywhere
@@ -2027,8 +2035,6 @@ c.innerHTML=`<div class="card"><span class="small">Empty playlist.</span></div>`
 Router.on('bands', showBands);
 Router.on('band', showBand);
 Router.on('show', showShow);
-Router.on('onthisday', () => Router.route() || null); // ensure name registered (actual handler defined above)
-
 
 /* ------------ bands filters ------------ */
 $('#sortSel')?.addEventListener('change', showBands);
