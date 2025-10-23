@@ -1252,7 +1252,13 @@ P.play?.addEventListener('click', ()=>{
 
 /* Equalizer animation state */
 const EQ = document.querySelector('#P_now .eqBars');
-function updateEqAnim(){ if(EQ) EQ.classList.toggle('paused', A.paused); }
+function updateEqAnim(){
+  if (!EQ) return;
+  // Pause bars whenever audio isn’t actively playing
+  const shouldPause = A.paused || A.ended || A.readyState < 3; // HAVE_FUTURE_DATA
+  EQ.classList.toggle('paused', !!shouldPause);
+}
+
 A.addEventListener('play',  ()=>{ P.play.textContent='⏸'; store.set('wasPlaying', true); updateEqAnim(); });
 A.addEventListener('pause', ()=>{ P.play.textContent='▶️'; store.set('wasPlaying', false); updateEqAnim(); });
 
