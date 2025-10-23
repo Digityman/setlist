@@ -1,6 +1,6 @@
 /* app.js (merged) */
-(function(){
 'use strict';
+
 
 /* ==== js/state.js ==== */
 // Local storage helpers: simple typed getters/setters + app state
@@ -17,6 +17,8 @@ export function get(key, fallback = null) { return store.get(key, fallback); }
 export function set(key, value) { store.set(key, value); return value; }
 export function del(key) { store.del(key); }
 
+// Make a State namespace for callers that use State.get(...)
+export const State = { get, set, del };
 
 // band title cache (for favorites grid)
 export function bandTitleFromCache(id) {
@@ -135,11 +137,7 @@ export function todayMMDD(){
   return { mm, dd };
 }
 
-// cache of band id → title for favorites grid UX
-export function bandTitleFromCache(id){
-  const map = JSON.parse(localStorage.getItem('bandTitleMap') || '{}');
-  return map[id] || prettyId(id);
-}
+// (removed duplicate bandTitleFromCache — already defined in state)
 /* ==== js/ia.js ==== */
 // Archive.org helpers: resilient fetch + URL builders + small status banner API
 
@@ -157,13 +155,7 @@ const banner = {
   hide() { const el = this.el(); if (el) el.hidden = true; }
 };
 
-// ----- small utilities -----
-export function todayMMDD() {
-  const d = new Date();
-  const mm = String(d.getMonth() + 1).padStart(2, '0');
-  const dd = String(d.getDate()).padStart(2, '0');
-  return { mm, dd };
-}
+// (removed duplicate todayMMDD — already defined above in ui block)
 
 // ----- resilient fetch with timeout, retries, and cache helpers -----
 const IA_STATUS = { failCount: 0, circuitUntil: 0 };
@@ -546,6 +538,20 @@ export function playListStartingAt(list, index = 0, meta = null, showCtx = null)
   if (showCtx) setShowContext(showCtx);
   playIndex(index);
 }
+
+// Provide a Player namespace for callers
+export const Player = {
+  initEQ,
+  setTrackList,
+  setPlaylistMeta,
+  setShowContext,
+  getTrackList,
+  getCurrentIndex,
+  playIndex,
+  useShowForPlayer,
+  playListStartingAt
+};
+
 /* ==== js/router.js ==== */
 const routes = new Map();
 
@@ -859,6 +865,10 @@ function onRoute(params) {
 }
 
 on('band', onRoute);
+
+// Provide a Router namespace for callers
+export const Router = { on, route };
+
 /* ==== js/routes/show.js ==== */
 let currentShowId = '';
 let trackList = [];
@@ -1585,9 +1595,10 @@ $('#resetBtn')?.addEventListener('click', ()=>{
 });
 
 // SW optional
-if('serviceWorker' in navigator){
-  navigator.serviceWorker.register('sw.js').catch(()=>{});
+if ('serviceWorker' in navigator) {
+  navigator.serviceWorker.register('./sw.js', { scope: './' }).catch(()=>{});
 }
+
 
 // Init
 window.addEventListener('hashchange', Router.route);
@@ -1596,4 +1607,3 @@ window.addEventListener('DOMContentLoaded', () => {
   Router.route();
 });
 // End merged files; DOMContentLoaded hooks remain functional.
-})();
