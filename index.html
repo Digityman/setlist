@@ -1969,7 +1969,7 @@ Router.on('onthisday', async () => {
   content.innerHTML = `
     <div class="pageActions" id="otdFilterBar" style="gap:8px; display:flex; align-items:center; flex-wrap:wrap;">
       <div class="pill dropdown" id="otdBandDrop" aria-label="Filter bands">
-        <button class="dropBtn" id="otdBandBtn">Bands (${selected.length}/${fav.length})</button>
+        <button class="dropBtn" id="otdBandBtn">Favorite Bands (${selected.length}/${fav.length})</button>
         <div class="menu" id="otdBandMenu" role="listbox" aria-label="Favorite bands"></div>
       </div>
 
@@ -2035,7 +2035,8 @@ Router.on('onthisday', async () => {
     selected = checks.filter(c => c.checked).map(c => c.getAttribute('data-id'));
     if (!selected.length) selected = fav.slice(); // treat empty → all
     localStorage.setItem(LS_BANDS, JSON.stringify(selected));
-    bandBtn.textContent = `Bands (${selected.length}/${fav.length})`;
+    bandBtn.textContent = `Favorite Bands (${selected.length}/${fav.length})`;
+
     load(); // reload with new selection
   });
 
@@ -2043,7 +2044,7 @@ Router.on('onthisday', async () => {
   $('#otdClearSel').addEventListener('click', () => {
     selected = fav.slice();
     localStorage.setItem(LS_BANDS, JSON.stringify(selected));
-    bandBtn.textContent = `Bands (${selected.length}/${fav.length})`;
+    bandBtn.textContent = `Favorite Bands (${selected.length}/${fav.length})`;
     renderBandMenu();
     load();
   });
