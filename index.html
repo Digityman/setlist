@@ -906,10 +906,18 @@ return `
 content.onclick = ev => {
 const favBtn = ev.target.closest('.favToggle');
 if (favBtn){
-const card = favBtn.closest('.card'); const id = card.dataset.id;
-toggleFavShow(id); renderConcerts();
-return;
+  const card = favBtn.closest('.card');
+  const id   = card?.dataset.id;
+  if (id){
+    // toggle favorite and update just this button
+    toggleFavShow(id);
+    const on = isFav(id);
+    favBtn.classList.toggle('is-on', on);
+    favBtn.textContent = on ? '★' : '☆';
+  }
+  return;
 }
+
 
 const card = ev.target.closest('.card.tap');
 if (card) {
