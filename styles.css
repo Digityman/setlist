@@ -348,11 +348,15 @@ white-space: nowrap;
 .card > :first-child{ flex:1 1 auto; }
 .card > :last-child{  flex:0 0 auto; }
 
-/* Long titles inside cards never cause horizontal scroll */
+/* Card titles: allow wrapping (pairs with the 2-line clamp above) */
 .card h3{
-  margin:0 0 6px 0; font-size:15px;   /* keeps existing sizing for general cards */
-  white-space:nowrap; overflow:hidden; text-overflow:ellipsis;
+  margin:0 0 6px 0;
+  font-size:15px;
+  line-height:1.3;      /* match clamp calc */
+  white-space:normal;   /* remove nowrap */
+  overflow:visible;     /* no forced ellipsis */
 }
+
 
 /* Pin the player; content leaves room for it */
 #P_bar, #playerBar, .playerBar {
