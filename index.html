@@ -979,7 +979,7 @@ function updateFavBtn(){
   const fav = favShows().includes(currentShowId);
 
   // Text: plain star when on, label when off
-  btn.textContent = fav ? '★' : '☆ Favorite';
+  btn.textContent = fav ? '★ Favorite' : '☆ Favorite';
 
   // Use the shared ON style
   btn.classList.toggle('is-on', fav);   // <-- not ".fav"
