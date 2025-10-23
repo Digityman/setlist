@@ -454,3 +454,13 @@ padding-bottom: var(--playerH);
   white-space: normal;        /* wrap long names */
   z-index: 50;                /* above cards */
 }
+
+/* Now Playing EQ — pause animation reliably (mobile fix) */
+#P_now .eqBars span { 
+  /* your existing animation is fine; we just ensure play state is explicit */
+  animation-play-state: running;
+}
+#P_now .eqBars.paused span {
+  animation-play-state: paused !important;
+}
+
