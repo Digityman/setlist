@@ -1374,6 +1374,65 @@ volLabel.textContent = pct+'%';
 P_mute.textContent = (A.muted || v===0) ? '🔇' : '🔈';
 }
 const P_mute = $('#P_mute');
+
+// --- Volume popup toggle (open/close + outside click + esc) ---
+const volWrap = document.querySelector('.volWrap');
+const volPop  = document.getElementById('volPop'); // already defined above, but make sure it exists
+
+// Start hidden for safety (works regardless of CSS)
+if (volPop) {
+  volPop.style.display = 'none';
+}
+
+function openVolPop() {
+  if (!volPop) return;
+  volPop.style.display = 'block';
+  P_mute.setAttribute('aria-expanded', 'true');
+  // Close when clicking outside
+  document.addEventListener('click', onDocClick, true);
+  // Close on Escape
+  document.addEventListener('keydown', onEsc, true);
+}
+
+function closeVolPop() {
+  if (!volPop) return;
+  volPop.style.display = 'none';
+  P_mute.setAttribute('aria-expanded', 'false');
+  document.removeEventListener('click', onDocClick, true);
+  document.removeEventListener('keydown', onEsc, true);
+}
+
+function toggleVolPop() {
+  if (!volPop) return;
+  const open = volPop.style.display !== 'none';
+  open ? closeVolPop() : openVolPop();
+}
+
+function onDocClick(e) {
+  if (!volWrap) return closeVolPop();
+  if (!volWrap.contains(e.target)) closeVolPop();
+}
+
+function onEsc(e) {
+  if (e.key === 'Escape') closeVolPop();
+}
+
+// Button opens/closes the popup
+P_mute.addEventListener('click', (e) => {
+  e.stopPropagation();
+  toggleVolPop();
+});
+
+// Interactions inside the popup shouldn't bubble and cause it to close
+volPop?.addEventListener('click', (e) => e.stopPropagation());
+volPop?.addEventListener('mousedown', (e) => e.stopPropagation()); // helps while dragging the range
+
+// Optional: close if the audio element mutes via other means so the icon stays honest
+A.addEventListener('volumechange', () => {
+  // keep the popup open/closed as-is, just ensure the icon/label reflect current state
+  setVolumeUI(A.volume);
+});
+
  
 const _S0 = getSettings();
 const savedVol = _S0.rememberVolume ? Number(store.get('volume', 1)) : NaN;
