@@ -394,3 +394,43 @@ z-index: 1000;
 main, #app, .content, .scrollArea, .routeView {
 padding-bottom: var(--playerH);
 }
+
+/* — Consistent yellow-star look across the app — */
+.btn.ghost.is-on,
+.favToggle.is-on,
+.songFav.is-on,
+.pillBtn.is-on,
+#favBandBtn.fav {
+  color: var(--warn) !important;         /* yellow star */
+  border-color: #4a3b0a !important;      /* warm yellow-brown border */
+  background: #1c1a12 !important;        /* subtle dark gold bg */
+}
+
+/* Optional: tighter hit area + consistent size for star buttons */
+.favToggle,
+.songFav {
+  min-width: 36px;
+  min-height: 32px;
+  line-height: 1;
+}
+
+/* Hover/focus feel without changing the brand color */
+.favToggle.is-on:hover,
+.songFav.is-on:hover,
+.pillBtn.is-on:hover,
+#favBandBtn.fav:hover {
+  filter: brightness(1.08);
+}
+
+.favToggle:focus-visible,
+.songFav:focus-visible,
+.pillBtn:focus-visible,
+#favBandBtn:focus-visible {
+  outline: 2px solid var(--warn);
+  outline-offset: 2px;
+  border-radius: 10px; /* matches your buttons */
+}
+
+/* Make sure label-style stars (like Show header) don’t wrap */
+#favShowBtn.pillBtn { white-space: nowrap; }
+
