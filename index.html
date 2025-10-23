@@ -973,7 +973,18 @@ location.hash = '#/show/' + encodeURIComponent(card.dataset.id);
 /* ------------ Show (tracks) ------------ */
 let currentShowId=''; let currentShowTitle=''; let trackEls=[]; let trackList=[];
 
-function updateFavBtn(){ const btn=$('#favShowBtn'); if(!btn) return; const fav = favShows().includes(currentShowId); btn.textContent = fav ? '★ Favorited' : '☆ Favorite'; btn.classList.toggle('fav', fav); }
+function updateFavBtn(){
+  const btn = $('#favShowBtn');
+  if (!btn) return;
+  const fav = favShows().includes(currentShowId);
+
+  // Text: plain star when on, label when off
+  btn.textContent = fav ? '★' : '☆ Favorite';
+
+  // Use the shared ON style
+  btn.classList.toggle('is-on', fav);   // <-- not ".fav"
+}
+
 // add globals to hold current show meta (place near other globals)
 let currentShowDate = '';
 let currentShowLocation = '';
