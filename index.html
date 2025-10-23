@@ -1909,7 +1909,7 @@ Router.on('bands', showBands);
 Router.on('band', showBand);
 Router.on('show', showShow);
 
-/* ------------ This Day in History — with Band Multiselect Filter ------------ */
+/* ------------ This Day in History — Band Multiselect + Sort (Views ↓ default) ------------ */
 Router.on('onthisday', async () => {
   show($('#toolbar-bands'), false);
   show($('#toolbar-band'), false);
@@ -1918,7 +1918,7 @@ Router.on('onthisday', async () => {
   const content = $('#content');
   content.className = 'grid';
 
-  const fav = favBands(); // array of collection ids (e.g., gratefuldead)
+  const fav = favBands(); // collection ids (e.g., gratefuldead)
   if (!fav.length) {
     content.innerHTML = `<div class="card"><span class="small">No favorite bands yet. Add some favorites to see shows for today’s date.</span></div>`;
     return;
@@ -1932,8 +1932,9 @@ Router.on('onthisday', async () => {
   const monthName = d.toLocaleString('default', { month: 'long' });
   const niceDate  = `${monthName} ${d.getDate()}`;
 
-  // Local storage for selections
-  const LS_KEY = 'onthisdaySelectedBands';
+  // Local storage keys
+  const LS_BANDS = 'onthisdaySelectedBands';
+  const LS_SORT  = 'onthisdaySort';
 
   // Pretty label from collection id
   function prettyNameFromId(id){
@@ -1944,13 +1945,24 @@ Router.on('onthisday', async () => {
       .trim();
   }
 
-  // Active selection (defaults to all)
+  // Active band selection (defaults to all)
   let selected = (() => {
     try {
-      const raw = JSON.parse(localStorage.getItem(LS_KEY) || '[]');
+      const raw = JSON.parse(localStorage.getItem(LS_BANDS) || '[]');
       const arr = Array.isArray(raw) ? raw.filter(x => fav.includes(x)) : [];
       return arr.length ? arr : fav.slice();
     } catch { return fav.slice(); }
+  })();
+
+  // Sort state (default Views ↓)
+  const SORT_OPTIONS = [
+    { value: 'downloads desc', label: 'Views ↓' },
+    { value: 'date asc',       label: 'Date ↑' },
+    { value: 'date desc',      label: 'Date ↓' },
+  ];
+  let sortValue = (() => {
+    const v = localStorage.getItem(LS_SORT);
+    return SORT_OPTIONS.some(o => o.value === v) ? v : 'downloads desc';
   })();
 
   // UI: filter bar + results container
@@ -1960,18 +1972,30 @@ Router.on('onthisday', async () => {
         <button class="dropBtn" id="otdBandBtn">Bands (${selected.length}/${fav.length})</button>
         <div class="menu" id="otdBandMenu" role="listbox" aria-label="Favorite bands"></div>
       </div>
+
+      <div class="pill dropdown" id="otdSortDrop" aria-label="Sort">
+        <button class="dropBtn" id="otdSortBtn"></button>
+        <div class="menu" id="otdSortMenu" role="listbox" aria-label="Sort options"></div>
+      </div>
+
       <button class="btn ghost" id="otdClearSel" title="Show all favorite bands">Clear</button>
     </div>
     <div id="otdList"></div>
   `;
 
-  const listEl = $('#otdList');
+  const listEl   = $('#otdList');
+  const bandWrap = $('#otdBandDrop');
+  const bandMenu = $('#otdBandMenu');
+  const bandBtn  = $('#otdBandBtn');
 
-  // Render dropdown menu with checkboxes
+  const sortWrap = $('#otdSortDrop');
+  const sortMenu = $('#otdSortMenu');
+  const sortBtn  = $('#otdSortBtn');
+
+  // Render band menu
   function renderBandMenu(){
-    const menu = $('#otdBandMenu');
     const selSet = new Set(selected);
-    menu.innerHTML = fav.map(id => {
+    bandMenu.innerHTML = fav.map(id => {
       const checked = selSet.has(id) ? 'checked' : '';
       return `
         <label class="item" style="display:flex; align-items:center; gap:8px;">
@@ -1982,35 +2006,56 @@ Router.on('onthisday', async () => {
   }
   renderBandMenu();
 
-  // Open/close behavior like other dropdowns
-  const dropWrap = $('#otdBandDrop');
-  const dropMenu = $('#otdBandMenu');
-  const dropBtn  = $('#otdBandBtn');
+  // Render sort menu
+  function renderSortMenu(){
+    sortMenu.innerHTML = SORT_OPTIONS.map(o => `
+      <div class="item${o.value===sortValue?' is-on':''}" data-value="${o.value}">${o.label}</div>
+    `).join('');
+    sortBtn.textContent = (SORT_OPTIONS.find(o => o.value===sortValue)?.label) || 'Sort';
+  }
+  renderSortMenu();
 
-  dropWrap.addEventListener('click', (e) => {
-    if (e.target.closest('input[type="checkbox"]')) return; // don’t close on checkbox click
-    dropMenu.classList.toggle('open');
+  // Open/close behavior
+  bandWrap.addEventListener('click', (e) => {
+    if (e.target.closest('input[type="checkbox"]')) return;
+    bandMenu.classList.toggle('open');
+  });
+  sortWrap.addEventListener('click', (e) => {
+    if (e.target.closest('.item')) return;
+    sortMenu.classList.toggle('open');
   });
   document.addEventListener('click', (e) => {
-    if (!dropWrap.contains(e.target)) dropMenu.classList.remove('open');
+    if (!bandWrap.contains(e.target)) bandMenu.classList.remove('open');
+    if (!sortWrap.contains(e.target)) sortMenu.classList.remove('open');
   });
 
-  // Checkbox changes
-  dropMenu.addEventListener('change', () => {
-    const checks = Array.from(dropMenu.querySelectorAll('input[type="checkbox"]'));
+  // Band checkbox changes
+  bandMenu.addEventListener('change', () => {
+    const checks = Array.from(bandMenu.querySelectorAll('input[type="checkbox"]'));
     selected = checks.filter(c => c.checked).map(c => c.getAttribute('data-id'));
-    if (!selected.length) selected = fav.slice(); // never empty => treat as “all”
-    localStorage.setItem(LS_KEY, JSON.stringify(selected));
-    dropBtn.textContent = `Bands (${selected.length}/${fav.length})`;
-    load(); // reload results with new selection
+    if (!selected.length) selected = fav.slice(); // treat empty → all
+    localStorage.setItem(LS_BANDS, JSON.stringify(selected));
+    bandBtn.textContent = `Bands (${selected.length}/${fav.length})`;
+    load(); // reload with new selection
   });
 
   // Clear → reset to all favorites
   $('#otdClearSel').addEventListener('click', () => {
     selected = fav.slice();
-    localStorage.setItem(LS_KEY, JSON.stringify(selected));
-    dropBtn.textContent = `Bands (${selected.length}/${fav.length})`;
+    localStorage.setItem(LS_BANDS, JSON.stringify(selected));
+    bandBtn.textContent = `Bands (${selected.length}/${fav.length})`;
     renderBandMenu();
+    load();
+  });
+
+  // Sort option clicks
+  sortMenu.addEventListener('click', (e) => {
+    const it = e.target.closest('.item');
+    if (!it) return;
+    sortValue = it.dataset.value || 'downloads desc';
+    localStorage.setItem(LS_SORT, sortValue);
+    renderSortMenu();
+    sortMenu.classList.remove('open');
     load();
   });
 
@@ -2036,13 +2081,12 @@ Router.on('onthisday', async () => {
       const u = new URL('https://archive.org/advancedsearch.php');
       u.searchParams.set('q', q);
       fields.forEach(f => u.searchParams.append('fl[]', f));
-      // default sort = date asc (chronological)
-      u.searchParams.append('sort[]', 'date asc');
+      u.searchParams.append('sort[]', sortValue); // <-- apply chosen sort
       u.searchParams.set('rows', '500');
       u.searchParams.set('page', '1');
       u.searchParams.set('output', 'json');
 
-      const cacheKey = `onthisday:title:${mm}-${dd}:${bandsToUse.join(',')}`;
+      const cacheKey = `onthisday:title:${mm}-${dd}:${bandsToUse.join(',')}:sort=${sortValue}`;
       const { data } = await iaFetchJSON(u.toString(), { cacheKey, retries: 2, timeoutMs: 15000 });
 
       const docs = (data?.response?.docs) || [];
@@ -2104,6 +2148,7 @@ Router.on('onthisday', async () => {
 
   load();
 });
+
 
 
 
