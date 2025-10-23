@@ -1909,7 +1909,7 @@ Router.on('bands', showBands);
 Router.on('band', showBand);
 Router.on('show', showShow);
 
-/* ------------ This Day in History (OF YOUR FAVORITE BANDS) — FIXED via title:"-MM-DD" ------------ */
+/* ------------ This Day in History — with Band Multiselect Filter ------------ */
 Router.on('onthisday', async () => {
   show($('#toolbar-bands'), false);
   show($('#toolbar-band'), false);
@@ -1918,8 +1918,8 @@ Router.on('onthisday', async () => {
   const content = $('#content');
   content.className = 'grid';
 
-  const bands = favBands(); // array of collection ids (e.g., gratefuldead)
-  if (!bands.length) {
+  const fav = favBands(); // array of collection ids (e.g., gratefuldead)
+  if (!fav.length) {
     content.innerHTML = `<div class="card"><span class="small">No favorite bands yet. Add some favorites to see shows for today’s date.</span></div>`;
     return;
   }
@@ -1929,46 +1929,129 @@ Router.on('onthisday', async () => {
   const mm = String(d.getMonth() + 1).padStart(2, '0');
   const dd = String(d.getDate()).padStart(2, '0');
   const md = `-${mm}-${dd}`;
-
   const monthName = d.toLocaleString('default', { month: 'long' });
   const niceDate  = `${monthName} ${d.getDate()}`;
 
-  // Limit to favorite collections, search by title:"-MM-DD"
-  const collExpr = bands
-    .map(id => `"${id.replace(/"/g, '\\"')}"`)
-    .join(' OR ');
-  const q = `(collection:(${collExpr})) AND (mediatype:(etree OR audio)) AND title:("${md}")`;
+  // Local storage for selections
+  const LS_KEY = 'onthisdaySelectedBands';
 
-  const fields = [
-    'identifier','title','date','year',
-    'downloads','avg_rating','num_reviews',
-    'venue','coverage','creator','publicdate','collection'
-  ];
+  // Pretty label from collection id
+  function prettyNameFromId(id){
+    return decodeURIComponent(id)
+      .replace(/[_+]+/g,' ')
+      .replace(/([a-z])([A-Z])/g,'$1 $2')
+      .replace(/\s+/g,' ')
+      .trim();
+  }
 
-  async function load() {
+  // Active selection (defaults to all)
+  let selected = (() => {
     try {
-      content.innerHTML = `<div class="card"><span class="small">Loading shows for ${niceDate}…</span></div>`;
+      const raw = JSON.parse(localStorage.getItem(LS_KEY) || '[]');
+      const arr = Array.isArray(raw) ? raw.filter(x => fav.includes(x)) : [];
+      return arr.length ? arr : fav.slice();
+    } catch { return fav.slice(); }
+  })();
 
+  // UI: filter bar + results container
+  content.innerHTML = `
+    <div class="pageActions" id="otdFilterBar" style="gap:8px; display:flex; align-items:center; flex-wrap:wrap;">
+      <div class="pill dropdown" id="otdBandDrop" aria-label="Filter bands">
+        <button class="dropBtn" id="otdBandBtn">Bands (${selected.length}/${fav.length})</button>
+        <div class="menu" id="otdBandMenu" role="listbox" aria-label="Favorite bands"></div>
+      </div>
+      <button class="btn ghost" id="otdClearSel" title="Show all favorite bands">Clear</button>
+    </div>
+    <div id="otdList"></div>
+  `;
+
+  const listEl = $('#otdList');
+
+  // Render dropdown menu with checkboxes
+  function renderBandMenu(){
+    const menu = $('#otdBandMenu');
+    const selSet = new Set(selected);
+    menu.innerHTML = fav.map(id => {
+      const checked = selSet.has(id) ? 'checked' : '';
+      return `
+        <label class="item" style="display:flex; align-items:center; gap:8px;">
+          <input type="checkbox" data-id="${id}" ${checked}>
+          <span>${prettyNameFromId(id)}</span>
+        </label>`;
+    }).join('');
+  }
+  renderBandMenu();
+
+  // Open/close behavior like other dropdowns
+  const dropWrap = $('#otdBandDrop');
+  const dropMenu = $('#otdBandMenu');
+  const dropBtn  = $('#otdBandBtn');
+
+  dropWrap.addEventListener('click', (e) => {
+    if (e.target.closest('input[type="checkbox"]')) return; // don’t close on checkbox click
+    dropMenu.classList.toggle('open');
+  });
+  document.addEventListener('click', (e) => {
+    if (!dropWrap.contains(e.target)) dropMenu.classList.remove('open');
+  });
+
+  // Checkbox changes
+  dropMenu.addEventListener('change', () => {
+    const checks = Array.from(dropMenu.querySelectorAll('input[type="checkbox"]'));
+    selected = checks.filter(c => c.checked).map(c => c.getAttribute('data-id'));
+    if (!selected.length) selected = fav.slice(); // never empty => treat as “all”
+    localStorage.setItem(LS_KEY, JSON.stringify(selected));
+    dropBtn.textContent = `Bands (${selected.length}/${fav.length})`;
+    load(); // reload results with new selection
+  });
+
+  // Clear → reset to all favorites
+  $('#otdClearSel').addEventListener('click', () => {
+    selected = fav.slice();
+    localStorage.setItem(LS_KEY, JSON.stringify(selected));
+    dropBtn.textContent = `Bands (${selected.length}/${fav.length})`;
+    renderBandMenu();
+    load();
+  });
+
+  // Fetch + render
+  async function load() {
+    const bandsToUse = selected.length ? selected : fav;
+    const collExpr = bandsToUse
+      .map(id => `"${id.replace(/"/g, '\\"')}"`)
+      .join(' OR ');
+    // title:"-MM-DD" catches 1970-10-23 etc.
+    const q = `(collection:(${collExpr})) AND (mediatype:(etree OR audio)) AND title:("${md}")`;
+
+    const fields = [
+      'identifier','title','date','year',
+      'downloads','avg_rating','num_reviews',
+      'venue','coverage','creator','publicdate','collection'
+    ];
+
+    listEl.className = 'grid';
+    listEl.innerHTML = `<div class="card"><span class="small">Loading shows for ${niceDate}…</span></div>`;
+
+    try {
       const u = new URL('https://archive.org/advancedsearch.php');
       u.searchParams.set('q', q);
       fields.forEach(f => u.searchParams.append('fl[]', f));
-      // Sort by date ascending so it reads like a timeline
+      // default sort = date asc (chronological)
       u.searchParams.append('sort[]', 'date asc');
       u.searchParams.set('rows', '500');
       u.searchParams.set('page', '1');
       u.searchParams.set('output', 'json');
 
-      const cacheKey = `onthisday:title:${mm}-${dd}:${bands.join(',')}`;
+      const cacheKey = `onthisday:title:${mm}-${dd}:${bandsToUse.join(',')}`;
       const { data } = await iaFetchJSON(u.toString(), { cacheKey, retries: 2, timeoutMs: 15000 });
 
       const docs = (data?.response?.docs) || [];
       if (!docs.length) {
-        content.innerHTML = `<div class="card"><span class="small">No shows found for ${niceDate} across your favorite bands.</span></div>`;
+        listEl.innerHTML = `<div class="card"><span class="small">No shows found for ${niceDate} across the selected bands.</span></div>`;
         return;
       }
 
-      // Render like the concerts list
-      content.innerHTML = docs.map(it => {
+      listEl.innerHTML = docs.map(it => {
         const dateStr   = it.date ? new Date(it.date).toLocaleDateString() : (it.year || '');
         const reviews   = it.num_reviews || 0;
         const venueLine = [it.venue, it.coverage].filter(Boolean).join(', ');
@@ -1993,8 +2076,8 @@ Router.on('onthisday', async () => {
           </div>`;
       }).join('');
 
-      // Clicks (open / toggle favorite)
-      content.onclick = ev => {
+      // card interactions
+      listEl.onclick = ev => {
         const favBtn = ev.target.closest('.favToggle');
         if (favBtn) {
           const card = favBtn.closest('.card');
@@ -2013,13 +2096,15 @@ Router.on('onthisday', async () => {
           location.hash = '#/show/' + encodeURIComponent(card.dataset.id);
         }
       };
+
     } catch (e) {
-      showRetry(content, 'Problem loading “This Day in History.”', load);
+      showRetry(listEl, 'Problem loading “This Day in History.”', load);
     }
   }
 
   load();
 });
+
 
 
 /* ------------ bands filters ------------ */
