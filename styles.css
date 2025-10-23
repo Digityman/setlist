@@ -293,8 +293,18 @@ html, body { overflow-x: hidden; }    /* kill horizontal scroll globally */
 .card > :first-child{ flex:1 1 auto; }/* text column grows/shrinks */
 .card > :last-child{  flex:0 0 auto; }/* button column stays tight */
 
-/* Truncate long concert titles instead of overflowing */
-.card h3{ white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+/* Concert titles: wrap to 2 lines, then clip */
+.card h3,
+.card .title{
+  white-space: normal;
+  overflow: hidden;
+  display: -webkit-box;
+  -webkit-line-clamp: 2;          /* show up to 2 lines */
+  -webkit-box-orient: vertical;
+  line-height: 1.3;
+  max-height: calc(1.3em * 2);    /* safety for non-webkit */
+}
+
 
 /* Extra safety: rows inside cards can wrap and also shrink */
 .card .row{ min-width:0; flex-wrap:wrap; }
