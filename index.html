@@ -1254,17 +1254,14 @@ P.play?.addEventListener('click', ()=>{
 const EQ = document.querySelector('#P_now .eqBars');
 function updateEqAnim(){
   if (!EQ) return;
-  // Pause bars whenever audio isn’t actively playing
-  const shouldPause = A.paused || A.ended || A.readyState < 3; // HAVE_FUTURE_DATA
-  EQ.classList.toggle('paused', !!shouldPause);
+  // Treat as "playing" if we have progressed and are not paused/ended.
+  // (Avoid relying on readyState/waiting/stalled which are noisy on mobile Safari.)
+  const playing = !A.paused && !A.ended && A.currentTime > 0;
+  EQ.classList.toggle('paused', !playing);
 }
 
 A.addEventListener('play',  ()=>{ P.play.textContent='⏸'; store.set('wasPlaying', true); updateEqAnim(); });
 A.addEventListener('pause', ()=>{ P.play.textContent='▶️'; store.set('wasPlaying', false); updateEqAnim(); });
-A.addEventListener('loadeddata',  updateEqAnim);
-A.addEventListener('waiting',      updateEqAnim);
-A.addEventListener('stalled',      updateEqAnim);
-A.addEventListener('ended',        updateEqAnim);
 
 A.addEventListener('ended', ()=>{
 updateEqAnim();
@@ -1316,11 +1313,23 @@ setVolumeUI(A.volume);
 /* Seek & time */
 P.seek?.addEventListener('input', ()=>{ if(!A.duration||isNaN(A.duration)) return; A.currentTime=(P.seek.value/1000)*A.duration; });
 A.addEventListener('timeupdate', ()=>{
-if(A.duration&&!isNaN(A.duration)){
-P.cur.textContent=fmtTime(A.currentTime); P.dur.textContent=' / '+fmtTime(A.duration); P.seek.value=Math.floor((A.currentTime/A.duration)*1000);
-if(curIndex>=0){ const pb=$('#pb-'+curIndex); if(pb) pb.style.width=`${(A.currentTime/A.duration)*100}%`; }
-}else{ P.cur.textContent='0:00'; P.dur.textContent=' / 0:00'; P.seek.value=0; }
+  if (A.duration && !isNaN(A.duration)) {
+    P.cur.textContent = fmtTime(A.currentTime);
+    P.dur.textContent = ' / ' + fmtTime(A.duration);
+    P.seek.value = Math.floor((A.currentTime / A.duration) * 1000);
+    if (curIndex >= 0) {
+      const pb = $('#pb-' + curIndex);
+      if (pb) pb.style.width = `${(A.currentTime / A.duration) * 100}%`;
+    }
+  } else {
+    P.cur.textContent = '0:00';
+    P.dur.textContent = ' / 0:00';
+    P.seek.value = 0;
+  }
+  // keep EQ bars in sync with actual playback progress (mobile-safe)
+  updateEqAnim();
 });
+
 
 /* Equalizer button -> jump back to current show */
 P_now.addEventListener('click', () => {
