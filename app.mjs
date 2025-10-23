@@ -1034,7 +1034,7 @@ async function routeShow(params) {
   }
 }
 
-on('show', onRoute);
+on('show', routeShow);
 /* ==== js/routes/favorites.js ==== */
 // /favorites redirects
 on('favorites', () => { location.hash = '#/favorites/bands'; });
