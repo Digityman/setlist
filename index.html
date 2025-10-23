@@ -1905,8 +1905,10 @@ const j=Math.floor(Math.random()*(i+1));
 /* Measure player height and set padding so content never hides underneath */
 (function () {
 function setPlayerHeightPadding(){
-const bar = document.getElementById('P_bar')
-|| document.querySelector('#playerBar, .playerBar, #P_now');
+const bar = document.getElementById('player') 
+  || document.getElementById('P_bar') 
+  || document.querySelector('#playerBar, .playerBar, #P_now');
+
 if (!bar) return;
 const h = bar.offsetHeight || 96;
 document.documentElement.style.setProperty('--playerH', h + 'px');
