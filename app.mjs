@@ -334,10 +334,10 @@ const P = {
   volLabel: document.getElementById('volLabel')
 };
 
-let trackList = [];     // [{url,title,length}]
+let showTrackList = [];     // [{url,title,length}]
 let curIndex = -1;
 let playlistMeta = null; // optional parallel meta array
-let currentShowId = '';
+let showCurrentId = '';
 let currentShowDate = '';
 let currentShowLocation = '';
 let currentShowBand = '';
@@ -390,7 +390,7 @@ function updateMediaSession(title = 'Playing') {
 export function setTrackList(list) { trackList = Array.isArray(list) ? list.slice() : []; }
 export function setPlaylistMeta(meta) { playlistMeta = Array.isArray(meta) ? meta.slice() : null; }
 export function setShowContext({ showId = '', date = '', location = '', band = '', title = '' } = {}) {
-  currentShowId = showId || currentShowId;
+  showCurrentId = showId || showCurrentId;
   currentShowDate = date || currentShowDate;
   currentShowLocation = location || currentShowLocation;
   currentShowBand = band || currentShowBand;
@@ -415,7 +415,7 @@ export function playIndex(i) {
     currentShowLocation = m.location || currentShowLocation;
     currentShowBand = m.band || currentShowBand;
     currentShowTitle = m.showTitle || m.title || currentShowTitle;
-    if (m.showId) currentShowId = m.showId;
+    if (m.showId) showCurrentId = m.showId;
   }
 
   // log recent
@@ -428,7 +428,7 @@ export function playIndex(i) {
         location: currentShowLocation || '',
         band: currentShowBand || '',
         showTitle: currentShowTitle || '',
-        showId: currentShowId || ''
+        showId: showCurrentId || ''
       });
     }
   } catch {}
@@ -436,7 +436,7 @@ export function playIndex(i) {
   A.src = t.url;
   updateMediaSession(t.title || 'Track');
   A.play().catch(() => {});
-  store.set('currentShowId', currentShowId);
+  store.set('showCurrentId', showCurrentId);
   updateEqAnim();
   highlightRow();
 }
@@ -511,9 +511,9 @@ A.addEventListener('timeupdate', () => {
 // Now-playing button -> jump to current show
 P.now?.addEventListener('click', () => {
   const url = (trackList[curIndex] && trackList[curIndex].url) || '';
-  if (currentShowId) {
+  if (showCurrentId) {
     if (url) store.set('jumpToUrl', url);
-    location.hash = '#/show/' + encodeURIComponent(currentShowId);
+    location.hash = '#/show/' + encodeURIComponent(showCurrentId);
   }
 });
 
@@ -529,7 +529,7 @@ window.addEventListener('focus', tryAutoResume);
 // export helpers to be used by routes
 export function useShowForPlayer({ showId, date, location, band, title }) {
   setShowContext({ showId, date, location, band, title });
-  store.set('currentShowId', showId);
+  store.set('showCurrentId', showId);
 }
 
 export function playListStartingAt(list, index = 0, meta = null, showCtx = null) {
@@ -872,7 +872,7 @@ on('band', routeBand);
 export const Router = { on, route };
 
 /* ==== js/routes/show.js ==== */
-let currentShowId = '';
+let showCurrentId = '';
 let trackList = [];
 let trackEls = [];
 
@@ -891,8 +891,8 @@ function extractTrackNo(f) {
 }
 function naturalCmp(a, b) { return a.localeCompare(b, undefined, { numeric: true, sensitivity: 'base' }); }
 
-async function onRoute(params) {
-  currentShowId = decodeURIComponent((params || [])[0] || '');
+async function routeShow(params) {
+  showCurrentId = decodeURIComponent((params || [])[0] || '');
   const content = document.getElementById('content');
   content.className = 'tracks';
 
@@ -905,9 +905,9 @@ async function onRoute(params) {
   setHTML(content, `<div class="card"><span class="small">Loading tracks…</span></div>`);
 
   try {
-    const { data: meta } = await iaFetchJSON(IA.metaUrl(currentShowId), { retries: 2, timeoutMs: 15000 });
+    const { data: meta } = await iaFetchJSON(IA.metaUrl(showCurrentId), { retries: 2, timeoutMs: 15000 });
     const md = meta?.metadata || {};
-    const title = md.title || currentShowId;
+    const title = md.title || showCurrentId;
     const date = md.date ? new Date(md.date).toLocaleDateString() : '';
     const venue = md.venue || '';
     const coverage = md.coverage || '';
@@ -925,11 +925,11 @@ async function onRoute(params) {
     // favorite toggle
     const favBtn = document.getElementById('favShowBtn');
     const refreshFavBtn = () => {
-      const on = favShows().includes(currentShowId);
+      const on = favShows().includes(showCurrentId);
       favBtn.textContent = on ? '★ Favorited' : '☆ Favorite';
       favBtn.classList.toggle('fav', on);
     };
-    favBtn.onclick = () => { toggleFavShow(currentShowId); refreshFavBtn(); };
+    favBtn.onclick = () => { toggleFavShow(showCurrentId); refreshFavBtn(); };
     refreshFavBtn();
 
     // files
@@ -955,7 +955,7 @@ async function onRoute(params) {
       const key = t.toLowerCase();
       if (seen.has(key)) continue;
       seen.add(key);
-      const url = `https://archive.org/download/${currentShowId}/${encodeURIComponent(f.name)}`;
+      const url = `https://archive.org/download/${showCurrentId}/${encodeURIComponent(f.name)}`;
       trackList.push({ url, title: t, length: f.length || '' });
     }
 
@@ -980,7 +980,7 @@ async function onRoute(params) {
     trackEls = Array.from(document.querySelectorAll('.track'));
 
     // wire player context
-    useShowForPlayer({ showId: currentShowId, date, location, band, title });
+    useShowForPlayer({ showId: showCurrentId, date, location, band, title });
     setTrackList(trackList);
 
     content.onclick = (ev) => {
@@ -988,7 +988,7 @@ async function onRoute(params) {
       if (fav) {
         const row = ev.target.closest('.track'); if (!row) return;
         const idx = Number(row.dataset.i);
-        const song = { ...trackList[idx], showId: currentShowId, date, location, band, showTitle: title };
+        const song = { ...trackList[idx], showId: showCurrentId, date, location, band, showTitle: title };
         toggleFavSong(song);
         fav.textContent = (findSongIdx(song.url) >= 0 ? '★' : '☆');
         fav.classList.toggle('is-on', findSongIdx(song.url) >= 0);
@@ -1030,7 +1030,7 @@ async function onRoute(params) {
         </div>
       </div>
     `);
-    document.getElementById('retryShow')?.addEventListener('click', () => onRoute([currentShowId]));
+    document.getElementById('retryShow')?.addEventListener('click', () => onRoute([showCurrentId]));
   }
 }
 
