@@ -72,7 +72,7 @@ document.getElementById('statusRetryBtn')?.addEventListener('click', ()=> locati
 <div class="menuGroup">
 <div class="menuTitle">Other</div>
 <div class="menuItem"><span class="icon">🔧</span> <span>Settings (placeholder)</span></div>
-<a class="menuItem" href="help.html"><span class="icon">❓</span> <span>Help</span></a>
+<div class="menuItem" data-nav="#/help"><span class="icon">❓</span> <span>Help</span></div>
 </div>
 </div>
 </aside>
@@ -211,6 +211,7 @@ function setHeader(routeName, crumbOverride=null){
     routeName==='show' ? '— Tracks'   :
     routeName==='recent' ? '— Recently Played' :
     routeName==='onthisday' ? '— This Day' :
+    routeName==='help' ? '— Help' :   
     (routeName==='fav' || routeName==='favorites' ? '— Favorites' :
     (routeName==='playlist' ? '— Playlist' : '— Bands'))
   );
@@ -1433,6 +1434,88 @@ Router.on('favorites/bands', ()=>{
   };
 });
 
+Router.on('help', () => {
+  // hide toolbars and show meta like other static pages
+  show($('#toolbar-bands'), false);
+  show($('#toolbar-band'), false);
+  show($('#showMeta'), false);
+
+  const content = $('#content');
+  content.className = 'grid';  // use your existing card/grid styling
+
+  content.innerHTML = `
+    <div class="card">
+      <h2 style="margin:0 0 8px;font-size:15px">Quick Start</h2>
+      <p>Three-step flow: <span class="pill">Bands</span> → <span class="pill">Concerts</span> → <span class="pill">Tracks</span>. Tap a track to play. Use ★ to favorite anything.</p>
+      <ul>
+        <li><strong>Search</strong>: type to filter; results update as you type.</li>
+        <li><strong>Player</strong>: bottom bar stays visible; play/pause, seek, next/prev.</li>
+        <li><strong>This Day</strong>: past shows on today’s date, with sort and band filter.</li>
+      </ul>
+    </div>
+
+    <div class="card">
+      <h2 style="margin:0 0 8px;font-size:15px">Navigation</h2>
+      <ul>
+        <li><span class="icon">🏠</span> <strong>Bands</strong> — your library. Tap a band to see concerts.</li>
+        <li><span class="icon">🎫</span> <strong>Concerts</strong> — date-sorted for that band; tap to view tracks.</li>
+        <li><span class="icon">🎵</span> <strong>Tracks</strong> — the setlist; tap to play.</li>
+        <li><span class="icon">🕒</span> <strong>Recently Played</strong> — jump back into recent listens.</li>
+        <li><span class="icon">⭐</span> <strong>Favorites</strong> — Bands / Concerts / Songs.</li>
+        <li><span class="icon">🎟️</span> <strong>This Day</strong> — shows from this month/day in past years.</li>
+      </ul>
+    </div>
+
+    <div class="card">
+      <h2 style="margin:0 0 8px;font-size:15px">Favorites (★)</h2>
+      <ul>
+        <li><strong>Bands</strong>: star on Bands page.</li>
+        <li><strong>Concerts</strong>: star at the top of the concert page (solid yellow with yellow border when on).</li>
+        <li><strong>Songs</strong>: star any track; view/play from Favorites → Songs.</li>
+      </ul>
+      <p class="small muted">Favorites are stored on this device only.</p>
+    </div>
+
+    <div class="card">
+      <h2 style="margin:0 0 8px;font-size:15px">Search & Filters</h2>
+      <ul>
+        <li><strong>Bands</strong>: sort by Views/Title; search by name.</li>
+        <li><strong>Concerts</strong>: Sort, Year filter, text filter (venue/city/title).</li>
+        <li><strong>This Day</strong>: multi-select favorite bands; sort by <em>Views ↓</em> (default) or Date.</li>
+      </ul>
+    </div>
+
+    <div class="card">
+      <h2 style="margin:0 0 8px;font-size:15px">Player Tips</h2>
+      <ul>
+        <li><strong>Now Playing</strong> button jumps to the current track’s concert.</li>
+        <li><strong>Keyboard</strong>: Space/K = play/pause, ←/→ = small seek, J/L = bigger seek.</li>
+        <li><strong>Queue</strong>: Favorites/Recent pages have Play All / Shuffle All.</li>
+      </ul>
+    </div>
+
+    <div class="card">
+      <h2 style="margin:0 0 8px;font-size:15px">Troubleshooting</h2>
+      <ul>
+        <li><strong>No audio?</strong> Check internet; streams come from Archive.org.</li>
+        <li><strong>Weird layout after update?</strong> Hard refresh (<kbd>Ctrl</kbd>+<kbd>F5</kbd> / <kbd>Cmd</kbd>+<kbd>Shift</kbd>+<kbd>R</kbd>).</li>
+      </ul>
+    </div>
+
+    <div class="card muted">
+      <h2 style="margin:0 0 8px;font-size:15px">Privacy & Limits</h2>
+      <ul>
+        <li>Favorites and history stay in your browser.</li>
+        <li>Some Archive.org items have limited metadata; filters may be partial.</li>
+        <li>Offline streaming isn’t supported.</li>
+      </ul>
+    </div>
+  `;
+});
+
+
+
+ 
 /* ------------ Recently Played page ------------ */  // NEW
 Router.on('recent', () => {
 show($('#toolbar-bands'),false); show($('#toolbar-band'),false); show($('#showMeta'),false);
