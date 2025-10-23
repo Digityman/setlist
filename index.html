@@ -973,18 +973,37 @@ $('#loadMoreBtn').onclick = ()=>{ state.page += 1; loadPage(); };
 content.onclick = ev => {
 const favBtn = ev.target.closest('.favToggle');
 if (favBtn){
-const card = favBtn.closest('.card'); const id = card ? card.dataset.id : null;
-if (id){ toggleFavShow(id); renderFavConcertsForBand(); }
-return;
+  const card = favBtn.closest('.card');
+  const id   = card ? card.dataset.id : null;
+  if (id){
+    // Toggle favorite status
+    toggleFavShow(id);
+    const on = isFav(id);
+
+    // Update star UI inline
+    favBtn.classList.toggle('is-on', on);
+    favBtn.textContent = on ? '★' : '☆';
+
+    // If we’re viewing only favorites and the user unfavorited this card, remove it
+    if (onlyFavConcerts && !on) {
+      card.remove();
+      // If nothing left, show the standard empty state
+      if (!content.querySelector('.card.tap')) {
+        content.innerHTML = `<div class="card"><span class="small">No concerts found.</span></div>`;
+      }
+    }
+  }
+  return;
 }
 
 const card = ev.target.closest('.card.tap');
 if (card){
-store.set('cameFrom', 'band');
-store.set('cameFromBandId', currentBandId || '');
-location.hash = '#/show/' + encodeURIComponent(card.dataset.id);
+  store.set('cameFrom', 'band');
+  store.set('cameFromBandId', currentBandId || '');
+  location.hash = '#/show/' + encodeURIComponent(card.dataset.id);
 }
 };
+
 
 }
 
