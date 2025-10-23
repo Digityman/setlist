@@ -1295,33 +1295,50 @@ Router.on('favorites', (params)=>{ location.hash = '#/favorites/bands'; });
 Router.on('fav', (params)=>{ location.hash = '#/favorites/bands'; });
 
 Router.on('favorites/bands', ()=>{
-show($('#toolbar-bands'),false); show($('#toolbar-band'),false); show($('#showMeta'),false);
-const content=$('#content'); content.className='grid';
-const bands = favBands();
-if(!bands.length){ content.innerHTML = `<div class="card"><span class="small">No favorite bands yet.</span></div>`; return; }
-content.innerHTML = bands.map(id=>
-`<div class="card fav">
-   <div class="row">
-     <img src="${IA.imgUrl(id)}" alt="" style="width:42px;height:42px;border-radius:8px;object-fit:cover;background:#0c0c0d;border:1px solid var(--ring)">
-     <div>
-       <div class="title" style="font-weight:600">${decodeURIComponent(id).replace(/[_+]+/g,' ').trim()}</div>
-       <div class="small">${id}</div>
-     </div>
-   </div>
-   <div class="row">
-     <button class="btn" data-go="#/band/${encodeURIComponent(id)}">Open</button>
-     <button class="btn ghost is-on" data-unfav="${id}" title="Remove">★</button>
-   </div>
- </div>`
-).join('');
+  show($('#toolbar-bands'),false); show($('#toolbar-band'),false); show($('#showMeta'),false);
+  const content = $('#content'); content.className='grid';
 
-content.onclick = (e)=>{
-const go = e.target.getAttribute('data-go'); if(go){ location.hash=go; return; }
-const unf = e.target.getAttribute('data-unfav'); if(unf){
-toggleFavBand(unf); Router.route(); return;
-}
-};
+  const bands = favBands();
+  if (!bands.length){
+    content.innerHTML = `<div class="card"><span class="small">No favorite bands yet.</span></div>`;
+    return;
+  }
+
+  content.innerHTML = bands.map(id=>{
+    // Pretty name: underscores/plus → space, and split camel case
+    const pretty = decodeURIComponent(id)
+      .replace(/[_+]+/g,' ')
+      .replace(/([a-z])([A-Z])/g,'$1 $2')
+      .replace(/\s+/g,' ')
+      .trim();
+    return `
+      <div class="card fav tap" data-id="${id}">
+        <div class="row">
+          <img src="${IA.imgUrl(id)}" alt="" style="width:42px;height:42px;border-radius:8px;object-fit:cover;background:#0c0c0d;border:1px solid var(--ring)">
+          <div>
+            <div class="title" style="font-weight:600">${pretty}</div>
+          </div>
+        </div>
+        <div class="row">
+          <button class="btn ghost is-on" data-unfav="${id}" title="Remove">★</button>
+        </div>
+      </div>`;
+  }).join('');
+
+  // Click to open anywhere on the card (except the star)
+  content.onclick = (e)=>{
+    const unfBtn = e.target.closest('[data-unfav]');
+    if (unfBtn){
+      const unf = unfBtn.getAttribute('data-unfav');
+      toggleFavBand(unf); Router.route(); return;
+    }
+    const card = e.target.closest('.card.fav.tap');
+    if (card){
+      location.hash = '#/band/' + encodeURIComponent(card.dataset.id);
+    }
+  };
 });
+
 /* ------------ Recently Played page ------------ */  // NEW
 Router.on('recent', () => {
 show($('#toolbar-bands'),false); show($('#toolbar-band'),false); show($('#showMeta'),false);
