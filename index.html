@@ -1173,6 +1173,51 @@ load();
 }
 
 /* ------------ Player, Queues & Media Session ------------ */
+// --- Crossfade helpers ---
+let _fadeSeq = 0; // cancels older fades if user taps Next rapidly
+
+function fadeAudio(targetVol, ms){
+  const seq = ++_fadeSeq;
+  return new Promise(res=>{
+    const steps = Math.max(1, Math.round(ms/50));
+    const start = A.volume;
+    let n = 0;
+    const tick = () => {
+      // cancelled by a newer fade? bail
+      if (seq !== _fadeSeq) return res();
+      n++;
+      const t = n/steps;
+      A.muted = false; // ensure not muted during fades
+      A.volume = start + (targetVol - start) * t;
+      if (n >= steps) return res();
+      setTimeout(tick, 50);
+    };
+    tick();
+  });
+}
+
+// Smooth transition when changing tracks
+async function playIndexWithFade(i){
+  const S = getSettings();
+  const f = Number(S.crossfadeSec || 0);
+
+  if (f > 0 && !A.paused) {
+    // fade out current
+    await fadeAudio(0, f * 500);  // half time on fade-out
+  }
+
+  // switch track
+  playIndex(i);
+
+  const after = Number(getSettings().crossfadeSec || 0);
+  if (after > 0) {
+    const prev = Number(store.get('volume', A.volume)) || A.volume || 1;
+    A.volume = 0.0001;
+    A.muted = false;
+    await fadeAudio(prev, after * 500); // half on fade-in
+  }
+}
+ 
 const A=$('#audio');
 const P={ play:$('#P_play'), prev:$('#P_prev'), next:$('#P_next'), mute:$('#P_mute'), seek:$('#P_seek'), cur:$('#P_times .cur'), dur:$('#P_times .dur') };
 const P_now = $('#P_now');
@@ -1301,26 +1346,26 @@ A.addEventListener('play',  ()=>{ P.play.textContent='⏸'; store.set('wasPlayin
 A.addEventListener('pause', ()=>{ P.play.textContent='▶️'; store.set('wasPlaying', false); updateEqAnim(); });
 
 A.addEventListener('ended', ()=>{
-updateEqAnim();
-if(curIndex<queue.length-1){
-// Advance within current show/playlist
-playIndex(curIndex+1);
-}else{
-// End of current list — if a show queue is active, advance to next show
-if(queueShowsActive && showQueuePos >=0 && showQueuePos < showQueue.length-1){
-showQueuePos += 1; persistShowQueue();
-const nextShowId = showQueue[showQueuePos];
-store.set('autoPlayOnLoad', true);
-location.hash = '#/show/' + encodeURIComponent(nextShowId);
-}else{
-// Reached the end of everything
-queueShowsActive = false; persistShowQueue();
-}
-}
+  updateEqAnim();
+  if (curIndex < queue.length - 1) {
+    // Advance within current show/playlist (with fade)
+    playIndexWithFade(curIndex + 1);
+  } else {
+    // End of current list — if a show queue is active, advance to next show
+    if (queueShowsActive && showQueuePos >= 0 && showQueuePos < showQueue.length - 1) {
+      showQueuePos += 1; persistShowQueue();
+      const nextShowId = showQueue[showQueuePos];
+      store.set('autoPlayOnLoad', true);
+      location.hash = '#/show/' + encodeURIComponent(nextShowId);
+    } else {
+      // Reached the end of everything
+      queueShowsActive = false; persistShowQueue();
+    }
+  }
 });
 
-P.prev?.addEventListener('click', ()=>{ if(curIndex>0) playIndex(curIndex-1); });
-P.next?.addEventListener('click', ()=>{ if(curIndex<queue.length-1) playIndex(curIndex+1); });
+P.prev?.addEventListener('click', ()=>{ if (curIndex > 0) playIndexWithFade(curIndex-1); });
+P.next?.addEventListener('click', ()=>{ if (curIndex < queue.length-1) playIndexWithFade(curIndex+1); });
 
 /* Volume controls */
 function setVolumeUI(v){
