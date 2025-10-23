@@ -1570,141 +1570,6 @@ content.appendChild(empty);
 return;
 }
 
-/* ------------ This Day in History (OF YOUR FAVORITE BANDS) ------------ */
-Router.on('onthisday', async () => {
-  show($('#toolbar-bands'),false); 
-  show($('#toolbar-band'),false); 
-  show($('#showMeta'),false);
-
-  const content = $('#content');
-  content.className = 'grid';
-
-  const bands = favBands();
-  if (!bands.length) {
-    content.innerHTML = `<div class="card"><span class="small">No favorite bands yet. Add some favorites to see shows for today’s date.</span></div>`;
-    return;
-  }
-
-  // Build month/day patterns for today
-  const d = new Date();
-  const mm = String(d.getMonth()+1).padStart(2,'0');
-  const m  = (d.getMonth()+1);
-  const dd = String(d.getDate()).padStart(2,'0');
-  const day= d.getDate();
-  const monthNames = ["January","February","March","April","May","June","July","August","September","October","November","December"];
-  const monthWord  = monthNames[d.getMonth()];
-  const mdWord     = `${monthWord} ${day}`; // e.g., "October 23"
-
-  // Build a single multi-collection query
-  // Note: we try several date formats because IA uploads vary.
-  const collExpr = bands.map(id => `collection:("${id.replace(/"/g,'\\"')}")`).join(' OR ');
-  const dateExpr = [
-    `date:(*-${mm}-${dd})`,
-    `date:("${mdWord}")`,
-    `date:("${m}/${day}")`,
-    `date:("${mm}-${dd}")`
-  ].join(' OR ');
-
-  const q = `(${collExpr}) AND (mediatype:(etree OR audio)) AND (${dateExpr})`;
-
-  // Fields we need for the familiar concerts card layout
-  const fields = [
-    'identifier','title','date','year',
-    'downloads','avg_rating','num_reviews',
-    'venue','coverage','creator','publicdate','collection'
-  ];
-
-  // Try the search; if it fails, show a retry card
-  async function load() {
-    try {
-      content.innerHTML = `<div class="card"><span class="small">Loading shows for ${mdWord}…</span></div>`;
-
-      const u = new URL('https://archive.org/advancedsearch.php');
-      u.searchParams.set('q', q);
-      fields.forEach(f => u.searchParams.append('fl[]', f));
-      // primary sort by downloads desc; we’ll secondary sort by band client-side
-      u.searchParams.append('sort[]', 'downloads desc');
-      u.searchParams.set('rows', '500');       // usually plenty for one day across fav bands
-      u.searchParams.set('page', '1');
-      u.searchParams.set('output', 'json');
-
-      const { data } = await iaFetchJSON(u.toString(), { cacheKey: `onthisday:${mm}-${dd}:${bands.join(',')}`, retries: 2, timeoutMs: 15000 });
-      const docs = (data?.response?.docs) || [];
-
-      // Secondary sort: by band (creator) asc after downloads desc
-      docs.sort((a,b) => {
-        const dv = (b.downloads||0) - (a.downloads||0);
-        if (dv !== 0) return dv;
-        const ac = (a.creator||'').toLowerCase();
-        const bc = (b.creator||'').toLowerCase();
-        return ac.localeCompare(bc);
-      });
-
-      if (!docs.length) {
-        content.innerHTML = `<div class="card"><span class="small">No shows found for ${mdWord} across your favorite bands.</span></div>`;
-        return;
-      }
-
-      // Render same as concerts list
-      content.innerHTML = docs.map(it => {
-        const dateStr   = it.date ? new Date(it.date).toLocaleDateString() : (it.year||'');
-        const reviews   = it.num_reviews || 0;
-        const venueLine = [it.venue, it.coverage].filter(Boolean).join(', ');
-        const viewsChip = `<span class="chip">${fmtCompact(it.downloads||0)} views</span>`;
-        const favOn     = isFav(it.identifier);
-        return `
-          <div class="card tap" data-id="${it.identifier}">
-            <div>
-              <h3>${it.title || it.identifier}</h3>
-              <div class="row">
-                <span class="chip">${dateStr}</span>
-                ${viewsChip}
-                ${renderStars(it.avg_rating||0)} <span class="small">(${reviews})</span>
-              </div>
-              <div class="small">${venueLine}</div>
-            </div>
-            <div class="row">
-              <button class="btn ghost favToggle${favOn ? ' is-on' : ''}" title="Favorite">
-                ${favOn ? '★' : '☆'}
-              </button>
-            </div>
-          </div>`;
-      }).join('');
-
-      // Clicks (open / toggle favorite)
-      content.onclick = ev => {
-        const favBtn = ev.target.closest('.favToggle');
-        if (favBtn) {
-          const card = favBtn.closest('.card'); 
-          const id = card?.dataset.id;
-          if (id) {
-            toggleFavShow(id);
-            // just flip the icon + class locally
-            const nowOn = isFav(id);
-            favBtn.classList.toggle('is-on', nowOn);
-            favBtn.textContent = nowOn ? '★' : '☆';
-          }
-          return;
-        }
-
-        const card = ev.target.closest('.card.tap');
-        if (card) {
-          // remember origin so Show header/back logic can use it if desired
-          store.set('cameFrom', 'onthisday');
-          location.hash = '#/show/' + encodeURIComponent(card.dataset.id);
-        }
-      };
-    } catch (e) {
-      showRetry(content, 'Problem loading “This Day in History.”', load);
-    }
-  }
-
-  load();
-});
-
-
-
- 
 try{
 const batchSize = 40;
 let docs = [];
@@ -2043,6 +1908,138 @@ c.innerHTML=`<div class="card"><span class="small">Empty playlist.</span></div>`
 Router.on('bands', showBands);
 Router.on('band', showBand);
 Router.on('show', showShow);
+
+/* ------------ This Day in History (OF YOUR FAVORITE BANDS) ------------ */
+Router.on('onthisday', async () => {
+  show($('#toolbar-bands'),false); 
+  show($('#toolbar-band'),false); 
+  show($('#showMeta'),false);
+
+  const content = $('#content');
+  content.className = 'grid';
+
+  const bands = favBands();
+  if (!bands.length) {
+    content.innerHTML = `<div class="card"><span class="small">No favorite bands yet. Add some favorites to see shows for today’s date.</span></div>`;
+    return;
+  }
+
+  // Build month/day patterns for today
+  const d = new Date();
+  const mm = String(d.getMonth()+1).padStart(2,'0');
+  const m  = (d.getMonth()+1);
+  const dd = String(d.getDate()).padStart(2,'0');
+  const day= d.getDate();
+  const monthNames = ["January","February","March","April","May","June","July","August","September","October","November","December"];
+  const monthWord  = monthNames[d.getMonth()];
+  const mdWord     = `${monthWord} ${day}`; // e.g., "October 23"
+
+  // Build a single multi-collection query
+  // Note: we try several date formats because IA uploads vary.
+  const collExpr = bands.map(id => `collection:("${id.replace(/"/g,'\\"')}")`).join(' OR ');
+  const dateExpr = [
+    `date:(*-${mm}-${dd})`,
+    `date:("${mdWord}")`,
+    `date:("${m}/${day}")`,
+    `date:("${mm}-${dd}")`
+  ].join(' OR ');
+
+  const q = `(${collExpr}) AND (mediatype:(etree OR audio)) AND (${dateExpr})`;
+
+  // Fields we need for the familiar concerts card layout
+  const fields = [
+    'identifier','title','date','year',
+    'downloads','avg_rating','num_reviews',
+    'venue','coverage','creator','publicdate','collection'
+  ];
+
+  // Try the search; if it fails, show a retry card
+  async function load() {
+    try {
+      content.innerHTML = `<div class="card"><span class="small">Loading shows for ${mdWord}…</span></div>`;
+
+      const u = new URL('https://archive.org/advancedsearch.php');
+      u.searchParams.set('q', q);
+      fields.forEach(f => u.searchParams.append('fl[]', f));
+      // primary sort by downloads desc; we’ll secondary sort by band client-side
+      u.searchParams.append('sort[]', 'downloads desc');
+      u.searchParams.set('rows', '500');       // usually plenty for one day across fav bands
+      u.searchParams.set('page', '1');
+      u.searchParams.set('output', 'json');
+
+      const { data } = await iaFetchJSON(u.toString(), { cacheKey: `onthisday:${mm}-${dd}:${bands.join(',')}`, retries: 2, timeoutMs: 15000 });
+      const docs = (data?.response?.docs) || [];
+
+      // Secondary sort: by band (creator) asc after downloads desc
+      docs.sort((a,b) => {
+        const dv = (b.downloads||0) - (a.downloads||0);
+        if (dv !== 0) return dv;
+        const ac = (a.creator||'').toLowerCase();
+        const bc = (b.creator||'').toLowerCase();
+        return ac.localeCompare(bc);
+      });
+
+      if (!docs.length) {
+        content.innerHTML = `<div class="card"><span class="small">No shows found for ${mdWord} across your favorite bands.</span></div>`;
+        return;
+      }
+
+      // Render same as concerts list
+      content.innerHTML = docs.map(it => {
+        const dateStr   = it.date ? new Date(it.date).toLocaleDateString() : (it.year||'');
+        const reviews   = it.num_reviews || 0;
+        const venueLine = [it.venue, it.coverage].filter(Boolean).join(', ');
+        const viewsChip = `<span class="chip">${fmtCompact(it.downloads||0)} views</span>`;
+        const favOn     = isFav(it.identifier);
+        return `
+          <div class="card tap" data-id="${it.identifier}">
+            <div>
+              <h3>${it.title || it.identifier}</h3>
+              <div class="row">
+                <span class="chip">${dateStr}</span>
+                ${viewsChip}
+                ${renderStars(it.avg_rating||0)} <span class="small">(${reviews})</span>
+              </div>
+              <div class="small">${venueLine}</div>
+            </div>
+            <div class="row">
+              <button class="btn ghost favToggle${favOn ? ' is-on' : ''}" title="Favorite">
+                ${favOn ? '★' : '☆'}
+              </button>
+            </div>
+          </div>`;
+      }).join('');
+
+      // Clicks (open / toggle favorite)
+      content.onclick = ev => {
+        const favBtn = ev.target.closest('.favToggle');
+        if (favBtn) {
+          const card = favBtn.closest('.card'); 
+          const id = card?.dataset.id;
+          if (id) {
+            toggleFavShow(id);
+            // just flip the icon + class locally
+            const nowOn = isFav(id);
+            favBtn.classList.toggle('is-on', nowOn);
+            favBtn.textContent = nowOn ? '★' : '☆';
+          }
+          return;
+        }
+
+        const card = ev.target.closest('.card.tap');
+        if (card) {
+          // remember origin so Show header/back logic can use it if desired
+          store.set('cameFrom', 'onthisday');
+          location.hash = '#/show/' + encodeURIComponent(card.dataset.id);
+        }
+      };
+    } catch (e) {
+      showRetry(content, 'Problem loading “This Day in History.”', load);
+    }
+  }
+
+  load();
+});
 
 /* ------------ bands filters ------------ */
 $('#sortSel')?.addEventListener('change', showBands);
