@@ -434,3 +434,23 @@ padding-bottom: var(--playerH);
 /* Make sure label-style stars (like Show header) don’t wrap */
 #favShowBtn.pillBtn { white-space: nowrap; }
 
+/* ===== On This Day — Favorite Bands dropdown sizing ===== */
+#otdFilterBar { overflow: visible; }
+
+#otdBandDrop { 
+  position: relative; 
+  overflow: visible;          /* let the menu extend outside the pill */
+}
+
+#otdBandDrop .menu{
+  position: absolute;
+  top: 100%;
+  left: 0;
+  min-width: 340px;           /* wider to fit long names */
+  width: max-content;         /* grow to content if needed */
+  max-width: min(520px, 92vw);
+  max-height: 360px;
+  overflow: auto;
+  white-space: normal;        /* wrap long names */
+  z-index: 50;                /* above cards */
+}
