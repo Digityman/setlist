@@ -1217,15 +1217,38 @@ showId: currentShowId || ''
 
 }
 } catch(e) {}
-A.src=queue[curIndex];
+A.src = queue[curIndex];
 updateMediaSession(trackList[curIndex]?.title || 'Track');
-A.play().catch(()=>{});
+{
+  const p = A.play();
+  if (p && typeof p.catch === 'function') {
+    p.catch(err => {
+      if (err && (err.name === 'AbortError' || err.name === 'NotAllowedError')) return;
+      console.warn('Audio play() failed:', err);
+    });
+  }
+}
 updateTrackHighlight();
+
 store.set('currentShowId', currentShowId);
 updateEqAnim();
 }
 function updateTrackHighlight(){ trackEls.forEach((el,idx)=>el.classList.toggle('playing', idx===curIndex)); }
-P.play?.addEventListener('click', ()=>{ if(A.paused) A.play(); else A.pause(); });
+P.play?.addEventListener('click', ()=>{
+  if (A.paused) {
+    const p = A.play();
+    if (p && typeof p.catch === 'function') {
+      p.catch(err => {
+        // Ignore harmless interruptions and autoplay blocks
+        if (err && (err.name === 'AbortError' || err.name === 'NotAllowedError')) return;
+        console.warn('Audio play() failed:', err);
+      });
+    }
+  } else {
+    A.pause();
+  }
+});
+
 
 /* Equalizer animation state */
 const EQ = document.querySelector('#P_now .eqBars');
@@ -1303,10 +1326,17 @@ location.hash = '#/show/' + encodeURIComponent(id);
 /* Auto-resume */
 function markHideState(){ store.set('wasPlayingOnHide', !A.paused); }
 function tryAutoResume(){
-if (store.get('wasPlayingOnHide', false)){
-A.play().catch(()=>{ /* autoplay block ignored */ });
+  if (store.get('wasPlayingOnHide', false)){
+    const p = A.play();
+    if (p && typeof p.catch === 'function') {
+      p.catch(err => {
+        if (err && (err.name === 'AbortError' || err.name === 'NotAllowedError')) return;
+        console.warn('Audio play() failed:', err);
+      });
+    }
+  }
 }
-}
+
 document.addEventListener('visibilitychange', ()=>{
 if(document.hidden) markHideState(); else tryAutoResume();
 });
