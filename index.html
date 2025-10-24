@@ -718,6 +718,15 @@ let items = (data.items || []).map(d => ({
   downloads: d.downloads || 0
 }));
 
+// Strict client-side text filter (matches title OR id; all words required)
+if (term) {
+  const needles = term.toLowerCase().split(/\s+/).filter(Boolean);
+  items = items.filter(b => {
+    const hay = (b.title + ' ' + b.id).toLowerCase();
+    return needles.every(n => hay.includes(n));
+  });
+}
+
 // If the Favorites toggle is on, filter the fetched list to favs
 if (onlyFavBands) {
   const favSet = new Set(favBands());
@@ -728,6 +737,7 @@ if (onlyFavBands) {
     return;
   }
 }
+
 
 if (stale) document.body.dataset.stale = '1'; // optional: mark UI as cached
 content.innerHTML = items.map(b=>`
