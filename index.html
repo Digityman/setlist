@@ -455,14 +455,16 @@ facetYearsJSONP({ bandId }){
   const u = new URL('https://archive.org/advancedsearch.php');
   u.searchParams.set('q', `collection:(${bandId}) AND mediatype:(etree OR audio)`);
   u.searchParams.set('rows', '0');
-  u.searchParams.set('output', 'json');
-  // Solr-style facet params:
   u.searchParams.set('facet', 'true');
   u.searchParams.set('facet.field', 'year');
   u.searchParams.set('facet.limit', '10000');
   u.searchParams.set('facet.mincount', '1');
+  // output/json=1 are harmless with JSONP; callback gets appended by fetchJSONP
+  u.searchParams.set('output', 'json');
+  u.searchParams.set('json', '1');
   return fetchJSONP(u.toString(), { timeout: 12000 });
-},
+}
+ ,
 
 metaUrl:id=>`https://archive.org/metadata/${id}`,
 imgUrl:id=>`https://archive.org/services/img/${id}`
@@ -772,33 +774,62 @@ function resolveSort(){ return state.sortSel==='auto' ? (state.year ? 'date asc'
 async function buildYearCounts(bandId){
   let counts = {};
 
-  // Use advancedsearch JSONP facets (the supported way to get year buckets)
   try {
     const facet = await IA.facetYearsJSONP({ bandId });
-    // Shapes we may see:
-    // A) facet.response.facets.year = { "1977": 123, ... }
-    // B) facet.response.facet_counts.facet_fields.year = [ "1977", 123, "1978", 89, ... ]
-    let yearFacet = facet?.response?.facets?.year || facet?.facets?.year;
-    const arrAlt  = facet?.response?.facet_counts?.facet_fields?.year;
 
-    if (yearFacet && typeof yearFacet === 'object') {
-      for (const k in yearFacet) {
+    // Accept any of these shapes:
+    //  A) facet.facets.year = { "1977": 123, ... }
+    //  B) facet.response.facets.year = { ... }                (seen rarely)
+    //  C) facet.facet_counts.facet_fields.year = [y, n, ...]  (MOST COMMON)
+    //  D) facet.response.facet_counts.facet_fields.year = [...] (rare/mirrors C)
+    const objA = facet?.facets?.year || facet?.response?.facets?.year;
+    const arrC = facet?.facet_counts?.facet_fields?.year
+              || facet?.response?.facet_counts?.facet_fields?.year;
+
+    if (objA && typeof objA === 'object') {
+      for (const k in objA) {
         const yr = Number(k);
-        if (!Number.isNaN(yr)) counts[yr] = Number(yearFacet[k] || 0);
+        if (!Number.isNaN(yr)) counts[yr] = Number(objA[k] || 0);
       }
-    } else if (Array.isArray(arrAlt)) {
-      for (let i = 0; i < arrAlt.length; i += 2) {
-        const yr = Number(arrAlt[i]);
-        const ct = Number(arrAlt[i+1] || 0);
+    } else if (Array.isArray(arrC)) {
+      for (let i = 0; i < arrC.length; i += 2) {
+        const yr = Number(arrC[i]);
+        const ct = Number(arrC[i + 1] || 0);
         if (!Number.isNaN(yr) && ct > 0) counts[yr] = ct;
       }
     }
   } catch (_) {
-    // ignore — we’ll just leave counts empty
+    /* ignore; we’ll try fallback below */
   }
 
-  // Nothing? Keep “All years” and bail gracefully
-  if (!Object.keys(counts).length){
+  // Fallback: derive counts from a years-only doc scan (few light pages)
+  if (!Object.keys(counts).length) {
+    try {
+      const perPage = 2000;           // large page to minimize requests
+      let page = 1, seen = 0, numFound = Infinity;
+      while (seen < numFound && page <= 6) { // cap to be nice
+        const url = IA.yearsOnlyUrl({ bandId, rows: perPage, page });
+        const { data } = await iaFetchJSON(url, {
+          cacheKey: `yearsOnly:${bandId}:p${page}`,
+          retries: 1,
+          timeoutMs: 15000
+        });
+        const resp = data?.response || {};
+        numFound = Number(resp.numFound || 0);
+        const docs = resp.docs || [];
+        for (const d of docs) {
+          const yr = Number(d.year);
+          if (!Number.isNaN(yr)) counts[yr] = (counts[yr] || 0) + 1;
+        }
+        seen += docs.length;
+        if (docs.length < perPage) break;
+        page++;
+      }
+    } catch (_) { /* still nothing? we’ll show All years */ }
+  }
+
+  // Still nothing? Keep a clean single option and bail.
+  if (!Object.keys(counts).length) {
     YearDrop.setOptions([{ value:'', label:'All years' }]);
     YearDrop.setValue('');
     return;
@@ -814,6 +845,7 @@ async function buildYearCounts(bandId){
 
   store.set('years_' + bandId, { ts: Date.now(), years: yearsArr });
 }
+
 
 function updateYearMenu(counts){
 const yearsArr = Object.keys(counts)
