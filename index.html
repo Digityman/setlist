@@ -450,6 +450,7 @@ u.searchParams.set('rows',rows); u.searchParams.set('page',page); u.searchParams
 u.searchParams.append('sort[]','date asc');
 return u.toString();
 },
+ 
 facetYearsJSONP({ bandId }){
   const u = new URL('https://archive.org/advancedsearch.php');
   u.searchParams.set('q', `collection:(${bandId}) AND mediatype:(etree OR audio)`);
@@ -461,6 +462,16 @@ facetYearsJSONP({ bandId }){
   u.searchParams.set('facet.limit', '10000');
   u.searchParams.set('facet.mincount', '1');
   return fetchJSONP(u.toString(), { timeout: 12000 });
+},
+facetYearsV1({ bandId }){
+  // CORS-friendly facet call via v1 scrape
+  const params = new URLSearchParams({
+    q: `collection:(${bandId}) AND mediatype:(etree OR audio)`,
+    facets: 'year',
+    count: '0'          // we don't need items, just facets
+  });
+  const url = `https://archive.org/services/search/v1/scrape?${params.toString()}`;
+  return iaFetchJSON(url, { cacheKey: `facet:v1:${bandId}`, retries: 2, timeoutMs: 15000 });
 },
 
 metaUrl:id=>`https://archive.org/metadata/${id}`,
@@ -769,47 +780,90 @@ return {setOptions,setValue,getValue};
 function resolveSort(){ return state.sortSel==='auto' ? (state.year ? 'date asc' : 'date desc') : state.sortSel; }
 
 async function buildYearCounts(bandId){
-// First try the official facet endpoint via JSONP (CORS-safe)
-const facet = await IA.facetYearsJSONP({ bandId });
-let counts = {};
+  let counts = {};
 
-// Shape A (Archive advancedsearch most commonly returns this):
-let yearFacet = facet?.response?.facets?.year || facet?.facets?.year;
+  // --- Try v1 facets first (CORS) ---
+  try {
+    const { data: v1 } = await IA.facetYearsV1({ bandId }) || {};
+    // v1 commonly returns one of these shapes:
+    // A) { facets: { year: { "1977": 123, "1978": 89, ... } } }
+    // B) { facets: { year: [ { key: "1977", value: 123 }, ... ] } }
+    // C) { facets: [ { field: "year", counts: { "1977": 123, ... } } ] }  // rare
+    const f = v1?.facets;
 
-// Shape B (some Solr responses return an alternating array):
-const altArr = facet?.response?.facet_counts?.facet_fields?.year;
-
-if (yearFacet && typeof yearFacet === 'object') {
-  for (const k in yearFacet) {
-    const yr = Number(k);
-    if (!Number.isNaN(yr)) counts[yr] = (counts[yr] || 0) + Number(yearFacet[k] || 0);
+    if (f) {
+      if (f.year && typeof f.year === 'object' && !Array.isArray(f.year)) {
+        // Shape A
+        for (const k in f.year) {
+          const yr = Number(k);
+          if (!Number.isNaN(yr)) counts[yr] = Number(f.year[k] || 0);
+        }
+      } else if (Array.isArray(f.year)) {
+        // Shape B
+        for (const row of f.year) {
+          const yr = Number(row?.key);
+          const ct = Number(row?.value || row?.count || 0);
+          if (!Number.isNaN(yr) && ct > 0) counts[yr] = ct;
+        }
+      } else if (Array.isArray(f)) {
+        // Shape C
+        const yearEntry = f.find(x => (x?.field || '').toLowerCase() === 'year');
+        const obj = yearEntry?.counts || yearEntry?.values || null;
+        if (obj && typeof obj === 'object') {
+          for (const k in obj) {
+            const yr = Number(k);
+            if (!Number.isNaN(yr)) counts[yr] = Number(obj[k] || 0);
+          }
+        }
+      }
+    }
+  } catch (_) {
+    // ignore — we’ll fall back
   }
-} else if (Array.isArray(altArr)) {
-  for (let i = 0; i < altArr.length; i += 2) {
-    const yr = Number(altArr[i]);
-    const ct = Number(altArr[i + 1] || 0);
-    if (!Number.isNaN(yr) && ct > 0) counts[yr] = (counts[yr] || 0) + ct;
+
+  // --- Fallback to advancedsearch JSONP facet if v1 produced nothing ---
+  if (!Object.keys(counts).length) {
+    try {
+      const facet = await IA.facetYearsJSONP({ bandId });
+      // Classic advancedsearch shapes:
+      // D) facet.response.facets.year = { "1977": 123, ... }
+      // E) facet.response.facet_counts.facet_fields.year = [ "1977", 123, "1978", 89, ... ]
+      let yearFacet = facet?.response?.facets?.year || facet?.facets?.year;
+      const arrAlt  = facet?.response?.facet_counts?.facet_fields?.year;
+
+      if (yearFacet && typeof yearFacet === 'object') {
+        for (const k in yearFacet) {
+          const yr = Number(k);
+          if (!Number.isNaN(yr)) counts[yr] = Number(yearFacet[k] || 0);
+        }
+      } else if (Array.isArray(arrAlt)) {
+        for (let i = 0; i < arrAlt.length; i += 2) {
+          const yr = Number(arrAlt[i]);
+          const ct = Number(arrAlt[i+1] || 0);
+          if (!Number.isNaN(yr) && ct > 0) counts[yr] = ct;
+        }
+      }
+    } catch (_) {}
   }
+
+  // Nothing? Keep “All years” and bail gracefully
+  if (!Object.keys(counts).length){
+    YearDrop.setOptions([{ value:'', label:'All years' }]);
+    YearDrop.setValue('');
+    return;
+  }
+
+  // Update the dropdown + cache
+  updateYearMenu(counts);
+
+  const yearsArr = Object.keys(counts)
+    .map(y => ({ year: Number(y), count: counts[y] }))
+    .filter(o => !Number.isNaN(o.year))
+    .sort((a,b) => a.year - b.year);
+
+  store.set('years_' + bandId, { ts: Date.now(), years: yearsArr });
 }
 
-
-// If we didn’t get anything, don’t fall back to paged fetch (CORS trap).
-// Just leave “All years” and let the concerts list work normally.
-if (!Object.keys(counts).length){
-YearDrop.setOptions([{value:'', label:'All years'}]);
-YearDrop.setValue('');
-return;
-}
-
-updateYearMenu(counts);
-
-const yearsArr = Object.keys(counts)
-.map(y=>({year:Number(y), count:counts[y]}))
-.filter(o=>!Number.isNaN(o.year))
-.sort((a,b)=>a.year-b.year);
-
-store.set('years_'+bandId, {ts: Date.now(), years: yearsArr});
-}
 
 function updateYearMenu(counts){
 const yearsArr = Object.keys(counts)
