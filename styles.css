@@ -556,3 +556,53 @@ padding-bottom: var(--playerH);
 /* Also give the page wrapper a safety bottom pad everywhere */
 .wrap{ padding-bottom: max(var(--playerH, 96px), 96px); }
 
+/* Network / status banner — smooth + less noisy */
+#statusBanner{
+  position: sticky;
+  top: 0;
+  z-index: 9999;
+  padding: 10px 12px;
+  font-size: 14px;
+  line-height: 1.2;
+  text-align: center;
+  border-bottom: 1px solid transparent;
+  transition: transform .18s ease, opacity .18s ease;
+  will-change: transform, opacity;
+}
+
+/* Keep layout steady; slide it out instead of removing */
+#statusBanner[hidden]{
+  display: block !important;
+  opacity: 0;
+  transform: translateY(-100%);
+  pointer-events: none;
+}
+
+/* Themes: override the inline yellow when not a true warning */
+#statusBanner[data-kind="warn"]{
+  background: #fff3cd !important;
+  color: #664d03 !important;
+  border-bottom-color: #ffe69c !important;
+}
+#statusBanner[data-kind="info"]{
+  background: #e8f0fe !important;
+  color: #09357b !important;
+  border-bottom-color: #c6daf7 !important;
+}
+#statusBanner[data-kind="error"]{
+  background: #fdecea !important;
+  color: #611a15 !important;
+  border-bottom-color: #f5c6cb !important;
+}
+
+/* Button look that works across themes */
+#statusBanner button{
+  margin-left: 8px;
+  padding: 4px 8px;
+  border: 1px solid rgba(0,0,0,.2);
+  background: rgba(255,255,255,.55);
+  border-radius: 6px;
+  cursor: pointer;
+}
+
+
