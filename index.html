@@ -451,12 +451,18 @@ u.searchParams.append('sort[]','date asc');
 return u.toString();
 },
 facetYearsJSONP({ bandId }){
-const u=new URL('https://archive.org/advancedsearch.php');
-u.searchParams.set('q',`collection:(${bandId}) AND mediatype:(etree OR audio)`);
-u.searchParams.set('rows','0'); u.searchParams.set('output','json');
-u.searchParams.append('facet[]','year'); u.searchParams.set('facet_limit','10000'); u.searchParams.set('facet_mincount','1');
-return fetchJSONP(u.toString(), {timeout:12000});
+  const u = new URL('https://archive.org/advancedsearch.php');
+  u.searchParams.set('q', `collection:(${bandId}) AND mediatype:(etree OR audio)`);
+  u.searchParams.set('rows', '0');
+  u.searchParams.set('output', 'json');
+  // Solr-style facet params:
+  u.searchParams.set('facet', 'true');
+  u.searchParams.set('facet.field', 'year');
+  u.searchParams.set('facet.limit', '10000');
+  u.searchParams.set('facet.mincount', '1');
+  return fetchJSONP(u.toString(), { timeout: 12000 });
 },
+
 metaUrl:id=>`https://archive.org/metadata/${id}`,
 imgUrl:id=>`https://archive.org/services/img/${id}`
 };
@@ -764,15 +770,28 @@ function resolveSort(){ return state.sortSel==='auto' ? (state.year ? 'date asc'
 
 async function buildYearCounts(bandId){
 // First try the official facet endpoint via JSONP (CORS-safe)
-const facet = await IA.facetYearsJSONP({bandId});
+const facet = await IA.facetYearsJSONP({ bandId });
 let counts = {};
-if (facet?.response?.facets?.year){
-const y = facet.response.facets.year;
-for (const k in y){
-const yr = Number(k);
-if (!Number.isNaN(yr)) counts[yr] = (counts[yr] || 0) + Number(y[k] || 0);
+
+// Shape A (Archive advancedsearch most commonly returns this):
+let yearFacet = facet?.response?.facets?.year || facet?.facets?.year;
+
+// Shape B (some Solr responses return an alternating array):
+const altArr = facet?.response?.facet_counts?.facet_fields?.year;
+
+if (yearFacet && typeof yearFacet === 'object') {
+  for (const k in yearFacet) {
+    const yr = Number(k);
+    if (!Number.isNaN(yr)) counts[yr] = (counts[yr] || 0) + Number(yearFacet[k] || 0);
+  }
+} else if (Array.isArray(altArr)) {
+  for (let i = 0; i < altArr.length; i += 2) {
+    const yr = Number(altArr[i]);
+    const ct = Number(altArr[i + 1] || 0);
+    if (!Number.isNaN(yr) && ct > 0) counts[yr] = (counts[yr] || 0) + ct;
+  }
 }
-}
+
 
 // If we didn’t get anything, don’t fall back to paged fetch (CORS trap).
 // Just leave “All years” and let the concerts list work normally.
