@@ -356,25 +356,25 @@ function showStatus(msg, kind='warn') {
   // downgrade super generic messages to 'info' to reduce alarm
   if (/offline|cached|retry/i.test(msg)) kind = (kind === 'warn' ? 'info' : kind);
 
-const el = document.getElementById('statusBanner');
-const msgEl = document.getElementById('statusMsg');
-if (!el || !msgEl) return;
-msgEl.textContent = msg;       // preserve the button
-el.dataset.kind = kind;
-el.hidden = false;
+  const el = document.getElementById('statusBanner');
+  const msgEl = document.getElementById('statusMsg');
+  if (!el || !msgEl) return;
+  msgEl.textContent = msg;       // preserve the button
+  el.dataset.kind = kind;
+
+  // Explicitly show via display so it doesn't leave a gap when hidden
+  el.hidden = false;
+  el.style.display = ''; // allow CSS to control visual (fallback to inline style)
 }
 
-function hideStatus(){ const el = document.getElementById('statusBanner'); if (el) el.hidden = true; }
-
-function now(){ return Date.now(); }
-function circuitOpen(){ return now() < IA_STATUS.circuitUntil; }
-function openCircuit(ms=5*60*1000){ IA_STATUS.circuitUntil = now()+ms; }
-
-function fetchWithTimeout(url, ms=15000, opts={}) {
-const ctl = new AbortController();
-const t = setTimeout(()=>ctl.abort(), ms);
-return fetch(url, {...opts, signal: ctl.signal}).finally(()=>clearTimeout(t));
+function hideStatus(){
+  const el = document.getElementById('statusBanner');
+  if (!el) return;
+  // ensure it's removed from layout (no sticky gap)
+  el.hidden = true;
+  el.style.display = 'none';
 }
+
 
 // small cache helpers
 function setCache(key, data){ try{ localStorage.setItem(key, JSON.stringify({ts:Date.now(), data})); }catch{} }
@@ -726,6 +726,63 @@ let items = (data.items || []).map(d => ({
   title: d.title || d.identifier,
   downloads: d.downloads || 0
 }));
+
+// --- Merge any buffered Phish.in concerts (from the merge hook) into bands list ---
+// window._phishBuffer will be an array of concert-like objects
+try {
+  if (Array.isArray(window._phishBuffer) && window._phishBuffer.length) {
+    const existing = new Set(items.map(i => i.id));
+    const fromPhish = new Map(); // id -> { id, title, downloads }
+
+    for (const c of window._phishBuffer) {
+      // try multiple heuristics to find a collection/band id
+      let bandId = null;
+      if (c.collection) {
+        if (Array.isArray(c.collection)) bandId = c.collection[0];
+        else bandId = String(c.collection);
+      }
+      // fallback: some feeds provide 'creator' (band name). try slugifying that
+      if (!bandId && c.creator) {
+        bandId = String(c.creator).replace(/\s+/g, '_').replace(/[^\w\-]+/g,'').toLowerCase();
+      }
+      // final fallback: try identifier-ish field on the concert
+      if (!bandId && c.identifier) bandId = String(c.identifier).split('/')[0];
+
+      if (bandId) {
+        bandId = decodeURIComponent(bandId);
+        if (!existing.has(bandId) && !fromPhish.has(bandId)) {
+          const title = c.creator || bandId;
+          fromPhish.set(bandId, { id: bandId, title: title, downloads: Number(c.downloads || 0) || 0 });
+        }
+      }
+    }
+
+    if (fromPhish.size) {
+      // append phish-derived entries and re-apply the UI sort
+      items = items.concat(Array.from(fromPhish.values()));
+
+      // Re-sort to match current sort UI (mapSortForV1 earlier returned "field dir")
+      (function reorder() {
+        const mapSort = (s = 'downloads desc') => {
+          const [field, dir = 'desc'] = s.split(/\s+/);
+          const f = field === 'title' ? 'titleSorter' : field;
+          return { field: f, dir: dir.toLowerCase() };
+        };
+        const uiSort = document.getElementById('sortSel')?.value || 'downloads desc';
+        const so = mapSort(uiSort);
+        if (so.field === 'titleSorter') {
+          items.sort((a,b) => so.dir === 'asc' ? a.title.localeCompare(b.title, undefined, {sensitivity:'base', numeric:true}) : b.title.localeCompare(a.title, undefined, {sensitivity:'base', numeric:true}));
+        } else {
+          // numeric sort (downloads)
+          items.sort((a,b) => so.dir === 'asc' ? (a.downloads - b.downloads) : (b.downloads - a.downloads));
+        }
+      })();
+    }
+  }
+} catch (err) {
+  // non-fatal: don't break bands rendering if phish merge fails
+  console.warn('phish merge failed', err);
+}
 
 // If the Favorites toggle is on, filter the fetched list to favs
 if (onlyFavBands) {
