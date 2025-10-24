@@ -324,16 +324,25 @@ document.head.appendChild(s);
 }
 
 
-/* ------------ Hybrid IA fetch: fetch -> JSONP fallback (CORS-safe) ------------ */
+/* ------------ Hybrid IA fetch: JSONP for advancedsearch, fetch for others ------------ */
 async function fetchIA(url){
-try{
-return await fetchJSON(url);
-}catch(e){
-const data = await fetchJSONP(url);
-if (data) return data;
-throw e;
+  // Old endpoint has no CORS — use JSONP directly to avoid console errors
+  if (/\/\/archive\.org\/advancedsearch\.php/i.test(url)) {
+    const data = await fetchJSONP(url, { timeout: 12000 });
+    if (!data) throw new Error('advancedsearch JSONP failed');
+    return data;
+  }
+  // Everything else can use normal fetch (with small legacy helper)
+  try{
+    return await fetchJSON(url);
+  }catch(e){
+    // As a last resort, try JSONP (harmless for some endpoints)
+    const data = await fetchJSONP(url, { timeout: 12000 });
+    if (data) return data;
+    throw e;
+  }
 }
-}
+
 
 /* ------------ IA helpers ------------ */
 // === Archive API fetch with timeout + retries + outage detection ===
@@ -365,49 +374,62 @@ function setCache(key, data){ try{ localStorage.setItem(key, JSON.stringify({ts:
 function getCache(key){ try{ const v = JSON.parse(localStorage.getItem(key)||''); return v && v.data; }catch{ return null; } }
 
 // One canonical way to call IA
+// === Archive API fetch with timeout + retries + outage detection ===
 async function iaFetchJSON(url, { cacheKey, retries=2, timeoutMs=15000 } = {}) {
-// If the circuit is open, jump straight to cache and message
-if (circuitOpen()) {
-const cached = cacheKey ? getCache(cacheKey) : null;
-if (cached) {
-showStatus('Archive.org is having trouble; showing cached results (stale).', 'info');
-return { data: cached, stale: true };
-}
-throw new Error('Archive.org temporarily unavailable (cool-down active).');
+  // Short-circuit: advancedsearch never sends CORS; use JSONP so fetch() never fires.
+  if (/\/\/archive\.org\/advancedsearch\.php/i.test(url)) {
+    const data = await fetchJSONP(url, { timeout: timeoutMs });
+    if (!data) {
+      // Try cache on JSONP miss
+      const cached = cacheKey ? getCache(cacheKey) : null;
+      if (cached) return { data: cached, stale: true };
+      throw new Error('advancedsearch JSONP failed');
+    }
+    hideStatus();
+    if (cacheKey) setCache(cacheKey, data);
+    return { data, stale: false };
+  }
+
+  // If the circuit is open, jump straight to cache and message
+  if (circuitOpen()) {
+    const cached = cacheKey ? getCache(cacheKey) : null;
+    if (cached) {
+      showStatus('Archive.org is having trouble; showing cached results (stale).', 'info');
+      return { data: cached, stale: true };
+    }
+    throw new Error('Archive.org temporarily unavailable (cool-down active).');
+  }
+
+  let attempt = 0;
+  while (true) {
+    try {
+      const res = await fetchWithTimeout(url, timeoutMs);
+      if (!res.ok) throw new Error(`HTTP ${res.status}`);
+      const data = await res.json();
+      IA_STATUS.failCount = 0; IA_STATUS.lastError = ''; hideStatus();
+      if (cacheKey) setCache(cacheKey, data);
+      return { data, stale: false };
+    } catch (err) {
+      attempt++;
+      IA_STATUS.failCount++; IA_STATUS.lastError = String(err);
+      if (attempt > retries) {
+        if (IA_STATUS.failCount >= 3) {
+          openCircuit(); // 5 minutes
+          showStatus('Archive.org seems unreachable. We’ll retry shortly. You can keep browsing cached items.', 'warn');
+        } else if (!navigator.onLine) {
+          showStatus('You appear to be offline. Reconnect and try again.', 'warn');
+        } else {
+          showStatus('Trouble reaching Archive.org. Retrying…', 'warn');
+        }
+        const cached = cacheKey ? getCache(cacheKey) : null;
+        if (cached) return { data: cached, stale: true };
+        throw err;
+      }
+      await new Promise(r=>setTimeout(r, 500 * attempt)); // backoff
+    }
+  }
 }
 
-let attempt = 0;
-while (true) {
-try {
-const res = await fetchWithTimeout(url, timeoutMs);
-if (!res.ok) throw new Error(`HTTP ${res.status}`);
-const data = await res.json();
-IA_STATUS.failCount = 0; IA_STATUS.lastError = ''; hideStatus();
-if (cacheKey) setCache(cacheKey, data);
-return { data, stale: false };
-} catch (err) {
-attempt++;
-IA_STATUS.failCount++; IA_STATUS.lastError = String(err);
-if (attempt > retries) {
-// Decide if this looks like an outage
-if (IA_STATUS.failCount >= 3) {
-openCircuit(); // 5 minutes
-showStatus('Archive.org seems unreachable. We’ll retry shortly. You can keep browsing cached items.', 'warn');
-} else if (!navigator.onLine) {
-showStatus('You appear to be offline. Reconnect and try again.', 'warn');
-} else {
-showStatus('Trouble reaching Archive.org. Retrying…', 'warn');
-}
-// Cache fallback
-const cached = cacheKey ? getCache(cacheKey) : null;
-if (cached) return { data: cached, stale: true };
-throw err;
-}
-// Backoff: 500ms, 1000ms…
-await new Promise(r=>setTimeout(r, 500 * attempt));
-}
-}
-}
 
 // Nice-to-have: react to browser online/offline
 window.addEventListener('offline', ()=> showStatus('You are offline. Some features won’t work.', 'warn'));
