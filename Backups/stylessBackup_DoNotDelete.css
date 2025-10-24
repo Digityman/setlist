@@ -1,1 +1,606 @@
+:root{
+--bg:#0f0f10; --panel:#161719; --text:#e9e9ea; --muted:#a6a6ac; --accent:#5bd19a;
+--btn:#232428; --ring:#2b2d31; --warn:#ffd54a; /* yellow */
+}
+html,body{height:100%}
+body{margin:0; background:var(--bg); color:var(--text); font:13px/1.45 system-ui,-apple-system,Segoe UI,Roboto,Arial,sans-serif}
 
+a{color:inherit; text-decoration:none}
+
+.wrap{min-height:100%; display:flex; flex-direction:column}
+
+/* ====== APP HEADER ====== */
+header{
+padding:8px 10px; display:flex; align-items:center; gap:10px;
+background:var(--panel); position:sticky; top:0; z-index:8;
+box-shadow:0 1px 0 #000 inset, 0 1px 0 rgba(255,255,255,.03)
+}
+.headLeft{display:flex; align-items:center; gap:8px; min-width:42px}
+.hamburger{min-width:42px; min-height:36px; border-radius:10px; background:var(--btn); border:1px solid var(--ring); cursor:pointer; display:flex; align-items:center; justify-content:center}
+.hamburger span{display:block; width:18px; height:2px; background:#ccc; position:relative}
+.hamburger span::before, .hamburger span::after{content:""; position:absolute; left:0; width:18px; height:2px; background:#ccc}
+.hamburger span::before{top:-6px} .hamburger span::after{top:6px}
+
+.headCenter{flex:1; display:flex; justify-content:center; pointer-events:none}
+#pageTitle{font-size:16px; font-weight:600; text-align:center; max-width:80vw; white-space:nowrap; overflow:hidden; text-overflow:ellipsis}
+.crumb{opacity:.75; font-weight:400}
+.headRight{min-width:42px; display:flex; justify-content:flex-end; gap:8px}
+.headerActions .btn{min-height:32px; min-width:32px; padding:6px 10px; border-radius:10px}
+
+/* Secondary line (band name centered) */
+.subHeader{
+display:none; align-items:center; justify-content:center; gap:8px;
+padding:6px 10px; background:var(--panel); border-top:1px solid var(--ring);
+}
+.subHeader.show{display:flex}
+#bandName{font-weight:700; color:var(--text);}
+#favBandBtn{background:transparent; border:1px solid var(--ring); border-radius:999px; padding:4px 10px; cursor:pointer}
+#favBandBtn.fav{color:var(--warn); border-color:#4a3b0a; background:#1c1a12}
+
+/* Toolbars */
+.toolbar{display:flex; gap:8px; padding:10px 12px; align-items:center; flex-wrap:wrap}
+.pill{background:var(--panel); border:1px solid var(--ring); border-radius:999px; padding:8px 12px; display:flex; align-items:center; gap:8px}
+select, input[type="search"]{background:transparent; color:var(--text); border:none; outline:none; font:14px system-ui; min-width:120px}
+.btn{background:var(--btn); color:var(--text); border:1px solid var(--ring); border-radius:12px; padding:10px 12px; display:inline-flex; align-items:center; justify-content:center; gap:6px; min-width:40px; min-height:40px; cursor:pointer}
+.btn:active{transform:translateY(1px)}
+.ghost{background:transparent}
+.muted{color:var(--muted)}
+.chip{background:var(--panel); border:1px solid var(--ring); border-radius:999px; padding:6px 10px; font-size:11px; color:var(--muted)}
+.pillBtn{background:var(--panel); border:1px solid var(--ring); border-radius:999px; padding:6px 10px; font-size:11px; cursor:pointer; color:var(--text)}
+.pill-sm{ padding:4px 8px; font-size:11px; }
+
+/* Visual ON state for toggles */
+.is-on{ color:var(--warn)!important; border-color:#4a3b0a!important; background:#1c1a12!important }
+
+/* Custom dropdowns */
+.dropdown{position:relative; min-width:150px; cursor:pointer}
+.dropBtn{background:transparent; border:none; color:var(--text); font:14px; width:100%; text-align:left; padding:0; pointer-events:none}
+.menu{
+position:absolute; top:110%; left:0; right:0;
+background:var(--panel); border:1px solid var(--ring); border-radius:12px;
+box-shadow:0 8px 24px rgba(0,0,0,.45);
+display:none; max-height:280px; overflow:auto; z-index:50;
+}
+.menu.open{display:block}
+.menu .item{padding:9px 12px; cursor:pointer; white-space:nowrap}
+.menu .item:hover{background:#202124}
+
+/* Bands grid */
+.bandsGrid{display:grid; grid-template-columns: repeat(auto-fill, minmax(80px, 1fr)); gap:8px; padding:0 12px 120px}
+.bandTile{background:var(--panel); border:1px solid var(--ring); border-radius:12px; padding:6px; display:flex; flex-direction:column; gap:6px; cursor:pointer}
+.bandTile img{width:100%; aspect-ratio:1/1; object-fit:cover; border-radius:8px; background:#0c0c0d}
+.bandTitle{font-weight:600; font-size:12px}
+.bandViews{font-size:10px; color:var(--muted)}
+
+/* Lists */
+.grid{display:grid; grid-template-columns:1fr; gap:8px; padding:0 12px 120px}
+.card{background:var(--panel); border:1px solid var(--ring); border-radius:14px; padding:12px; display:flex; justify-content:space-between; align-items:center}
+.card.tap{cursor:pointer}
+.card h3{margin:0 0 6px 0; font-size:15px}
+/*Favorites → Concerts titles use the smaller Songs size */
+.card.fav h3,
+.card.fav .title{
+font-size:13px;     /* matches .tname in Songs */
+line-height:1.4;
+font-weight:600;
+}
+
+.row{display:flex; gap:8px; align-items:center; flex-wrap:wrap}
+.small{font-size:12px; color:var(--muted)}
+.favToggle{min-width:40px}
+.loadMore{justify-content:center}
+
+/* Tracks */
+.tracks{display:grid; gap:6px; padding:0 12px 120px}
+.track{position:relative; background:var(--panel); border:1px solid var(--ring); border-radius:12px; padding:10px 12px; display:flex; align-items:center; justify-content:space-between; gap:10px}
+.tleft{display:flex; gap:10px; align-items:center}
+.tnum{width:18px; text-align:right; color:var(--muted); font-size:12px}
+.tname{font-size:13px}
+.tlen{font-size:12px; color:var(--muted)}
+.track.playing{box-shadow:0 0 0 2px rgba(255,213,74,.25) inset}
+.track.playing::before{content:""; position:absolute; left:0; top:0; bottom:0; width:6px; background:var(--warn); border-radius:12px 0 0 12px}
+.progressBar{position:absolute; left:0; bottom:0; height:3px; background:var(--warn); border-radius:0 0 12px 12px; width:0%}
+.songFav{
+min-width:32px; min-height:32px;
+border-radius:10px; border:1px solid var(--ring);
+background:transparent;
+color:var(--text);              /* default = white */
+}
+.songFav.is-on{                   /* favorited = yellow */
+color:var(--warn);
+}
+
+
+/* Pulse the track briefly when we deep-link to it */
+@keyframes pulseTrack {
+0%   { box-shadow:0 0 0 2px rgba(255,213,74,.45) inset }
+100% { box-shadow:0 0 0 0   rgba(255,213,74,0) inset }
+}
+.track.pulse { animation: pulseTrack .9s ease-out 2; }
+
+
+/* Show meta */
+.showMeta{display:flex; gap:8px; flex-wrap:wrap; align-items:center; padding:6px 12px 8px}
+.showTitle{font-weight:600; margin-right:6px}
+.showMeta .end{margin-left:auto; display:flex; align-items:center}
+.stars{display:inline-flex; align-items:center; gap:4px}
+
+/* Player (bottom) */
+.player{
+position:fixed; left:0; right:0; bottom:0;
+background:var(--panel);
+border-top:1px solid var(--ring);
+box-shadow:0 -1px 0 #000 inset, 0 -6px 24px rgba(0,0,0,.35);
+padding:10px 12px calc(10px + env(safe-area-inset-bottom));
+z-index:9;
+}
+/* ===== Player controls: grid layout so seek never overlaps volume ===== */
+.player .controls{
+display:grid;
+/* eq | prev | play | next | seek | volume */
+grid-template-columns: auto auto auto auto 1fr auto;
+align-items:center;
+gap:8px;
+max-width:1000px;
+margin:0 auto;
+}
+
+.player .btn{ min-width:42px; min-height:42px; border-radius:12px }
+
+/* keep seek inside its own grid cell; allow it to shrink safely */
+.seekWrap{
+display:flex;
+align-items:center;
+gap:10px;
+min-width:0;   /* lets the range actually shrink on narrow screens */
+flex:unset;    /* don’t grow inside grid */
+margin-right:0;/* no manual gutter needed with grid */
+}
+
+#P_times{ font-size:12px; color:var(--muted); white-space:nowrap }
+
+#P_seek{
+flex:1;
+width:100%;
+height:6px;
+border:none;
+outline:none;
+border-radius:999px;
+background:#2a2b2f;
+-webkit-appearance:none;
+appearance:none;
+}
+
+/* make sure the volume area holds its column width */
+.volWrap{ min-width:42px }
+
+
+#P_seek::-webkit-slider-thumb{ -webkit-appearance:none; appearance:none; width:14px; height:14px; border-radius:50%; background:#7bdcaa; border:none;}
+#P_seek::-moz-range-thumb{ width:14px; height:14px; border-radius:50%; background:#7bdcaa; border:none;}
+
+/* Equalizer Now Playing */
+.eqBtn{ width:42px; height:42px; border-radius:12px; border:1px solid var(--ring); background:var(--btn); display:flex; align-items:center; justify-content:center; cursor:pointer }
+.eqBars{ display:inline-flex; align-items:flex-end; gap:3px; width:18px; height:16px }
+.eqBars span{ width:4px; background:#7bdcaa; border-radius:2px; animation:eq 1.1s infinite ease-in-out; transform-origin:bottom }
+.eqBars span:nth-child(1){ animation-delay:0s }
+.eqBars span:nth-child(2){ animation-delay:.15s }
+.eqBars span:nth-child(3){ animation-delay:.3s }
+@keyframes eq { 0%,100%{height:20%} 25%{height:80%} 50%{height:40%} 75%{height:70%} }
+.eqBars.paused span{ animation-play-state:paused; opacity:.6; }
+
+/* Volume popover */
+.volWrap{position:relative}
+.volPop{
+position:fixed; left:50%; transform:translateX(-50%); bottom:72px;
+background:var(--panel); border:1px solid var(--ring); border-radius:12px;
+padding:10px 12px; box-shadow:0 8px 24px rgba(0,0,0,.45); display:none;
+width:260px; max-width:90vw; z-index:40;
+}
+.volPop.open{display:block}
+.volRow{display:flex; align-items:center; gap:10px}
+#P_vol{flex:1; height:6px; border:none; border-radius:999px; background:#2a2b2f; -webkit-appearance:none; appearance:none;}
+#P_vol::-webkit-slider-thumb{ -webkit-appearance:none; appearance:none; width:14px; height:14px; border-radius:50%; background:#7bdcaa; border:none;}
+#P_vol::-moz-range-thumb{ width:14px; height:14px; border-radius:50%; background:#7bdcaa; border:none;}
+
+/* Drawer (left slide-out) */
+.drawerBack{position:fixed; inset:0; background:rgba(0,0,0,.5); display:none; z-index:11}
+.drawerBack.open{display:block}
+.drawer{
+position:fixed; top:0; left:0; bottom:0; width:280px; max-width:85vw;
+background:var(--panel); border-right:1px solid var(--ring); box-shadow: 8px 0 24px rgba(0,0,0,.4);
+transform:translateX(-100%); transition:transform .25s ease; z-index:12; display:flex; flex-direction:column;
+}
+.drawer.open{transform:translateX(0)}
+.drawerHeader{display:flex; align-items:center; justify-content:space-between; gap:8px; padding:12px; border-bottom:1px solid var(--ring)}
+.drawerClose{min-width:36px; min-height:32px; border-radius:8px; border:1px solid var(--ring); background:var(--btn); cursor:pointer}
+.drawerBody{padding:8px 8px 12px; overflow:auto}
+.menuGroup{margin:8px 0 10px}
+.menuTitle{font-size:12px; color:var(--muted); margin:6px 8px}
+.menuItem{display:flex; align-items:center; gap:8px; padding:10px; border-radius:10px; cursor:pointer}
+.menuItem:hover{background:#202124}
+.menuItem .icon{width:18px; text-align:center}
+/* Indent submenu items under Favorites */
+.menuItem.sub{ padding-left:28px; }
+
+/* Page actions row for favorites lists */
+.pageActions{display:flex; gap:8px; padding:8px 12px; align-items:center}
+/* Keep text white in Favorites lists; only star buttons stay yellow via .is-on */
+.card.fav .title { color: var(--text) !important; }
+.card.fav .title {
+  color: var(--text) !important;
+  /* ↓ match Favorites → Songs (tname is 13px) */
+  font-size: 13px;
+  font-weight: 600;
+}
+.card.fav .btn:not(.is-on) {
+color: var(--text);
+border-color: var(--ring);
+background: var(--btn);
+}
+.card.fav a { color: var(--text); }
+
+/* Favorites → Songs: two-line layout (compact + single-line enforcement) */
+.track.favsong{ display:block; padding:10px 12px }
+
+.track.favsong .line1{
+display:flex; align-items:center; gap:10px; flex-wrap:nowrap;
+  min-width:0;                /* allow row to shrink */
+}
+.track.favsong .line1 .tleft{
+display:flex; align-items:center; gap:10px; min-width:0; flex:1 1 auto;
+}
+.track.favsong .line1 .tnum{ flex:0 0 auto; color:var(--muted) }
+.track.favsong .line1 .tname{
+flex:1 1 auto; min-width:0;
+  white-space:nowrap; overflow:hidden; text-overflow:ellipsis;  /* song title shrinks first */
+  white-space:nowrap; overflow:hidden; text-overflow:ellipsis; /* song title shrinks first */
+}
+
+/* band pill must not push the row wider than viewport */
+.track.favsong .line1 .bandpill{
+  flex:0 1 auto;                    /* allow shrink */
+  max-width:45vw;                   /* cap width on phones */
+  overflow:hidden; text-overflow:ellipsis; white-space:nowrap;
+}
+.track.favsong .line1 .bandpill{ flex:0 0 auto; white-space:nowrap } /* band stays whole */
+
+.track.favsong .line2{
+display:flex; gap:8px; flex-wrap:nowrap; margin-top:6px; margin-left:42px;
+  min-width:0;                      /* allow row to shrink */
+}
+.track.favsong .line2 .locpill{
+flex:1 1 auto; min-width:0;
+  white-space:nowrap; overflow:hidden; text-overflow:ellipsis;  /* location ellipsizes */
+  white-space:nowrap; overflow:hidden; text-overflow:ellipsis; /* location ellipsizes */
+}
+.track.favsong .line2 .datepill{ flex:0 0 auto; white-space:nowrap } /* date stays whole */
+
+.track.favsong .pill-sm{ padding:3px 8px } /* a touch tighter for this view */
+
+/* never create horizontal scroll from these containers */
+.wrap, #content, .tracks, .grid { overflow-x: clip; } /* (falls back to hidden where clip unsupported) */
+
+
+/* START This is fix for Recently Played overflowing to the right. ----------------------------- */
+
+/* Global: make width calculations sane everywhere */
+*, *::before, *::after { box-sizing: border-box; }
+
+/* Recently Played (and other track lists): never exceed the viewport */
+.tracks,
+.track,
+.track > * { min-width: 0; max-width: 100%; }
+
+/* Favorited/Recent song rows are flex blocks — clip any accidental spill */
+.track.favsong { overflow: hidden; }
+
+/* Line 1: allow the title column to shrink; keep pills from forcing overflow */
+.track.favsong .line1 { min-width: 0; }
+.track.favsong .line1 .tleft { min-width: 0; flex: 1 1 auto; }
+.track.favsong .line1 .tname { min-width: 0; flex: 1 1 auto; }
+
+/* Band pill: cap width so it can’t push the row wider than the screen */
+.track.favsong .line1 .bandpill { max-width: 40vw; }
+
+/* Line 2: ensure the location pill can shrink and ellipsize inside the row */
+.track.favsong .line2 { min-width: 0; }
+.track.favsong .line2 .locpill { min-width: 0; flex: 1 1 auto; }
+
+/* END This is fix for Recently Played overflowing to the right. ----------------------------- */
+
+  
+/* --- Recently Played overflow + sticky player fixes --- */
+:root { --playerH: 96px; }            /* fallback player height */
+
+html, body { overflow-x: hidden; }    /* kill horizontal scroll globally */
+/* EL5: let card content shrink so it never pushes off-screen */
+.card > *{ min-width:0; }            /* allow children to shrink */
+.card > :first-child{ flex:1 1 auto; }/* text column grows/shrinks */
+.card > :last-child{  flex:0 0 auto; }/* button column stays tight */
+
+/* Concert titles: wrap to 2 lines, then clip */
+.card h3,
+.card .title{
+  white-space: normal;
+  overflow: hidden;
+  display: -webkit-box;
+  -webkit-line-clamp: 2;          /* show up to 2 lines */
+  -webkit-box-orient: vertical;
+  line-height: 1.3;
+  max-height: calc(1.3em * 2);    /* safety for non-webkit */
+}
+
+
+/* Extra safety: rows inside cards can wrap and also shrink */
+.card .row{ min-width:0; flex-wrap:wrap; }
+
+/* Already helpful globally, but ensure no x-scroll */
+html, body{ overflow-x:hidden; }
+
+/* Make list rows shrink correctly and ellipsize long text */
+.trackRow, .songRow, .listItem, .row {
+display: flex;
+align-items: center;
+gap: 10px;
+min-width: 0;                       /* allow shrinking */
+}
+
+/* Every direct child can shrink */
+.trackRow > *, .songRow > *, .listItem > *, .row > * {
+min-width: 0;
+}
+
+/* The main text column grows and truncates with ellipsis */
+.titleWrap, .title, .mainCol, .midCol, .row .title {
+flex: 1 1 auto;
+min-width: 0;
+overflow: hidden;
+text-overflow: ellipsis;
+white-space: nowrap;
+}
+
+/* The right-side meta stays visible but never pushes layout off screen */
+.metaRight, .rightCol, .row .right {
+flex: 0 0 auto;
+max-width: 40vw;                    /* keep it compact on phones */
+overflow: hidden;
+text-overflow: ellipsis;
+white-space: nowrap;
+}
+
+/* Cards: let left column shrink, right column stay tight (prevents overflow) */
+.card > *{ min-width:0; }
+.card > :first-child{ flex:1 1 auto; }
+.card > :last-child{  flex:0 0 auto; }
+
+/* Card titles: allow wrapping (pairs with the 2-line clamp above) */
+.card h3{
+  margin:0 0 6px 0;
+  font-size:15px;
+  line-height:1.3;      /* match clamp calc */
+  white-space:normal;   /* remove nowrap */
+  overflow:visible;     /* no forced ellipsis */
+}
+
+
+/* Pin the player; content leaves room for it */
+#P_bar, #playerBar, .playerBar {
+position: fixed;
+left: 0; right: 0; bottom: 0;
+z-index: 1000;
+}
+
+/* Ensure scroll areas don’t hide behind the player */
+main, #app, .content, .scrollArea, .routeView {
+padding-bottom: var(--playerH);
+}
+
+/* — Consistent yellow-star look across the app — */
+.btn.ghost.is-on,
+.favToggle.is-on,
+.songFav.is-on,
+.pillBtn.is-on,
+#favBandBtn.fav {
+  color: var(--warn) !important;         /* yellow star */
+  border-color: #4a3b0a !important;      /* warm yellow-brown border */
+  background: #1c1a12 !important;        /* subtle dark gold bg */
+}
+
+/* Optional: tighter hit area + consistent size for star buttons */
+.favToggle,
+.songFav {
+  min-width: 36px;
+  min-height: 32px;
+  line-height: 1;
+}
+
+/* Hover/focus feel without changing the brand color */
+.favToggle.is-on:hover,
+.songFav.is-on:hover,
+.pillBtn.is-on:hover,
+#favBandBtn.fav:hover {
+  filter: brightness(1.08);
+}
+
+.favToggle:focus-visible,
+.songFav:focus-visible,
+.pillBtn:focus-visible,
+#favBandBtn:focus-visible {
+  outline: 2px solid var(--warn);
+  outline-offset: 2px;
+  border-radius: 10px; /* matches your buttons */
+}
+
+/* Make sure label-style stars (like Show header) don’t wrap */
+#favShowBtn.pillBtn { white-space: nowrap; }
+
+/* ===== On This Day — Favorite Bands dropdown sizing ===== */
+#otdFilterBar { overflow: visible; }
+
+#otdBandDrop { 
+  position: relative; 
+  overflow: visible;          /* let the menu extend outside the pill */
+}
+
+#otdBandDrop .menu{
+  position: absolute;
+  top: 100%;
+  left: 0;
+  min-width: 340px;           /* wider to fit long names */
+  width: max-content;         /* grow to content if needed */
+  max-width: min(520px, 92vw);
+  max-height: 360px;
+  overflow: auto;
+  white-space: normal;        /* wrap long names */
+  z-index: 50;                /* above cards */
+}
+
+/* Now Playing EQ — pause animation reliably (mobile fix) */
+#P_now .eqBars span { 
+  /* your existing animation is fine; we just ensure play state is explicit */
+  animation-play-state: running;
+}
+#P_now .eqBars.paused span {
+  animation-play-state: paused !important;
+}
+
+/* --- Help page + general card text defaults --- */
+.card h2 {
+  margin: 0 0 8px;
+  font-size: 15px;
+  font-weight: 700;
+}
+.card p {
+  margin: 6px 0 10px;
+  line-height: 1.45;
+}
+.card ul {
+  /* your reset likely nuked default spacing; restore it nicely */
+  margin: 6px 0 0 18px;
+  padding: 0;
+  list-style: disc;
+}
+.card li { margin: 6px 0; }
+.card kbd {
+  font: 12px/1.1 ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace;
+  padding: 2px 6px;
+  border-radius: 6px;
+  background: var(--bg2, #121214);
+  border: 1px solid var(--ring, #2a2a2f);
+}
+
+/* Help-only small pills/icons (scoped) */
+#content.doc .card .icon { display:inline-block; width: 1.25em; text-align:center; }
+#content.doc .pill { display:inline-block; padding: 2px 8px; border-radius: 999px; background: var(--bg2, #121214); border: 1px solid var(--ring, #2a2a2f); }
+#content.doc .pill-sm { padding: 1px 6px; font-size: 12px; }
+
+/* ============= HELP PAGE TYPOGRAPHY LAYOUT ============= */
+#content.doc{
+  display:block;
+  max-width: 760px;                /* comfortable reading width */
+  margin: 0 auto;
+  padding: 14px 14px calc(var(--playerH, 96px) + 18px);
+  font-size: 13.5px;               /* ~+0.5 step */
+  line-height: 1.5;
+}
+
+/* Cards on Help should be regular blocks, not the flex/tile style */
+#content.doc .card{
+  display:block;
+  padding: 14px 16px;              /* a touch more breathing room */
+  margin: 12px 0;
+  border-radius: 14px;
+}
+
+/* Headings, paragraphs, lists restored for readable text */
+#content.doc .card h2{
+  margin: 0 0 8px;
+  font-size: 15.5px;               /* slight bump on headings too */
+  line-height: 1.25;
+  font-weight: 700;
+}
+#content.doc .card p{
+  margin: 6px 0 10px;
+  line-height: 1.5;
+  white-space: normal;             /* avoid any inherited nowrap */
+}
+#content.doc .card ul{
+  list-style: disc;
+  margin: 6px 0 0 18px;            /* restore bullets and indent */
+  padding: 0;
+}
+#content.doc .card li{ margin: 6px 0; }
+
+/* Inline bits that appear in Help */
+#content.doc .card kbd{
+  font: 12px/1.1 ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace;
+  padding: 2px 6px;
+  border-radius: 6px;
+  background: var(--bg2, #121214);
+  border: 1px solid var(--ring, #2a2a2f);
+}
+
+/* Help-only small pills/icons (scoped) */
+#content.doc .icon { display:inline-block; width: 1.25em; text-align:center; }
+#content.doc .pill { display:inline-block; padding: 2px 8px; border-radius: 999px; background: var(--bg2, #121214); border: 1px solid var(--ring, #2a2a2f); }
+#content.doc .pill-sm { padding: 1px 6px; font-size: 12px; }
+
+
+/* Keep the player truly fixed + above content */
+.player{
+  position: fixed;
+  left: 0; right: 0; bottom: 0;
+  z-index: 1000;
+}
+
+/* Also give the page wrapper a safety bottom pad everywhere */
+.wrap{ padding-bottom: max(var(--playerH, 96px), 96px); }
+
+/* Network / status banner — smooth + less noisy */
+#statusBanner{
+  position: sticky;
+  top: 0;
+  z-index: 9999;
+  padding: 10px 12px;
+  font-size: 14px;
+  line-height: 1.2;
+  text-align: center;
+  border-bottom: 1px solid transparent;
+  transition: transform .18s ease, opacity .18s ease;
+  will-change: transform, opacity;
+}
+
+/* Keep layout steady; slide it out instead of removing */
+#statusBanner[hidden]{
+  display: block !important;
+  opacity: 0;
+  transform: translateY(-100%);
+  pointer-events: none;
+}
+
+/* Themes: override the inline yellow when not a true warning */
+#statusBanner[data-kind="warn"]{
+  background: #fff3cd !important;
+  color: #664d03 !important;
+  border-bottom-color: #ffe69c !important;
+}
+#statusBanner[data-kind="info"]{
+  background: #e8f0fe !important;
+  color: #09357b !important;
+  border-bottom-color: #c6daf7 !important;
+}
+#statusBanner[data-kind="error"]{
+  background: #fdecea !important;
+  color: #611a15 !important;
+  border-bottom-color: #f5c6cb !important;
+}
+
+/* Button look that works across themes */
+#statusBanner button{
+  margin-left: 8px;
+  padding: 4px 8px;
+  border: 1px solid rgba(0,0,0,.2);
+  background: rgba(255,255,255,.55);
+  border-radius: 6px;
+  cursor: pointer;
+}
