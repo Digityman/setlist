@@ -690,36 +690,36 @@ let q='collection:(etree) AND mediatype:(collection)';
 if(term) q+=` AND (title:(${term}) OR identifier:(${term}))`;
 
 const load = async ()=>{
-try{
-// Map UI sort ("downloads desc") → API sort ("downloads:desc")
-// v1 likes title.raw for alpha sorts
-function mapSortForV1(s = 'downloads desc') {
-const [field, dir = 'desc'] = s.split(/\s+/);
-// v1 uses `titleSorter` for alpha sorts
-const f = field === 'title' ? 'titleSorter' : field;
-const d = dir.toLowerCase();
-return `${f} ${d}`; // NOTE: space, not colon
-}
+  let url = ''; // <-- hoisted so catch can see it
+  try{
+    // Map UI sort ("downloads desc") → API sort ("downloads:desc")
+    // v1 likes title.raw for alpha sorts
+    function mapSortForV1(s = 'downloads desc') {
+      const [field, dir = 'desc'] = s.split(/\s+/);
+      // v1 uses `titleSorter` for alpha sorts
+      const f = field === 'title' ? 'titleSorter' : field;
+      const d = dir.toLowerCase();
+      return `${f} ${d}`; // NOTE: space, not colon
+    }
 
+    const sortExpr = mapSortForV1(sort);
+    const params = new URLSearchParams({
+      q,
+      fields: 'identifier,title,downloads',
+      sorts: sortExpr,          // <— plural
+      count: '150'
+    });
 
-const sortExpr = mapSortForV1(sort);
-const params = new URLSearchParams({
-q,
-fields: 'identifier,title,downloads',
-sorts: sortExpr,          // <— plural
-count: '150'
-});
+    url = `https://archive.org/services/search/v1/scrape?${params.toString()}`;
+    const cacheKey = `bands:v1:${sortExpr}:${term || ''}`;      
 
-const url = `https://archive.org/services/search/v1/scrape?${params.toString()}`;
-const cacheKey = `bands:v1:${sortExpr}:${term || ''}`;      
-// cache key should depend on sort + term to avoid stale mismatches
-// ✨ use the resilient fetch with cache
-const { data, stale } = await iaFetchJSON(url, {
-cacheKey,
-retries: 2,
-timeoutMs: 15000
-});
-
+    // ✨ use the resilient fetch with cache
+    const { data, stale } = await iaFetchJSON(url, {
+      cacheKey,
+      retries: 2,
+      timeoutMs: 15000
+    });
+   
 // v1 returns { items: [...] }
 let items = (data.items || []).map(d => ({
   id: d.identifier,
