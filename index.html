@@ -276,8 +276,6 @@ function setHeader(routeName, crumbOverride=null){
   $('#subHeader').classList.toggle('show', routeName==='band');
 }
 
-
-
 // old helper — keep if you still use fetchJSON() anywhere
 async function fetchWithTimeoutLegacy(url, {timeout=12000}={}){
 const ctrl = new AbortController();
@@ -291,7 +289,6 @@ return res;
 }
 // and update this right below it:
 async function fetchJSON(url){ const r = await fetchWithTimeoutLegacy(url); return r.json(); }
-
 
 /* ------------ JSONP helper (defensive) ------------ */
 function fetchJSONP(url, {timeout=8000}={}) {
@@ -323,7 +320,6 @@ document.head.appendChild(s);
 });
 }
 
-
 /* ------------ Hybrid IA fetch: JSONP for advancedsearch, fetch for others ------------ */
 async function fetchIA(url){
   // Old endpoint has no CORS — use JSONP directly to avoid console errors
@@ -343,12 +339,14 @@ async function fetchIA(url){
   }
 }
 
-
 /* ------------ IA helpers ------------ */
 // === Archive API fetch with timeout + retries + outage detection ===
 const IA_STATUS = { failCount: 0, circuitUntil: 0, lastError: '' };
 
 function showStatus(msg, kind='warn') {
+  // downgrade super generic messages to 'info' to reduce alarm
+  if (/offline|cached|retry/i.test(msg)) kind = (kind === 'warn' ? 'info' : kind);
+
 const el = document.getElementById('statusBanner');
 const msgEl = document.getElementById('statusMsg');
 if (!el || !msgEl) return;
@@ -410,31 +408,59 @@ async function iaFetchJSON(url, { cacheKey, retries=2, timeoutMs=15000 } = {}) {
       if (cacheKey) setCache(cacheKey, data);
       return { data, stale: false };
     } catch (err) {
-      attempt++;
-      IA_STATUS.failCount++; IA_STATUS.lastError = String(err);
-      if (attempt > retries) {
-        if (IA_STATUS.failCount >= 3) {
-          openCircuit(); // 5 minutes
-          showStatus('Archive.org seems unreachable. We’ll retry shortly. You can keep browsing cached items.', 'warn');
-        } else if (!navigator.onLine) {
-          showStatus('You appear to be offline. Reconnect and try again.', 'warn');
-        } else {
-          showStatus('Trouble reaching Archive.org. Retrying…', 'warn');
-        }
-        const cached = cacheKey ? getCache(cacheKey) : null;
-        if (cached) return { data: cached, stale: true };
-        throw err;
+  attempt++;
+  const name = (err && err.name) || '';
+  const msg  = String(err || '');
+
+  // Ignore harmless aborts (tab hidden, nav away) and short timeouts
+  const isHarmless =
+    name === 'AbortError' ||
+    /The user aborted a request/i.test(msg) ||
+    /NetworkError when attempting to fetch resource/i.test(msg);
+
+  if (!isHarmless) {
+    IA_STATUS.failCount++;
+    IA_STATUS.lastError = msg;
+  }
+
+  if (attempt > retries) {
+    if (!navigator.onLine) {
+      showStatus('You appear to be offline. Reconnect and try again.', 'warn');
+    } else if (!isHarmless) {
+      if (IA_STATUS.failCount >= 3) {
+        openCircuit(); // 5 minutes cool-down
+        showStatus('Archive.org seems unreachable. We’ll use cached results when possible.', 'warn');
+      } else {
+        showStatus('Trouble reaching Archive.org. Retrying…', 'warn');
       }
-      await new Promise(r=>setTimeout(r, 500 * attempt)); // backoff
     }
+    const cached = cacheKey ? getCache(cacheKey) : null;
+    if (cached) return { data: cached, stale: true };
+    throw err;
+  }
+  await new Promise(r => setTimeout(r, 500 * attempt)); // backoff
+}
   }
 }
 
+// Debounced online/offline (avoid transient mobile blips)
+{
+  let _netTimer = null;
+  const _debounce = (fn, ms=1500) => (...a) => {
+    if (_netTimer) clearTimeout(_netTimer);
+    _netTimer = setTimeout(()=> fn(...a), ms);
+  };
 
-// Nice-to-have: react to browser online/offline
-window.addEventListener('offline', ()=> showStatus('You are offline. Some features won’t work.', 'warn'));
-window.addEventListener('online',  ()=> { hideStatus(); IA_STATUS.failCount = 0; IA_STATUS.circuitUntil = 0; });
+  window.addEventListener('offline', _debounce(() => {
+    showStatus('You are offline. Some features may be limited.', 'warn');
+  }, 1500));
 
+  window.addEventListener('online', _debounce(() => {
+    hideStatus();
+    IA_STATUS.failCount = 0;
+    IA_STATUS.circuitUntil = 0;
+  }, 800));
+}
 
 const IA = {
 bandsUrl({ q='collection:(etree) AND mediatype:(collection)', sort='downloads desc', rows=120 }={}){
@@ -685,7 +711,6 @@ retries: 2,
 timeoutMs: 15000
 });
 
-
 // v1 returns { items: [...] }
 let items = (data.items || []).map(d => ({
   id: d.identifier,
@@ -718,19 +743,15 @@ content.onclick = ev => {
   location.hash = '#/band/' + encodeURIComponent(tile.dataset.id);
 };
 
-
- 
 }catch(e){
 console.error('bands load failed:', e, { url });
 const msg = navigator.onLine ? 'Network error while loading bands.' : 'You appear to be offline.';
 showRetry(content, msg, load);
 }
 
-
 };
 load();
 }
-
 
 /* ------------ Concerts page ------------ */
 let currentBandId=''; 
@@ -909,8 +930,6 @@ async function buildYearCounts(bandId){
   store.set('years_' + bandId, { ts: Date.now(), years: yearsArr });
 }
 
-
-
 function updateYearMenu(counts){
 const yearsArr = Object.keys(counts)
 .map(y=>({year:Number(y), count:counts[y]}))
@@ -1055,7 +1074,6 @@ if (favBtn){
   return;
 }
 
-
 const card = ev.target.closest('.card.tap');
 if (card) {
 // remember the origin so the Show header can offer “← Concerts”
@@ -1140,7 +1158,6 @@ if (card){
   location.hash = '#/show/' + encodeURIComponent(card.dataset.id);
 }
 };
-
 
 }
 
@@ -1251,8 +1268,6 @@ setTimeout(() => el.classList.remove('pulse'), 1800);
 }
 }
 }
-
-
 
 content.onclick = ev => {
 const favBtn = ev.target.closest('.songFav');
@@ -1450,7 +1465,6 @@ P.play?.addEventListener('click', ()=>{
   }
 });
 
-
 /* Equalizer animation state */
 const EQ = document.querySelector('#P_now .eqBars');
 function updateEqAnim(){
@@ -1551,7 +1565,6 @@ A.addEventListener('volumechange', () => {
   setVolumeUI(A.volume);
 });
 
- 
 const _S0 = getSettings();
 const savedVol = _S0.rememberVolume ? Number(store.get('volume', 1)) : NaN;
 A.volume = Number.isFinite(savedVol) ? Math.max(0, Math.min(1, savedVol)) : 1;
@@ -1566,7 +1579,6 @@ P_vol.addEventListener('input', ()=>{
   if (S.rememberVolume) store.set('volume', A.volume);
   setVolumeUI(A.volume);
 });
-
 
 /* Seek & time */
 P.seek?.addEventListener('input', ()=>{ if(!A.duration||isNaN(A.duration)) return; A.currentTime=(P.seek.value/1000)*A.duration; });
@@ -1598,7 +1610,6 @@ if (url) store.set('jumpToUrl', url);   // remember the exact track
 location.hash = '#/show/' + encodeURIComponent(id);
 }
 });
-
 
 /* Auto-resume */
 function markHideState(){ store.set('wasPlayingOnHide', !A.paused); }
@@ -1871,8 +1882,6 @@ Router.on('settings', () => {
   });
 });
 
-
- 
 /* ------------ Recently Played page ------------ */  // NEW
 Router.on('recent', () => {
 show($('#toolbar-bands'),false); show($('#toolbar-band'),false); show($('#showMeta'),false);
@@ -2055,7 +2064,6 @@ playIndex(i);
 };
 });
 
-
 Router.on('favorites/concerts', async ()=>{
 show($('#toolbar-bands'),false); show($('#toolbar-band'),false); show($('#showMeta'),false);
 const content=$('#content'); content.className='grid';
@@ -2176,9 +2184,6 @@ content.appendChild(err);
 }
 });
 
-
-
-
 Router.on('favorites/songs', ()=>{
 show($('#toolbar-bands'),false); show($('#toolbar-band'),false); show($('#showMeta'),false);
 const content=$('#content'); content.className='tracks';
@@ -2226,7 +2231,6 @@ listWrap.innerHTML = songs.map((t,i)=>`
  </div>
 `).join('');
 
-
 content.appendChild(listWrap);
 trackEls = Array.from(listWrap.querySelectorAll('.track'));
 // Play All / Shuffle All
@@ -2245,7 +2249,6 @@ trackList       = arr.map(t => ({ url: t.url, title: t.title, length: '' }));
 
 playIndex(0);
 }
-
 
 // Interactions
 listWrap.onclick = (e) => {
@@ -2321,11 +2324,7 @@ trackList       = songs.map(s => ({ url: s.url, title: s.title, length: '' }));
 playIndex(i);
 };
 
-
-
 });
-
-
 
 /* ------------ Playlist route (fav-songs, recent-songs) ------------ */
 
@@ -2704,9 +2703,6 @@ Router.on('onthisday', async () => {
   load();
 });
 
-
-
-
 /* ------------ bands filters ------------ */
 $('#sortSel')?.addEventListener('change', showBands);
 $('#searchBox')?.addEventListener('change', showBands);
@@ -2726,9 +2722,8 @@ location.hash='#/bands';
 showBands();
 });
 
-
-/* ------------ optional SW ------------ */
-if('serviceWorker' in navigator){ navigator.serviceWorker.register('sw.js').catch(()=>{}); }
+/* ------------ optional SW (disabled to avoid extra reconnect toasts) ------------ */
+// if('serviceWorker' in navigator){ navigator.serviceWorker.register('sw.js').catch(()=>{}); }
 
 /* Init eq state once DOM is ready */
 document.addEventListener('DOMContentLoaded', updateEqAnim);
