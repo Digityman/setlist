@@ -162,6 +162,15 @@ document.getElementById('statusRetryBtn')?.addEventListener('click', ()=> locati
 
 <script>
 /* ------------ utils/store ------------ */
+
+// --- Phish.in merge hook (no UI changes) ---
+// If you already define window.mergeConcert elsewhere, this won't overwrite it.
+window.mergeConcert = window.mergeConcert || function (concert) {
+  // stash for future use; no rendering here
+  window._phishBuffer ??= [];
+  window._phishBuffer.push(concert);
+};
+
 const $ = s => document.querySelector(s);
 const $$ = s => Array.from(document.querySelectorAll(s));
 const fmtTime = secs => { secs = Math.max(0, Math.floor(secs||0)); const m=Math.floor(secs/60), s=secs%60; return m+":"+String(s).padStart(2,"0"); };
@@ -2755,5 +2764,16 @@ setTimeout(setPlayerHeightPadding, 0);
 })();
 </script>
 
+<script type="module">
+  import { initPhishIn } from './services/phishin.js';
+
+  // quietly prefetch a few years; nothing in the UI changes
+  initPhishIn({
+    years: [1993, 1994, 1995, 1996, 1997, 1998, 1999, 2000, 2001, 2002, 2003, 2004, 2005, 2006, 2007, 2008, 2009, 2010, 2011, 2012],
+    mergeFn: window.mergeConcert
+  }).catch(console.warn);
+</script>
+
+ 
 </body>
 </html>
