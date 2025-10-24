@@ -351,6 +351,20 @@ async function fetchIA(url){
 /* ------------ IA helpers ------------ */
 // === Archive API fetch with timeout + retries + outage detection ===
 const IA_STATUS = { failCount: 0, circuitUntil: 0, lastError: '' };
+// --- simple circuit breaker helpers ---
+// Uses IA_STATUS.circuitUntil (ms since epoch)
+function circuitOpen() {
+  // circuitUntil = timestamp until which we should avoid live requests
+  return Boolean(IA_STATUS.circuitUntil && Date.now() < IA_STATUS.circuitUntil);
+}
+function openCircuit(ms = 5 * 60 * 1000) { // default 5 minutes
+  IA_STATUS.circuitUntil = Date.now() + Number(ms || 0);
+  IA_STATUS.lastError = IA_STATUS.lastError || 'circuit opened';
+}
+function closeCircuit() {
+  IA_STATUS.circuitUntil = 0;
+  IA_STATUS.lastError = '';
+}
 
 function showStatus(msg, kind='warn') {
   // downgrade super generic messages to 'info' to reduce alarm
