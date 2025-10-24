@@ -809,7 +809,8 @@ async function buildYearCounts(bandId){
       let page = 1, seen = 0, numFound = Infinity;
       while (seen < numFound && page <= 6) { // cap to be nice
         const url = IA.yearsOnlyUrl({ bandId, rows: perPage, page });
-        const { data } = await iaFetchJSON(url, {
+        //const { data } = await iaFetchJSON(url, {
+       const data = await fetchIA(url);  // ← hybrid: tries fetch, then JSONP
           cacheKey: `yearsOnly:${bandId}:p${page}`,
           retries: 1,
           timeoutMs: 15000
