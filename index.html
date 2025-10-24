@@ -810,12 +810,8 @@ async function buildYearCounts(bandId){
       while (seen < numFound && page <= 6) { // cap to be nice
         const url = IA.yearsOnlyUrl({ bandId, rows: perPage, page });
         //const { data } = await iaFetchJSON(url, {
-       const data = await fetchIA(url);  // ← hybrid: tries fetch, then JSONP
-          cacheKey: `yearsOnly:${bandId}:p${page}`,
-          retries: 1,
-          timeoutMs: 15000
-        });
-        const resp = data?.response || {};
+      const data = await fetchIA(url);   // returns the JSON directly
+      const resp = data?.response || {};
         numFound = Number(resp.numFound || 0);
         const docs = resp.docs || [];
         for (const d of docs) {
