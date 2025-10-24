@@ -1,0 +1,2759 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8"/>
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover"/>
+<title>Setlist Streamer</title>
+
+<!-- PWA + Icons -->
+<link rel="manifest" href="manifest.json?v=3">
+<meta name="theme-color" content="#0f0f10">
+<link rel="icon" href="icons/logo-32.png?v=3" sizes="32x32" type="image/png">
+<link rel="icon" href="icons/logo-192.png?v=3" sizes="192x192" type="image/png">
+<link rel="apple-touch-icon" href="icons/logo-180.png?v=3" sizes="180x180">
+<link rel="shortcut icon" href="icons/logo-32.png?v=3" type="image/png">
+<link rel="preconnect" href="https://archive.org">
+<link rel="stylesheet" href="styles.css?v=1">
+</head>
+<body>
+<div id="statusBanner" hidden data-kind="warn" style="
+ position:sticky; top:0; z-index:9999; padding:10px 12px;
+ font-size:14px; line-height:1.2; text-align:center;
+ background:#fff3cd; color:#664d03; border-bottom:1px solid #ffe69c;
+">
+<span id="statusMsg"></span>
+<button id="statusRetryBtn" style="margin-left:8px; padding:4px 8px; border:1px solid #d3a500; background:#ffec99; border-radius:6px; cursor:pointer">
+Try again
+</button>
+</div>
+<script>
+// optional: wire the button to refresh current view
+document.getElementById('statusRetryBtn')?.addEventListener('click', ()=> location.reload());
+</script>
+
+<div class="wrap">
+<!-- Header -->
+<header>
+<div class="headLeft">
+<button id="hamburger" class="hamburger" title="Menu" aria-label="Open menu"><span></span></button>
+</div>
+<div class="headCenter">
+<div id="pageTitle">Setlist Streamer <span class="crumb">— Bands</span></div>
+</div>
+<div class="headRight">
+<div id="headerActions" class="headerActions"></div>
+</div>
+</header>
+
+<!-- Centered band name row (only on concerts route) -->
+<div id="subHeader" class="subHeader">
+<span id="bandName"></span>
+<button id="favBandBtn" class="pillBtn" title="Favorite band">☆</button>
+</div>
+
+<!-- Drawer -->
+<div id="drawerBack" class="drawerBack"></div>
+<aside id="drawer" class="drawer" aria-label="Main menu">
+<div class="drawerHeader">
+<strong>Menu</strong>
+<button id="drawerClose" class="drawerClose" title="Close">✕</button>
+</div>
+<div class="drawerBody">
+<div class="menuGroup">
+  <div class="menuItem" data-nav="#/bands"><span class="icon">🏠</span> <span>Home</span></div>
+  <div class="menuItem" data-nav="#/favorites"><span class="icon">⭐</span> <span>Favorites</span></div>
+  <div class="menuItem sub" data-nav="#/favorites/bands"><span class="icon">🎤</span> <span>Bands</span></div>
+  <div class="menuItem sub" data-nav="#/favorites/concerts"><span class="icon">🎫</span> <span>Concerts</span></div>
+  <div class="menuItem sub" data-nav="#/favorites/songs"><span class="icon">🎵</span> <span>Songs</span></div>
+  <div class="menuItem" data-nav="#/recent"><span class="icon">🕒</span> <span>Recently Played</span></div>
+  <div class="menuItem" data-nav="#/onthisday"><span class="icon">🎟️</span> <span>This Day in History</span></div>
+</div>
+
+<div class="menuGroup">
+<div class="menuTitle">Other</div>
+<div class="menuItem" data-nav="#/settings"><span class="icon">🔧</span> <span>Settings</span></div>
+
+<div class="menuItem" data-nav="#/help"><span class="icon">❓</span> <span>Help</span></div>
+</div>
+</div>
+</aside>
+
+<!-- Bands toolbar -->
+<div class="toolbar" id="toolbar-bands">
+<div class="pill"><select id="sortSel" aria-label="Sort">
+<option value="downloads desc" selected>Views ↓</option>
+<option value="downloads asc">Views ↑</option>
+<option value="title asc">Title A→Z</option>
+<option value="title desc">Title Z→A</option>
+</select></div>
+<div class="pill" style="flex:1 1 160px;"><input id="searchBox" type="search" placeholder="e.g., Grateful Dead, bluegrass" style="width:100%"></div>
+<button id="favToggle" class="btn">☆ Favorites</button>
+<button id="resetBtn" class="btn ghost muted">Reset</button>
+</div>
+
+<!-- Concerts toolbar -->
+<div class="toolbar" id="toolbar-band" style="display:none;">
+<div class="pill dropdown" id="sortDrop" aria-label="Sort">
+<button class="dropBtn" id="sortBtn">Sort</button>
+<div class="menu" id="sortMenu" role="listbox" aria-label="Sort options">
+<div class="item" data-value="auto">Auto</div>
+<div class="item" data-value="date asc">Date ↑</div>
+<div class="item" data-value="date desc">Date ↓</div>
+<div class="item" data-value="avg_rating desc">Reviews ↓</div>
+<div class="item" data-value="downloads desc">Views ↓</div>
+</div>
+</div>
+
+<div class="pill dropdown" id="yearDrop" aria-label="Year">
+<button class="dropBtn" id="yearBtn">All years</button>
+<div class="menu" id="yearMenu" role="listbox" aria-label="Year options">
+<div class="item muted">Loading years…</div>
+</div>
+</div>
+
+<div class="pill" style="flex:1 1 160px;"><input id="concertSearch" type="search" placeholder="Filter (venue/city/title)" style="width:100%"></div>
+
+<button id="favConcertsToggle" class="btn" title="Show only favorites">☆ Favorites</button>
+<button id="resetConcerts" class="btn ghost muted">Reset</button>
+</div>
+
+<!-- Show header metadata -->
+<div id="showMeta" class="showMeta" style="display:none;">
+<span class="showTitle" id="showTitle"></span>
+<span class="chip" id="showDate" style="display:none;"></span>
+<span class="chip" id="showLoc"  style="display:none;"></span>
+<div class="end">
+<button class="pillBtn" id="favShowBtn" title="Favorite">☆ Favorite</button>
+</div>
+</div>
+
+<!-- Dynamic content -->
+<div id="content" class="grid" aria-live="polite"></div>
+</div>
+
+<!-- Fixed Player -->
+<div class="player" id="player">
+<div class="controls">
+<button id="P_now" class="eqBtn" title="Go to currently playing">
+<span class="eqBars" aria-hidden="true"><span style="height:60%"></span><span style="height:30%"></span><span style="height:45%"></span></span>
+</button>
+<button id="P_prev" class="btn" title="Previous">⏮</button>
+<button id="P_play" class="btn" title="Play/Pause">▶️</button>
+<button id="P_next" class="btn" title="Next">⏭</button>
+
+<div class="seekWrap">
+<div id="P_times"><span class="cur">0:00</span><span class="dur"> / 0:00</span></div>
+<input id="P_seek" type="range" min="0" max="1000" value="0" step="1" aria-label="Seek">
+</div>
+
+<div class="volWrap">
+<button id="P_mute" class="btn" title="Volume">🔈</button>
+<div id="volPop" class="volPop" role="dialog" aria-label="Volume">
+<div class="volRow">
+<span class="small" style="min-width:36px">Vol</span>
+<input id="P_vol" type="range" min="0" max="1" step="0.01" value="1" aria-label="Volume">
+<span id="volLabel" class="small" style="min-width:32px;text-align:right">100%</span>
+</div>
+</div>
+</div>
+</div>
+<audio id="audio" crossorigin="anonymous"></audio>
+</div>
+
+<script>
+/* ------------ utils/store ------------ */
+const $ = s => document.querySelector(s);
+const $$ = s => Array.from(document.querySelectorAll(s));
+const fmtTime = secs => { secs = Math.max(0, Math.floor(secs||0)); const m=Math.floor(secs/60), s=secs%60; return m+":"+String(s).padStart(2,"0"); };
+const fmtCompact = n => { n=Number(n||0); if(n>=1e9) return (n/1e9).toFixed(1)+'B'; if(n>=1e6) return (n/1e6).toFixed(1)+'M'; if(n>=1e3) return (n/1e3).toFixed(1)+'K'; return String(n); };
+function show(el,on=true){ if(!el) return; el.style.display=on?'':'none'; }
+const store = { get(k,f){ try{return JSON.parse(localStorage.getItem(k))??f;}catch{return f;}}, set(k,v){ localStorage.setItem(k,JSON.stringify(v)); } };
+
+/* ---- Settings helpers (defaults + get/set) ---- */
+const SETTINGS_KEY = 'settings';
+const DEFAULT_SETTINGS = {
+  autoClearRecent: false,           // auto-clear on exit
+  rememberVolume:  true,            // persist volume in localStorage
+  crossfadeSec:    0                // 0, 1, 2 (simulated fade)
+};
+function getSettings(){
+  const s = store.get(SETTINGS_KEY, {});
+  return { ...DEFAULT_SETTINGS, ...(s||{}) };
+}
+function setSettings(patch){
+  const s = getSettings();
+  store.set(SETTINGS_KEY, { ...s, ...(patch||{}) });
+}
+
+/* ------------ drawer ------------ */
+const drawer = $('#drawer'); const drawerBack = $('#drawerBack');
+$('#hamburger').addEventListener('click', ()=>{ drawer.classList.add('open'); drawerBack.classList.add('open'); });
+$('#drawerClose').addEventListener('click', closeDrawer);
+drawerBack.addEventListener('click', closeDrawer);
+function closeDrawer(){ drawer.classList.remove('open'); drawerBack.classList.remove('open'); }
+$$('.drawer .menuItem').forEach(it=>it.addEventListener('click', ()=>{
+const nav=it.getAttribute('data-nav'); if(nav){ location.hash=nav; closeDrawer(); }
+}));
+
+/* ------------ router ------------ */
+const Router = (() => {
+const routes={};
+function on(n,f){routes[n]=f}
+function parse(){ const raw=location.hash.replace(/^#\/?/,''); const [name,...rest]=raw.split('/').filter(Boolean); return {name:name||'bands', params:rest}; }
+function route(){
+const r = parse();
+// allow nested routes like "favorites/bands"
+const key = r.params.length ? (r.name + '/' + r.params.join('/')) : r.name;
+const handler = routes[key] || routes[r.name] || routes['bands'];
+
+// Header crumb override for favorites subpages
+let crumbOverride = null;
+if (key === 'favorites/bands') crumbOverride = '— Favorite Bands';
+else if (key === 'favorites/concerts') crumbOverride = '— Favorite Concerts';
+else if (key === 'favorites/songs') crumbOverride = '— Favorite Songs';
+
+handler(r.params);
+setHeader(r.name, crumbOverride); // header uses top-level route name with optional override
+}
+return {on,route};
+})();
+
+addEventListener('hashchange', Router.route);
+addEventListener('DOMContentLoaded', Router.route);
+
+function setHeader(routeName, crumbOverride=null){
+  const titleEl = $('#pageTitle');
+  const crumbText = crumbOverride ?? (
+    routeName==='band' ? '— Concerts' :
+    routeName==='show' ? '— Tracks'   :
+    routeName==='recent' ? '— Recently Played' :
+    routeName==='onthisday' ? '— This Day' :
+    routeName==='help' ? '— Help' :   
+    (routeName==='fav' || routeName==='favorites' ? '— Favorites' :
+    (routeName==='playlist' ? '— Playlist' : '— Bands'))
+  );
+
+  titleEl.innerHTML = `Setlist Streamer <span class="crumb">${crumbText}</span>`;
+
+  // Right side actions (Back buttons)
+  const actions = $('#headerActions'); actions.innerHTML='';
+
+  if (routeName==='band'){
+    const btn = document.createElement('button');
+    btn.className='btn ghost'; btn.title='Back'; btn.textContent='← Bands';
+    btn.onclick=()=>{ location.hash = '#/bands'; };
+    actions.appendChild(btn);
+  } else if (routeName==='show'){
+    // Decide where we came from and set label/target
+    const cameFrom = store.get('cameFrom', '');
+    let backLabel = '← Concerts';
+    let backHash = ''; // when empty, we’ll fall back to history.back()
+
+    if (cameFrom === 'favorites-songs') {
+      backLabel = '← Favorite Songs';
+      backHash  = '#/favorites/songs';
+    } else if (cameFrom === 'favorites-concerts') {
+      backLabel = '← Favorite Concerts';
+      backHash  = '#/favorites/concerts';
+    } else if (cameFrom === 'recent') {
+      backLabel = '← Recently Played';
+      backHash  = '#/recent';
+    } else if (cameFrom === 'onthisday') {
+      backLabel = '← This Day';
+      backHash  = '#/onthisday';
+    } else if (cameFrom === 'band') {
+      backLabel = '← Concerts';
+      backHash  = ''; // prefer history for band flow so year/sort filters persist
+    }
+
+    const btn = document.createElement('button');
+    btn.className='btn ghost'; btn.title='Back'; btn.textContent=backLabel;
+    btn.onclick=()=>{ backHash ? (location.hash = backHash) : history.back(); };
+    actions.appendChild(btn);
+  }
+
+  // Subheader visibility (band name row only on concerts)
+  $('#subHeader').classList.toggle('show', routeName==='band');
+}
+
+// old helper — keep if you still use fetchJSON() anywhere
+async function fetchWithTimeoutLegacy(url, {timeout=12000}={}){
+const ctrl = new AbortController();
+const id = setTimeout(()=>ctrl.abort(), timeout);
+try{
+const res = await fetch(url, {cache:'no-store', signal: ctrl.signal});
+clearTimeout(id);
+if(!res.ok) throw new Error('HTTP '+res.status);
+return res;
+}catch(e){ clearTimeout(id); throw e; }
+}
+// and update this right below it:
+async function fetchJSON(url){ const r = await fetchWithTimeoutLegacy(url); return r.json(); }
+
+/* ------------ JSONP helper (defensive) ------------ */
+function fetchJSONP(url, {timeout=8000}={}) {
+return new Promise((resolve)=>{
+const cb = '__iajsonp_'+Math.random().toString(36).slice(2);
+const s  = document.createElement('script');
+let done = false;
+
+function cleanup() {
+if (done) return;
+done = true;
+delete window[cb];
+s.remove();
+}
+
+// Hard timeout so we don’t hang on a bad payload
+const t = setTimeout(()=>{ cleanup(); resolve(null); }, timeout);
+
+window[cb] = (data)=>{ clearTimeout(t); cleanup(); resolve(data); };
+
+// If the script 404s or throws a syntax error, onerror will fire.
+s.onerror = ()=>{ clearTimeout(t); cleanup(); resolve(null); };
+
+// Some CDNs report load but never call our cb (bad JSONP). Guard that too.
+s.onload = ()=>{ /* if cb never called, timeout will resolve null */ };
+
+s.src = url + (url.includes('?')?'&':'?') + 'callback=' + cb + '&output=json';
+document.head.appendChild(s);
+});
+}
+
+/* ------------ Hybrid IA fetch: JSONP for advancedsearch, fetch for others ------------ */
+async function fetchIA(url){
+  // Old endpoint has no CORS — use JSONP directly to avoid console errors
+  if (/\/\/archive\.org\/advancedsearch\.php/i.test(url)) {
+    const data = await fetchJSONP(url, { timeout: 12000 });
+    if (!data) throw new Error('advancedsearch JSONP failed');
+    return data;
+  }
+  // Everything else can use normal fetch (with small legacy helper)
+  try{
+    return await fetchJSON(url);
+  }catch(e){
+    // As a last resort, try JSONP (harmless for some endpoints)
+    const data = await fetchJSONP(url, { timeout: 12000 });
+    if (data) return data;
+    throw e;
+  }
+}
+
+/* ------------ IA helpers ------------ */
+// === Archive API fetch with timeout + retries + outage detection ===
+const IA_STATUS = { failCount: 0, circuitUntil: 0, lastError: '' };
+
+function showStatus(msg, kind='warn') {
+  // downgrade super generic messages to 'info' to reduce alarm
+  if (/offline|cached|retry/i.test(msg)) kind = (kind === 'warn' ? 'info' : kind);
+
+const el = document.getElementById('statusBanner');
+const msgEl = document.getElementById('statusMsg');
+if (!el || !msgEl) return;
+msgEl.textContent = msg;       // preserve the button
+el.dataset.kind = kind;
+el.hidden = false;
+}
+
+function hideStatus(){ const el = document.getElementById('statusBanner'); if (el) el.hidden = true; }
+
+function now(){ return Date.now(); }
+function circuitOpen(){ return now() < IA_STATUS.circuitUntil; }
+function openCircuit(ms=5*60*1000){ IA_STATUS.circuitUntil = now()+ms; }
+
+function fetchWithTimeout(url, ms=15000, opts={}) {
+const ctl = new AbortController();
+const t = setTimeout(()=>ctl.abort(), ms);
+return fetch(url, {...opts, signal: ctl.signal}).finally(()=>clearTimeout(t));
+}
+
+// small cache helpers
+function setCache(key, data){ try{ localStorage.setItem(key, JSON.stringify({ts:Date.now(), data})); }catch{} }
+function getCache(key){ try{ const v = JSON.parse(localStorage.getItem(key)||''); return v && v.data; }catch{ return null; } }
+
+// One canonical way to call IA
+// === Archive API fetch with timeout + retries + outage detection ===
+async function iaFetchJSON(url, { cacheKey, retries=2, timeoutMs=15000 } = {}) {
+  // Short-circuit: advancedsearch never sends CORS; use JSONP so fetch() never fires.
+  if (/\/\/archive\.org\/advancedsearch\.php/i.test(url)) {
+    const data = await fetchJSONP(url, { timeout: timeoutMs });
+    if (!data) {
+      // Try cache on JSONP miss
+      const cached = cacheKey ? getCache(cacheKey) : null;
+      if (cached) return { data: cached, stale: true };
+      throw new Error('advancedsearch JSONP failed');
+    }
+    hideStatus();
+    if (cacheKey) setCache(cacheKey, data);
+    return { data, stale: false };
+  }
+
+  // If the circuit is open, jump straight to cache and message
+  if (circuitOpen()) {
+    const cached = cacheKey ? getCache(cacheKey) : null;
+    if (cached) {
+      showStatus('Archive.org is having trouble; showing cached results (stale).', 'info');
+      return { data: cached, stale: true };
+    }
+    throw new Error('Archive.org temporarily unavailable (cool-down active).');
+  }
+
+  let attempt = 0;
+  while (true) {
+    try {
+      const res = await fetchWithTimeout(url, timeoutMs);
+      if (!res.ok) throw new Error(`HTTP ${res.status}`);
+      const data = await res.json();
+      IA_STATUS.failCount = 0; IA_STATUS.lastError = ''; hideStatus();
+      if (cacheKey) setCache(cacheKey, data);
+      return { data, stale: false };
+    } catch (err) {
+  attempt++;
+  const name = (err && err.name) || '';
+  const msg  = String(err || '');
+
+  // Ignore harmless aborts (tab hidden, nav away) and short timeouts
+  const isHarmless =
+    name === 'AbortError' ||
+    /The user aborted a request/i.test(msg) ||
+    /NetworkError when attempting to fetch resource/i.test(msg);
+
+  if (!isHarmless) {
+    IA_STATUS.failCount++;
+    IA_STATUS.lastError = msg;
+  }
+
+  if (attempt > retries) {
+    if (!navigator.onLine) {
+      showStatus('You appear to be offline. Reconnect and try again.', 'warn');
+    } else if (!isHarmless) {
+      if (IA_STATUS.failCount >= 3) {
+        openCircuit(); // 5 minutes cool-down
+        showStatus('Archive.org seems unreachable. We’ll use cached results when possible.', 'warn');
+      } else {
+        showStatus('Trouble reaching Archive.org. Retrying…', 'warn');
+      }
+    }
+    const cached = cacheKey ? getCache(cacheKey) : null;
+    if (cached) return { data: cached, stale: true };
+    throw err;
+  }
+  await new Promise(r => setTimeout(r, 500 * attempt)); // backoff
+}
+  }
+}
+
+// Debounced online/offline (avoid transient mobile blips)
+{
+  let _netTimer = null;
+  const _debounce = (fn, ms=1500) => (...a) => {
+    if (_netTimer) clearTimeout(_netTimer);
+    _netTimer = setTimeout(()=> fn(...a), ms);
+  };
+
+  window.addEventListener('offline', _debounce(() => {
+    showStatus('You are offline. Some features may be limited.', 'warn');
+  }, 1500));
+
+  window.addEventListener('online', _debounce(() => {
+    hideStatus();
+    IA_STATUS.failCount = 0;
+    IA_STATUS.circuitUntil = 0;
+  }, 800));
+}
+
+const IA = {
+bandsUrl({ q='collection:(etree) AND mediatype:(collection)', sort='downloads desc', rows=120 }={}){
+const u=new URL('https://archive.org/advancedsearch.php');
+u.searchParams.set('q',q);
+['identifier','title','downloads'].forEach(f=>u.searchParams.append('fl[]',f));
+u.searchParams.append('sort[]',sort); u.searchParams.set('rows',rows); u.searchParams.set('page',1); u.searchParams.set('output','json'); return u.toString();
+},
+concertsUrl({ bandId, sort='date desc', rows=200, page=1, year='', term='' }){
+let q=`collection:(${bandId}) AND mediatype:(etree OR audio)`; if(year) q+=` AND year:(${year})`;
+if(term) q+=` AND (title:(${term}) OR date:(${term}) OR venue:(${term}) OR coverage:(${term}))`;
+const u=new URL('https://archive.org/advancedsearch.php'); u.searchParams.set('q',q);
+['identifier','title','date','year','downloads','avg_rating','num_reviews','venue','coverage','creator','publicdate'].forEach(f=>u.searchParams.append('fl[]',f));
+u.searchParams.append('sort[]',sort); u.searchParams.set('rows',rows); u.searchParams.set('page',page); u.searchParams.set('output','json'); return u.toString();
+},
+// Batch fetch concerts by identifier list (returns same fields as concertsUrl)
+concertsByIdsUrl(ids){
+const u=new URL('https://archive.org/advancedsearch.php');
+const safe = ids.map(id=>`"${id.replace(/"/g,'\"')}"`);
+const q = `identifier:(${safe.join(' OR ')}) AND (mediatype:(etree) OR mediatype:(audio))`;
+u.searchParams.set('q', q);
+['identifier','title','date','year','downloads','avg_rating','num_reviews','venue','coverage','creator','publicdate','collection']
+.forEach(f=>u.searchParams.append('fl[]',f));
+u.searchParams.append('sort[]','date desc');
+u.searchParams.set('rows', String(ids.length || 50));
+u.searchParams.set('page','1');
+u.searchParams.set('output','json');
+return u.toString();
+},
+ 
+yearsOnlyUrl({ bandId, rows=2000, page=1, sort='date asc' }){
+  const u=new URL('https://archive.org/advancedsearch.php');
+  u.searchParams.set('q', `collection:(${bandId}) AND mediatype:(etree OR audio)`);
+  u.searchParams.append('fl[]','year');
+  u.searchParams.set('rows', String(rows));
+  u.searchParams.set('page', String(page));
+  u.searchParams.set('output','json');
+  u.searchParams.append('sort[]', sort);
+  return u.toString();
+},
+
+// Robust facet getter (JSONP, retries, 2 param styles)
+async facetYearsJSONP({ bandId }) {
+  const makeUrlA = () => {
+    const u=new URL('https://archive.org/advancedsearch.php');
+    u.searchParams.set('q', `collection:(${bandId}) AND mediatype:(etree OR audio)`);
+    u.searchParams.set('rows','0');
+    u.searchParams.set('facet','true');
+    u.searchParams.set('facet.field','year');      // style A
+    u.searchParams.set('facet.limit','10000');
+    u.searchParams.set('facet.mincount','1');
+    u.searchParams.set('output','json');
+    return u.toString();
+  };
+  const makeUrlB = () => {
+    const u=new URL('https://archive.org/advancedsearch.php');
+    u.searchParams.set('q', `collection:(${bandId}) AND mediatype:(etree OR audio)`);
+    u.searchParams.set('rows','0');
+    u.searchParams.set('facets','year');           // style B (older mirrors)
+    u.searchParams.set('facet','true');
+    u.searchParams.set('facet.limit','10000');
+    u.searchParams.set('facet.mincount','1');
+    u.searchParams.set('output','json');
+    return u.toString();
+  };
+
+  // up to 3 attempts rotating URL styles
+  const urls = [makeUrlA(), makeUrlA(), makeUrlB()];
+  for (const u of urls) {
+    const data = await fetchJSONP(u, { timeout: 12000 });
+    if (data) return data;
+  }
+  return null;
+}
+
+ ,
+
+metaUrl:id=>`https://archive.org/metadata/${id}`,
+imgUrl:id=>`https://archive.org/services/img/${id}`
+};
+
+/* ------------ retry card ------------ */
+function showRetry(contentEl, message, retryFn){
+contentEl.className='grid';
+contentEl.innerHTML = `
+   <div class="card">
+     <div class="retryWrap">
+       <span class="small">${message}</span>
+       <button class="btn" id="retryBtn">Retry</button>
+     </div>
+   </div>`;
+$('#retryBtn')?.addEventListener('click', retryFn);
+}
+
+/* ------------ SVG stars (full/half/empty) ------------ */
+let _starUid = 0;
+function starSVG(type){
+const id = 'g'+(++_starUid);
+if(type==='full'){
+return `<svg viewBox="0 0 24 24" width="14" height="14" aria-hidden="true">
+     <path d="M12 2.3l2.9 5.9 6.6 1-4.8 4.7 1.1 6.6L12 17.8 6.2 20.5 7.3 13.9 2.5 9.2l6.6-1z" fill="#ffcc33" stroke="#ffcc33" stroke-width="1"/>
+   </svg>`;
+}
+if(type==='half'){
+return `<svg viewBox="0 0 24 24" width="14" height="14" aria-hidden="true">
+     <defs>
+       <linearGradient id="${id}" x1="0" x2="1" y1="0" y2="0">
+         <stop offset="50%" stop-color="#ffcc33"/>
+         <stop offset="50%" stop-color="transparent"/>
+       </linearGradient>
+     </defs>
+     <path d="M12 2.3l2.9 5.9 6.6 1-4.8 4.7 1.1 6.6L12 17.8 6.2 20.5 7.3 13.9 2.5 9.2l6.6-1z" fill="url(#${id})" stroke="#ffcc33" stroke-width="1"/>
+   </svg>`;
+}
+return `<svg viewBox="0 0 24 24" width="14" height="14" aria-hidden="true">
+   <path d="M12 2.3l2.9 5.9 6.6 1-4.8 4.7 1.1 6.6L12 17.8 6.2 20.5 7.3 13.9 2.5 9.2l6.6-1z" fill="none" stroke="#ffcc33" stroke-width="1"/>
+ </svg>`;
+}
+function renderStars(r){
+const rating = Math.round((r||0)*2)/2;
+let out = '';
+for(let i=1;i<=5;i++){
+out += rating>=i ? starSVG('full') : (rating>=i-0.5 ? starSVG('half') : starSVG('empty'));
+}
+return `<span class="stars" aria-label="${rating} out of 5 stars">${out}</span>`;
+}
+
+/* ------------ Favorites helpers ------------ */
+function favBands(){ return store.get('favBands',[]); }
+function setFavBands(arr){ store.set('favBands',arr); }
+function toggleFavBand(bandId){
+const arr=favBands(); const i=arr.indexOf(bandId);
+if(i>=0) arr.splice(i,1); else arr.push(bandId);
+setFavBands(arr); updateFavBandBtn();
+}
+function favShows(){ return store.get('favShows',[]); }
+function isFavShow(id){ return favShows().includes(id); }
+function toggleFavShow(id){ const fav=favShows(); const i=fav.indexOf(id); if(i>=0) fav.splice(i,1); else fav.push(id); store.set('favShows',fav); }
+
+function favSongs(){ return store.get('favSongs',[]); } // array of {url,title,showId}
+function findSongIdx(url){ return favSongs().findIndex(s=>s.url===url); }
+function toggleFavSong(song){
+const arr=favSongs(); const i=arr.findIndex(s=>s.url===song.url);
+if(i>=0) arr.splice(i,1); else arr.push(song);
+store.set('favSongs',arr);
+}
+/* ------------ Recently Played helpers ------------ */  // NEW
+function recentSongs(){ return store.get('recentSongs', []); }        // [{url,title,date,location,band,showTitle,ts}]
+function pushRecent(song){                                            // keep list unique by url, newest first, max 100
+const arr = recentSongs();
+const i = arr.findIndex(s => s.url === song.url);
+if (i >= 0) arr.splice(i, 1);              // de-dupe
+arr.unshift({ ...song, ts: Date.now() });  // newest first
+if (arr.length > 100) arr.length = 100;    // cap at 100
+store.set('recentSongs', arr);
+}
+// Try to parse a show identifier from a track URL (https://archive.org/download/{showId}/{file})
+function parseShowIdFromUrl(url = '') {
+try {
+const m = /archive\.org\/download\/([^/]+)\//i.exec(url);
+return m ? decodeURIComponent(m[1]) : '';
+} catch { return ''; }
+}
+
+function formatMDY(isoOrLocal = '') {
+// Reuse default locale formatting like other parts of the app
+try { return new Date(isoOrLocal).toLocaleDateString(); } catch { return ''; }
+}
+
+// Enrich a recent item in-place if it lacks metadata; also persist back to storage
+async function enrichRecentItem(t) {
+if (t.band && t.location && t.date && t.showId) return t; // nothing to do
+
+const showId = t.showId || parseShowIdFromUrl(t.url);
+if (!showId) return t;
+
+try {
+const meta = await fetchIA(IA.metaUrl(showId));
+const md   = meta?.metadata || {};
+const date = md.date ? formatMDY(md.date) : (t.date || '');
+const venue = md.venue || '';
+const coverage = md.coverage || '';
+const location = [venue, coverage].filter(Boolean).join(', ') || t.location || '';
+const band = md.creator || t.band || '';
+const showTitle = md.title || t.showTitle || '';
+
+const enriched = { ...t, showId, date, location, band, showTitle };
+
+// Persist back to recentSongs (by URL)
+const arr = recentSongs();
+const idx = arr.findIndex(x => x.url === t.url);
+if (idx >= 0) {
+arr[idx] = enriched;
+store.set('recentSongs', arr);
+}
+return enriched;
+} catch {
+return t;
+}
+}  
+/* ------------ Bands page ------------ */
+let onlyFavBands = false;
+async function showBands(){
+show($('#toolbar-bands'),true); show($('#toolbar-band'),false); show($('#showMeta'),false);
+$('#subHeader').classList.remove('show');
+
+// Visual ON state
+$('#favToggle').classList.toggle('is-on', !!onlyFavBands);
+$('#favToggle').textContent = onlyFavBands ? '★ Favorites' : '☆ Favorites';
+
+const content=$('#content'); content.className='bandsGrid';
+
+// Otherwise, fetch and render all bands
+content.innerHTML=`<div class="card"><span class="small">Loading bands…</span></div>`;
+const sort=$('#sortSel')?.value||'downloads desc';
+const term=($('#searchBox')?.value||'').trim();
+let q='collection:(etree) AND mediatype:(collection)';
+if(term) q+=` AND (title:(${term}) OR identifier:(${term}))`;
+
+const load = async ()=>{
+try{
+// Map UI sort ("downloads desc") → API sort ("downloads:desc")
+// v1 likes title.raw for alpha sorts
+function mapSortForV1(s = 'downloads desc') {
+const [field, dir = 'desc'] = s.split(/\s+/);
+// v1 uses `titleSorter` for alpha sorts
+const f = field === 'title' ? 'titleSorter' : field;
+const d = dir.toLowerCase();
+return `${f} ${d}`; // NOTE: space, not colon
+}
+
+
+const sortExpr = mapSortForV1(sort);
+const params = new URLSearchParams({
+q,
+fields: 'identifier,title,downloads',
+sorts: sortExpr,          // <— plural
+count: '150'
+});
+
+const url = `https://archive.org/services/search/v1/scrape?${params.toString()}`;
+const cacheKey = `bands:v1:${sortExpr}:${term || ''}`;      
+// cache key should depend on sort + term to avoid stale mismatches
+// ✨ use the resilient fetch with cache
+const { data, stale } = await iaFetchJSON(url, {
+cacheKey,
+retries: 2,
+timeoutMs: 15000
+});
+
+// v1 returns { items: [...] }
+let items = (data.items || []).map(d => ({
+  id: d.identifier,
+  title: d.title || d.identifier,
+  downloads: d.downloads || 0
+}));
+
+// If the Favorites toggle is on, filter the fetched list to favs
+if (onlyFavBands) {
+  const favSet = new Set(favBands());
+  items = items.filter(b => favSet.has(b.id));
+  if (!items.length) {
+    content.innerHTML = `<div class="card"><span class="small">No favorite bands yet.</span></div>`;
+    content.onclick = null;
+    return;
+  }
+}
+
+if (stale) document.body.dataset.stale = '1'; // optional: mark UI as cached
+content.innerHTML = items.map(b=>`
+  <div class="bandTile" data-id="${b.id}">
+    <img src="${IA.imgUrl(b.id)}" alt="${b.title}">
+    <div class="bandTitle">${b.title}</div>
+    <div class="bandViews">${b.downloads.toLocaleString()} views</div>
+  </div>`).join('');
+
+content.onclick = ev => {
+  const tile = ev.target.closest('.bandTile');
+  if (!tile) return;
+  location.hash = '#/band/' + encodeURIComponent(tile.dataset.id);
+};
+
+}catch(e){
+console.error('bands load failed:', e, { url });
+const msg = navigator.onLine ? 'Network error while loading bands.' : 'You appear to be offline.';
+showRetry(content, msg, load);
+}
+
+};
+load();
+}
+
+/* ------------ Concerts page ------------ */
+let currentBandId=''; 
+let state={year:'', term:'', sortSel:'auto', page:1, numFound:0, rows:200, list:[]};
+let onlyFavConcerts=false;
+
+function isFav(id){ return favShows().includes(id); }
+
+// Fetch favorite show docs for this band (batched), filtering by collection
+async function fetchFavDocsForBand(bandId){
+const ids = favShows();
+if (!ids.length) return [];
+const batchSize = 40;
+let docs = [];
+for (let i=0; i<ids.length; i+=batchSize){
+const chunk = ids.slice(i, i+batchSize);
+const data = await fetchIA(IA.concertsByIdsUrl(chunk));
+const part = (data?.response?.docs) || [];
+docs = docs.concat(part);
+}
+// Keep only shows whose collections include this band id
+return docs.filter(d => Array.isArray(d.collection) ? d.collection.includes(bandId) : false);
+}
+
+/* Sort dropdown controller */
+const SortDrop = (()=> {
+const wrap = document.getElementById('sortDrop');
+const btn  = document.getElementById('sortBtn');
+const menu = document.getElementById('sortMenu');
+let value = 'auto';
+const options = [
+{value:'auto', label:'Auto'},
+{value:'date asc', label:'Date ↑'},
+{value:'date desc', label:'Date ↓'},
+{value:'avg_rating desc', label:'Reviews ↓'},
+{value:'downloads desc', label:'Views ↓'},
+];
+function render(){ menu.innerHTML = options.map(o=>`<div class="item" data-value="${o.value}">${o.label}</div>`).join(''); }
+function close(){ menu.classList.remove('open'); }
+wrap.addEventListener('click', (e)=>{ if(e.target.closest('.item')) return; menu.classList.toggle('open'); });
+document.addEventListener('click', (e)=>{ if(!wrap.contains(e.target)) close(); });
+menu.addEventListener('click', (e)=>{
+const it = e.target.closest('.item'); if(!it) return;
+setValue(it.dataset.value, false);
+close();
+onChange?.(value);
+});
+function setValue(v, placeholder=false){
+value = v||'auto';
+btn.textContent = placeholder && value==='auto' ? 'Sort'
+: (options.find(o=>o.value===value)?.label || 'Sort');
+state.sortSel=value;
+}
+let onChange = null;
+function subscribe(fn){ onChange = fn; }
+render(); setValue('auto', true);
+return {getValue:()=>value, setValue, subscribe};
+})();
+
+/* Year dropdown controller */
+const YearDrop = (()=> {
+const wrap = document.getElementById('yearDrop');
+const btn  = document.getElementById('yearBtn');
+const menu = document.getElementById('yearMenu');
+let value = '';
+let options = [{value:'', label:'All years'}];
+function render(){ menu.innerHTML = options.map(o=>`<div class="item" data-value="${o.value}">${o.label}</div>`).join(''); }
+function close(){ menu.classList.remove('open'); }
+wrap.addEventListener('click', (e)=>{ if(e.target.closest('.item')) return; menu.classList.toggle('open'); });
+document.addEventListener('click', (e)=>{ if(!wrap.contains(e.target)) close(); });
+menu.addEventListener('click', (e)=>{
+const it = e.target.closest('.item'); if(!it) return;
+value = it.dataset.value || '';
+btn.textContent = (options.find(o=>String(o.value)===String(value))?.label) || 'All years';
+close();
+resetAndLoad({year:value});
+});
+function setOptions(arr){ options = arr; render(); }
+function setValue(v){ value=v||''; btn.textContent=(options.find(o=>String(o.value)===String(value))?.label)||'All years'; }
+function getValue(){ return value; }
+render();
+return {setOptions,setValue,getValue};
+})();
+
+function resolveSort(){ return state.sortSel==='auto' ? (state.year ? 'date asc' : 'date desc') : state.sortSel; }
+
+async function buildYearCounts(bandId){
+  let counts = {};
+
+  // --- Primary: facet JSONP (most reliable & cheap) ---
+  try {
+    const facet = await IA.facetYearsJSONP({ bandId });
+
+    // Accept any of these shapes:
+    // A) facet.facets.year = { "1977": 123, ... }
+    // B) facet.response.facets.year = { ... }
+    // C) facet.facet_counts.facet_fields.year = [y, n, ...]
+    // D) facet.response.facet_counts.facet_fields.year = [...]
+    const objA = facet?.facets?.year || facet?.response?.facets?.year;
+    const arrC = facet?.facet_counts?.facet_fields?.year
+              || facet?.response?.facet_counts?.facet_fields?.year;
+
+    if (objA && typeof objA === 'object') {
+      for (const k in objA) {
+        const yr = Number(k);
+        if (!Number.isNaN(yr)) counts[yr] = Number(objA[k] || 0);
+      }
+    } else if (Array.isArray(arrC)) {
+      for (let i = 0; i < arrC.length; i += 2) {
+        const yr = Number(arrC[i]);
+        const ct = Number(arrC[i + 1] || 0);
+        if (!Number.isNaN(yr) && ct > 0) counts[yr] = (counts[yr] || 0) + ct;
+      }
+    }
+  } catch (_) { /* fall through to sweeps */ }
+
+  // --- Fallback: dual sweeps (older→newer and newer→older) ---
+  if (!Object.keys(counts).length) {
+    const perPage = 2000;
+    const maxPagesEachWay = 6; // 6 up + 6 down = 24k docs touched
+    const mergeDocs = (docs) => {
+      for (const d of (docs || [])) {
+        const yr = Number(d.year);
+        if (!Number.isNaN(yr)) counts[yr] = (counts[yr] || 0) + 1;
+      }
+    };
+
+    // Oldest → newest
+    try {
+      let page = 1, seen = 0, numFound = Infinity;
+      while (seen < numFound && page <= maxPagesEachWay) {
+        const urlAsc = IA.yearsOnlyUrl({ bandId, rows: perPage, page, sort: 'date asc' });
+        const dataAsc = await fetchIA(urlAsc);
+        const respAsc = dataAsc?.response || {};
+        numFound = Number(respAsc.numFound || 0);
+        const docs = respAsc.docs || [];
+        mergeDocs(docs);
+        seen += docs.length;
+        if (docs.length < perPage) break;
+        page++;
+      }
+    } catch (_) {}
+
+    // Newest → oldest
+    try {
+      let page = 1, seen = 0, numFound = Infinity;
+      while (seen < numFound && page <= maxPagesEachWay) {
+        const urlDesc = IA.yearsOnlyUrl({ bandId, rows: perPage, page, sort: 'date desc' });
+        const dataDesc = await fetchIA(urlDesc);
+        const respDesc = dataDesc?.response || {};
+        numFound = Number(respDesc.numFound || 0);
+        const docs = respDesc.docs || [];
+        mergeDocs(docs);
+        seen += docs.length;
+        if (docs.length < perPage) break;
+        page++;
+      }
+    } catch (_) {}
+  }
+
+  // If still nothing, show the single default and bail
+  if (!Object.keys(counts).length) {
+    YearDrop.setOptions([{ value:'', label:'All years' }]);
+    YearDrop.setValue('');
+    return;
+  }
+
+  // Update UI + cache
+  updateYearMenu(counts);
+
+  const yearsArr = Object.keys(counts)
+    .map(y => ({ year: Number(y), count: counts[y] }))
+    .filter(o => !Number.isNaN(o.year))
+    .sort((a,b) => a.year - b.year);
+
+  store.set('years_' + bandId, { ts: Date.now(), years: yearsArr });
+}
+
+function updateYearMenu(counts){
+const yearsArr = Object.keys(counts)
+.map(y=>({year:Number(y), count:counts[y]}))
+.filter(o=>!Number.isNaN(o.year))
+.sort((a,b)=>a.year-b.year);
+
+YearDrop.setOptions([
+{value:'', label:'All years'},
+...yearsArr.map(o=>({value:String(o.year), label:`${o.year} (${o.count.toLocaleString()})`}))
+]);
+YearDrop.setValue(YearDrop.getValue());
+}
+
+async function loadPage(){
+const content=$('#content');
+const sortExpr = resolveSort();
+const url = IA.concertsUrl({bandId:currentBandId, sort:sortExpr, rows:state.rows, page:state.page, year:state.year, term:state.term});
+try{
+const cacheKey = `concerts:${currentBandId}:${state.year}:${state.term}:${sortExpr}:p${state.page}`;
+const { data, stale } = await iaFetchJSON(url, {
+cacheKey,
+retries: 2,
+timeoutMs: 15000
+});
+
+if (stale) document.body.dataset.stale = '1'; // optional: tag UI as using cache
+
+const resp = data?.response || {};
+state.numFound = Number(resp.numFound || 0);
+state.list = state.list.concat(resp.docs || []);
+renderConcerts();
+}catch(e){
+showRetry(content, 'Network error while loading concerts.', ()=>loadPage());
+}
+
+}
+
+function resetAndLoad(patch={}){
+state = { ...state, ...patch, page:1, list:[], numFound:0 };
+const content=$('#content'); content.className='grid'; content.innerHTML=`<div class="card"><span class="small">Loading concerts…</span></div>`;
+loadPage();
+}
+
+async function showBand(params){
+show($('#toolbar-bands'),false); show($('#toolbar-band'),true); show($('#showMeta'),false);
+currentBandId = decodeURIComponent((params||[])[0]||'');
+// Show band name from id (spaces preserved from IA titles rendered later from list cache best-effort)
+const prettyBand = decodeURIComponent(currentBandId)
+.replace(/[_+]+/g, ' ')           // underscores/plus → space
+.replace(/([a-z])([A-Z])/g, '$1 $2') // camelCase → spaced
+.replace(/\s+/g, ' ')
+.trim();
+$('#bandName').textContent = prettyBand;
+// Fav band button
+$('#favBandBtn').onclick = ()=> toggleFavBand(currentBandId);
+updateFavBandBtn();
+
+// Sort dropdown wiring
+SortDrop.subscribe((val)=> resetAndLoad({sortSel:val}));
+SortDrop.setValue('auto', true);
+
+// Visual ON state for favorites toggle
+$('#favConcertsToggle').classList.toggle('is-on', !!onlyFavConcerts);
+$('#favConcertsToggle').textContent = onlyFavConcerts ? '★ Favorites' : '☆ Favorites';
+
+$('#favConcertsToggle').onclick=()=>{
+onlyFavConcerts=!onlyFavConcerts;
+$('#favConcertsToggle').textContent = onlyFavConcerts?'★ Favorites':'☆ Favorites';
+$('#favConcertsToggle').classList.toggle('is-on', !!onlyFavConcerts);
+renderConcerts();
+};
+$('#resetConcerts').onclick=()=>{
+onlyFavConcerts=false; YearDrop.setValue(''); $('#concertSearch').value='';
+SortDrop.setValue('auto', true);
+$('#favConcertsToggle').textContent='☆ Favorites';
+$('#favConcertsToggle').classList.remove('is-on');
+resetAndLoad({year:'', term:'', sortSel:'auto'});
+};
+$('#concertSearch').onchange=()=> resetAndLoad({term:($('#concertSearch').value||'').trim().toLowerCase()});
+
+const cached = store.get('years_'+currentBandId,null);
+if(cached){ const counts={}; for(const y of cached.years) counts[y.year]=y.count; updateYearMenu(counts); }
+else { YearDrop.setOptions([{value:'', label:'All years'}, {value:'', label:'Loading years…'}]); }
+buildYearCounts(currentBandId).catch(()=>{});
+
+resetAndLoad({year:'', term:'', sortSel:'auto'});
+}
+function updateFavBandBtn(){
+const btn=$('#favBandBtn'); if(!btn) return;
+const isFav = favBands().includes(currentBandId);
+btn.textContent = isFav ? '★' : '☆';
+btn.classList.toggle('fav', isFav);
+}
+async function renderFavConcertsForBand(){
+const content = $('#content'); 
+content.className = 'grid';
+const docs = await fetchFavDocsForBand(currentBandId);
+
+if (!docs.length){
+content.innerHTML = `<div class="card"><span class="small">No favorite concerts for this band.</span></div>`;
+return;
+}
+
+content.innerHTML = docs.map(it=>{
+const dateStr   = it.date ? new Date(it.date).toLocaleDateString() : (it.year||'');
+const reviews   = it.num_reviews || 0;
+const venueLine = [it.venue, it.coverage].filter(Boolean).join(', ');
+const viewsChip = `<span class="chip">${fmtCompact(it.downloads||0)} views</span>`;
+return `
+     <div class="card tap" data-id="${it.identifier}">
+       <div>
+         <h3>${it.title || it.identifier}</h3>
+         <div class="row">
+           <span class="chip">${dateStr}</span>
+           ${viewsChip}
+           ${renderStars(it.avg_rating||0)} <span class="small">(${reviews})</span>
+         </div>
+         <div class="small">${venueLine}</div>
+       </div>
+       <div class="row">
+<button class="btn ghost favToggle${isFav(it.identifier) ? ' is-on' : ''}" title="Favorite">
+ ${isFav(it.identifier) ? '★' : '☆'}
+</button>
+
+       </div>
+     </div>`;
+}).join('');
+
+// Clicks (open / unfavorite)
+content.onclick = ev => {
+const favBtn = ev.target.closest('.favToggle');
+if (favBtn){
+  const card = favBtn.closest('.card');
+  const id   = card?.dataset.id;
+  if (id){
+    // toggle favorite and update just this button
+    toggleFavShow(id);
+    const on = isFav(id);
+    favBtn.classList.toggle('is-on', on);
+    favBtn.textContent = on ? '★' : '☆';
+  }
+  return;
+}
+
+const card = ev.target.closest('.card.tap');
+if (card) {
+// remember the origin so the Show header can offer “← Concerts”
+store.set('cameFrom', 'band');
+store.set('cameFromBandId', currentBandId || '');
+location.hash = '#/show/' + encodeURIComponent(card.dataset.id);
+}
+};
+
+}
+
+function renderConcerts(){
+const content=$('#content'); if(!content) return;
+let list=state.list.slice();
+if(onlyFavConcerts){ const fav=favShows(); list=list.filter(d=>fav.includes(d.identifier)); }
+
+if(!list.length){ content.innerHTML=`<div class="card"><span class="small">No concerts found.</span></div>`; return; }
+
+content.innerHTML = list.map(it=>{
+const dateStr = it.date ? new Date(it.date).toLocaleDateString() : (it.year||'');
+const reviews = it.num_reviews||0;
+const venueLine = [it.venue, it.coverage].filter(Boolean).join(', ');
+const viewsChip = `<span class="chip">${fmtCompact(it.downloads||0)} views</span>`;
+return `
+     <div class="card tap" data-id="${it.identifier}">
+       <div>
+         <h3>${it.title || it.identifier}</h3>
+         <div class="row">
+           <span class="chip">${dateStr}</span>
+           ${viewsChip}
+           ${renderStars(it.avg_rating||0)} <span class="small">(${reviews})</span>
+         </div>
+         <div class="small">${venueLine}</div>
+       </div>
+       <div class="row">
+        <button class="btn ghost favToggle${isFav(it.identifier) ? ' is-on' : ''}" title="Favorite">
+ ${isFav(it.identifier) ? '★' : '☆'}
+</button>
+
+       </div>
+     </div>`;
+}).join('');
+
+if(!onlyFavConcerts && state.list.length < state.numFound){
+const more = document.createElement('div');
+more.className='card loadMore';
+more.innerHTML = `<button class="btn" id="loadMoreBtn">Load more (${state.list.length} / ${state.numFound})</button>`;
+content.appendChild(more);
+$('#loadMoreBtn').onclick = ()=>{ state.page += 1; loadPage(); };
+}
+
+content.onclick = ev => {
+const favBtn = ev.target.closest('.favToggle');
+if (favBtn){
+  const card = favBtn.closest('.card');
+  const id   = card ? card.dataset.id : null;
+  if (id){
+    // Toggle favorite status
+    toggleFavShow(id);
+    const on = isFav(id);
+
+    // Update star UI inline
+    favBtn.classList.toggle('is-on', on);
+    favBtn.textContent = on ? '★' : '☆';
+
+    // If we’re viewing only favorites and the user unfavorited this card, remove it
+    if (onlyFavConcerts && !on) {
+      card.remove();
+      // If nothing left, show the standard empty state
+      if (!content.querySelector('.card.tap')) {
+        content.innerHTML = `<div class="card"><span class="small">No concerts found.</span></div>`;
+      }
+    }
+  }
+  return;
+}
+
+const card = ev.target.closest('.card.tap');
+if (card){
+  store.set('cameFrom', 'band');
+  store.set('cameFromBandId', currentBandId || '');
+  location.hash = '#/show/' + encodeURIComponent(card.dataset.id);
+}
+};
+
+}
+
+/* ------------ Show (tracks) ------------ */
+let currentShowId=''; let currentShowTitle=''; let trackEls=[]; let trackList=[];
+
+function updateFavBtn(){
+  const btn = $('#favShowBtn');
+  if (!btn) return;
+  const fav = favShows().includes(currentShowId);
+
+  // Text: plain star when on, label when off
+  btn.textContent = fav ? '★ Favorite' : '☆ Favorite';
+
+  // Use the shared ON style
+  btn.classList.toggle('is-on', fav);   // <-- not ".fav"
+}
+
+// add globals to hold current show meta (place near other globals)
+let currentShowDate = '';
+let currentShowLocation = '';
+let currentShowBand = '';      // <-- NEW
+
+
+function setShowHeader(meta){
+const title = meta?.metadata?.title || currentShowId;
+
+const date  = meta?.metadata?.date || '';
+const venue = meta?.metadata?.venue || '';
+const coverage = meta?.metadata?.coverage || '';
+const location = [venue, coverage].filter(Boolean).join(', ');
+
+// NEW: capture band/artist and store globally
+const band = meta?.metadata?.creator || '';
+currentShowBand = band;
+
+currentShowTitle    = title;
+currentShowDate     = date ? new Date(date).toLocaleDateString() : '';
+currentShowLocation = location;
+
+$('#showTitle').textContent = title; show($('#showMeta'),true);
+if(date){ $('#showDate').textContent = currentShowDate; show($('#showDate'),true);} else show($('#showDate'),false);
+if(location){ $('#showLoc').textContent = location; show($('#showLoc'),true);} else show($('#showLoc'),false);
+}
+
+function cleanTitle(name){ let t=name.replace(/\.(mp3|ogg|flac)$/i,''); t=t.replace(/[_-]+/g,' ').replace(/\s+/g,' ').trim(); t=t.replace(/^(\d+)[\s.\-_]+/,''); return t; }
+function naturalCmp(a,b){ return a.localeCompare(b,undefined,{numeric:true,sensitivity:'base'}); }
+function extractTrackNo(f){ const n1=Number(f.track||f.trackno||''); if(!isNaN(n1)&&n1>0) return n1; const m=/(\d+)[^\d]*\.(mp3|ogg|flac)$/i.exec(f.name||''); if(m) return Number(m[1]); return Infinity; }
+
+async function showShow(params){
+show($('#toolbar-bands'),false); show($('#toolbar-band'),false);
+currentShowId = decodeURIComponent((params||[])[0]||'');
+
+const content=$('#content'); content.className='tracks'; content.innerHTML=`<div class="card"><span class="small">Loading tracks…</span></div>`;
+const load = async ()=>{
+try{
+const meta = await fetchIA(IA.metaUrl(currentShowId));
+setShowHeader(meta);
+$('#favShowBtn').onclick = () => { toggleFavShow(currentShowId); updateFavBtn(); };
+updateFavBtn();
+
+const files = meta?.files||[];
+let playable = files.filter(f => /\.mp3$/i.test(f.name||'') || (f.format||'').toLowerCase().includes('mp3'));
+if (playable.length===0){ playable = files.filter(f => /\.(ogg|flac)$/i.test(f.name||'') || /(ogg|flac)/.test((f.format||'').toLowerCase())); }
+
+playable.sort((a,b)=>{ const an=extractTrackNo(a), bn=extractTrackNo(b); if (an!==bn) return an-bn; return naturalCmp(a.name||'', b.name||''); });
+
+const seen=new Set(); trackList=[];
+for (const f of playable){
+const title = cleanTitle(f.title || f.name || '');
+const key = title.toLowerCase(); if (seen.has(key)) continue; seen.add(key);
+const url = `https://archive.org/download/${currentShowId}/${encodeURIComponent(f.name)}`;
+trackList.push({ url, title, length: f.length || '' });
+}
+
+if (!trackList.length){ content.innerHTML=`<div class="card"><span class="small">No playable files found.</span></div>`; return; }
+
+content.innerHTML = trackList.map((t,i)=>`
+       <div class="track" data-i="${i}">
+         <div class="tleft">
+<button class="songFav${ findSongIdx(t.url)>=0 ? ' is-on' : '' }" title="Favorite song">
+ ${ findSongIdx(t.url)>=0 ? '★' : '☆' }
+</button>
+           <div class="tnum">${i+1}</div>
+           <div class="tname">${t.title}</div>
+         </div>
+         <div class="tlen">${t.length}</div>
+         <div class="progressBar" id="pb-${i}"></div>
+       </div>`).join('');
+
+trackEls = $$('.track');
+// If we arrived via the Now-Playing button, jump to the exact track in this show
+const jumpUrl = store.get('jumpToUrl', null);
+if (jumpUrl) {
+store.set('jumpToUrl', null); // one-time use
+const idx = trackList.findIndex(t => t.url === jumpUrl);
+if (idx >= 0) {
+// Sync highlight with what's playing
+curIndex = idx;
+updateTrackHighlight();
+
+// Scroll into view and pulse for visibility
+const el = document.querySelector(`.track[data-i="${idx}"]`);
+if (el) {
+el.scrollIntoView({ block: 'center', behavior: 'smooth' });
+el.classList.add('pulse');
+setTimeout(() => el.classList.remove('pulse'), 1800);
+}
+}
+}
+
+content.onclick = ev => {
+const favBtn = ev.target.closest('.songFav');
+if (favBtn) {
+const tr = ev.target.closest('.track'); 
+if (!tr) return;
+const idx = Number(tr.dataset.i);
+const song = {
+...trackList[idx],
+showId: currentShowId,
+date: currentShowDate,
+location: currentShowLocation,
+band: currentShowBand,      // NEW
+showTitle: currentShowTitle // NEW
+};
+toggleFavSong(song);
+favBtn.textContent = findSongIdx(song.url) >= 0 ? '★' : '☆';
+favBtn.classList.toggle('is-on', findSongIdx(song.url) >= 0);
+
+return;
+}
+const tr = ev.target.closest('.track'); 
+if (!tr) return;
+playIndex(Number(tr.dataset.i));
+};
+
+// Autoplay if flagged (used by concert queue)
+const pending = store.get('autoPlayOnLoad', false);
+if (pending){ store.set('autoPlayOnLoad', false); playIndex(0); }
+
+}catch(e){
+const msg = navigator.onLine ? 'Network error while loading tracks.' : 'You appear to be offline.';
+showRetry(content, msg, load);
+}
+};
+load();
+}
+
+/* ------------ Player, Queues & Media Session ------------ */
+// --- Crossfade helpers ---
+let _fadeSeq = 0; // cancels older fades if user taps Next rapidly
+
+function fadeAudio(targetVol, ms){
+  const seq = ++_fadeSeq;
+  return new Promise(res=>{
+    const steps = Math.max(1, Math.round(ms/50));
+    const start = A.volume;
+    let n = 0;
+    const tick = () => {
+      // cancelled by a newer fade? bail
+      if (seq !== _fadeSeq) return res();
+      n++;
+      const t = n/steps;
+      A.muted = false; // ensure not muted during fades
+      A.volume = start + (targetVol - start) * t;
+      if (n >= steps) return res();
+      setTimeout(tick, 50);
+    };
+    tick();
+  });
+}
+
+// Smooth transition when changing tracks
+async function playIndexWithFade(i){
+  const S = getSettings();
+  const f = Number(S.crossfadeSec || 0);
+
+  if (f > 0 && !A.paused) {
+    // fade out current
+    await fadeAudio(0, f * 500);  // half time on fade-out
+  }
+
+  // switch track
+  playIndex(i);
+
+  const after = Number(getSettings().crossfadeSec || 0);
+  if (after > 0) {
+    const prev = Number(store.get('volume', A.volume)) || A.volume || 1;
+    A.volume = 0.0001;
+    A.muted = false;
+    await fadeAudio(prev, after * 500); // half on fade-in
+  }
+}
+ 
+const A=$('#audio');
+const P={ play:$('#P_play'), prev:$('#P_prev'), next:$('#P_next'), mute:$('#P_mute'), seek:$('#P_seek'), cur:$('#P_times .cur'), dur:$('#P_times .dur') };
+const P_now = $('#P_now');
+const volPop = $('#volPop'); const P_vol = $('#P_vol'); const volLabel = $('#volLabel');
+
+let queue=[]; let curIndex=-1;
+
+/* Show queue for Favorites → Concerts "Play All" / "Shuffle All" */
+let showQueue = store.get('showQueue', []); // array of show identifiers
+let showQueuePos = store.get('showQueuePos', -1);
+let queueShowsActive = store.get('queueShowsActive', false);
+let playlistMeta = null; // parallel to queue/trackList when playing from "Recent"
+
+function persistShowQueue(){
+store.set('showQueue', showQueue);
+store.set('showQueuePos', showQueuePos);
+store.set('queueShowsActive', queueShowsActive);
+}
+
+function setQueueFromTracks(){ queue = trackList.map(t=>t.url); }
+// Find this code: function updateMediaSession(
+function updateMediaSession(title = 'Playing') {
+if (!('mediaSession' in navigator)) return;
+
+const artist = currentShowBand || 'Setlist Streamer';
+const album  = [currentShowLocation, currentShowDate].filter(Boolean).join(' • ');
+
+try {
+navigator.mediaSession.metadata = new MediaMetadata({
+title,
+artist,        // band
+album,         // "Venue/City • MM/DD/YYYY"
+artwork: [
+{ src: 'icons/logo-96.png?v=3',  sizes: '96x96',  type: 'image/png' },
+{ src: 'icons/logo-192.png?v=3', sizes: '192x192', type: 'image/png' },
+{ src: 'icons/logo-512.png?v=3', sizes: '512x512', type: 'image/png' }
+]
+});
+
+// keep Android’s scrubber in sync (best-effort)
+try {
+navigator.mediaSession.setPositionState({
+duration:    Number.isFinite(A.duration) ? A.duration : 0,
+playbackRate: A.playbackRate || 1,
+position:    Number.isFinite(A.currentTime) ? A.currentTime : 0
+});
+} catch (_) {}
+} catch (_) {}
+}
+
+function playIndex(i){
+if(!trackList.length) return;
+setQueueFromTracks();
+curIndex=Math.max(0,Math.min(i,queue.length-1));
+if (Array.isArray(playlistMeta) && playlistMeta.length === trackList.length) { // tightened
+const m = playlistMeta[curIndex];
+if (m) {
+currentShowDate     = m.date || '';
+currentShowLocation = m.location || '';
+currentShowBand     = m.band || '';
+currentShowTitle    = m.showTitle || m.title || '';
+if (m.showId) currentShowId = m.showId;
+}
+}
+
+// Log to Recently Played (uses current show metadata)  // NEW
+try {
+const t = trackList[curIndex];
+if (t && t.url) {
+pushRecent({
+url: t.url,
+title: t.title,
+date: currentShowDate || '',
+location: currentShowLocation || '',
+band: currentShowBand || '',
+showTitle: currentShowTitle || '',
+showId: currentShowId || ''
+});
+
+}
+} catch(e) {}
+A.src = queue[curIndex];
+updateMediaSession(trackList[curIndex]?.title || 'Track');
+{
+  const p = A.play();
+  if (p && typeof p.catch === 'function') {
+    p.catch(err => {
+      if (err && (err.name === 'AbortError' || err.name === 'NotAllowedError')) return;
+      console.warn('Audio play() failed:', err);
+    });
+  }
+}
+updateTrackHighlight();
+
+store.set('currentShowId', currentShowId);
+updateEqAnim();
+}
+function updateTrackHighlight(){ trackEls.forEach((el,idx)=>el.classList.toggle('playing', idx===curIndex)); }
+P.play?.addEventListener('click', ()=>{
+  if (A.paused) {
+    const p = A.play();
+    if (p && typeof p.catch === 'function') {
+      p.catch(err => {
+        // Ignore harmless interruptions and autoplay blocks
+        if (err && (err.name === 'AbortError' || err.name === 'NotAllowedError')) return;
+        console.warn('Audio play() failed:', err);
+      });
+    }
+  } else {
+    A.pause();
+  }
+});
+
+/* Equalizer animation state */
+const EQ = document.querySelector('#P_now .eqBars');
+function updateEqAnim(){
+  if (!EQ) return;
+  // Treat as "playing" if we have progressed and are not paused/ended.
+  // (Avoid relying on readyState/waiting/stalled which are noisy on mobile Safari.)
+  const playing = !A.paused && !A.ended && A.currentTime > 0;
+  EQ.classList.toggle('paused', !playing);
+}
+
+A.addEventListener('play',  ()=>{ P.play.textContent='⏸'; store.set('wasPlaying', true); updateEqAnim(); });
+A.addEventListener('pause', ()=>{ P.play.textContent='▶️'; store.set('wasPlaying', false); updateEqAnim(); });
+
+A.addEventListener('ended', ()=>{
+  updateEqAnim();
+  if (curIndex < queue.length - 1) {
+    // Advance within current show/playlist (with fade)
+    playIndexWithFade(curIndex + 1);
+  } else {
+    // End of current list — if a show queue is active, advance to next show
+    if (queueShowsActive && showQueuePos >= 0 && showQueuePos < showQueue.length - 1) {
+      showQueuePos += 1; persistShowQueue();
+      const nextShowId = showQueue[showQueuePos];
+      store.set('autoPlayOnLoad', true);
+      location.hash = '#/show/' + encodeURIComponent(nextShowId);
+    } else {
+      // Reached the end of everything
+      queueShowsActive = false; persistShowQueue();
+    }
+  }
+});
+
+P.prev?.addEventListener('click', ()=>{ if (curIndex > 0) playIndexWithFade(curIndex-1); });
+P.next?.addEventListener('click', ()=>{ if (curIndex < queue.length-1) playIndexWithFade(curIndex+1); });
+
+/* Volume controls */
+function setVolumeUI(v){
+const pct = Math.round((v||0)*100);
+volLabel.textContent = pct+'%';
+P_mute.textContent = (A.muted || v===0) ? '🔇' : '🔈';
+}
+const P_mute = $('#P_mute');
+
+// --- Volume popup toggle (open/close + outside click + esc) ---
+const volWrap = document.querySelector('.volWrap');
+
+// Start hidden for safety (works regardless of CSS)
+if (volPop) {
+  volPop.style.display = 'none';
+}
+
+function openVolPop() {
+  if (!volPop) return;
+  volPop.style.display = 'block';
+  P_mute.setAttribute('aria-expanded', 'true');
+  // Close when clicking outside
+  document.addEventListener('click', onDocClick, true);
+  // Close on Escape
+  document.addEventListener('keydown', onEsc, true);
+}
+
+function closeVolPop() {
+  if (!volPop) return;
+  volPop.style.display = 'none';
+  P_mute.setAttribute('aria-expanded', 'false');
+  document.removeEventListener('click', onDocClick, true);
+  document.removeEventListener('keydown', onEsc, true);
+}
+
+function toggleVolPop() {
+  if (!volPop) return;
+  const open = volPop.style.display !== 'none';
+  open ? closeVolPop() : openVolPop();
+}
+
+function onDocClick(e) {
+  if (!volWrap) return closeVolPop();
+  if (!volWrap.contains(e.target)) closeVolPop();
+}
+
+function onEsc(e) {
+  if (e.key === 'Escape') closeVolPop();
+}
+
+// Button opens/closes the popup
+P_mute.addEventListener('click', (e) => {
+  e.stopPropagation();
+  toggleVolPop();
+});
+
+// Interactions inside the popup shouldn't bubble and cause it to close
+volPop?.addEventListener('click', (e) => e.stopPropagation());
+volPop?.addEventListener('mousedown', (e) => e.stopPropagation()); // helps while dragging the range
+
+// Optional: close if the audio element mutes via other means so the icon stays honest
+A.addEventListener('volumechange', () => {
+  // keep the popup open/closed as-is, just ensure the icon/label reflect current state
+  setVolumeUI(A.volume);
+});
+
+const _S0 = getSettings();
+const savedVol = _S0.rememberVolume ? Number(store.get('volume', 1)) : NaN;
+A.volume = Number.isFinite(savedVol) ? Math.max(0, Math.min(1, savedVol)) : 1;
+P_vol.value = String(A.volume);
+setVolumeUI(A.volume);
+
+P_vol.addEventListener('input', ()=>{
+  const v = Number(P_vol.value);
+  A.volume = Math.max(0,Math.min(1,v));
+  A.muted = (A.volume===0);
+  const S = getSettings();
+  if (S.rememberVolume) store.set('volume', A.volume);
+  setVolumeUI(A.volume);
+});
+
+/* Seek & time */
+P.seek?.addEventListener('input', ()=>{ if(!A.duration||isNaN(A.duration)) return; A.currentTime=(P.seek.value/1000)*A.duration; });
+A.addEventListener('timeupdate', ()=>{
+  if (A.duration && !isNaN(A.duration)) {
+    P.cur.textContent = fmtTime(A.currentTime);
+    P.dur.textContent = ' / ' + fmtTime(A.duration);
+    P.seek.value = Math.floor((A.currentTime / A.duration) * 1000);
+    if (curIndex >= 0) {
+      const pb = $('#pb-' + curIndex);
+      if (pb) pb.style.width = `${(A.currentTime / A.duration) * 100}%`;
+    }
+  } else {
+    P.cur.textContent = '0:00';
+    P.dur.textContent = ' / 0:00';
+    P.seek.value = 0;
+  }
+  // keep EQ bars in sync with actual playback progress (mobile-safe)
+  updateEqAnim();
+});
+
+
+/* Equalizer button -> jump back to current show */
+P_now.addEventListener('click', () => {
+const id  = store.get('currentShowId', null) || currentShowId;
+const url = (trackList[curIndex] && trackList[curIndex].url) || '';
+if (id) {
+if (url) store.set('jumpToUrl', url);   // remember the exact track
+location.hash = '#/show/' + encodeURIComponent(id);
+}
+});
+
+/* Auto-resume */
+function markHideState(){ store.set('wasPlayingOnHide', !A.paused); }
+function tryAutoResume(){
+  if (store.get('wasPlayingOnHide', false)){
+    const p = A.play();
+    if (p && typeof p.catch === 'function') {
+      p.catch(err => {
+        if (err && (err.name === 'AbortError' || err.name === 'NotAllowedError')) return;
+        console.warn('Audio play() failed:', err);
+      });
+    }
+  }
+}
+
+document.addEventListener('visibilitychange', ()=>{
+if(document.hidden) markHideState(); else tryAutoResume();
+});
+window.addEventListener('pageshow', tryAutoResume);
+window.addEventListener('focus', tryAutoResume);
+// Auto-clear Recently Played on exit if enabled
+window.addEventListener('beforeunload', () => {
+  const S = getSettings();
+  if (S.autoClearRecent) {
+    try { localStorage.removeItem('recentSongs'); } catch {}
+  }
+});
+
+if (navigator.mediaDevices && 'ondevicechange' in navigator.mediaDevices){
+navigator.mediaDevices.ondevicechange = () => { tryAutoResume(); };
+}
+
+/* ------------ Favorites pages ------------ */
+Router.on('favorites', (params)=>{ location.hash = '#/favorites/bands'; });
+Router.on('fav', (params)=>{ location.hash = '#/favorites/bands'; });
+
+Router.on('favorites/bands', ()=>{
+  show($('#toolbar-bands'),false); show($('#toolbar-band'),false); show($('#showMeta'),false);
+  const content = $('#content'); content.className='grid';
+
+  const bands = favBands();
+  if (!bands.length){
+    content.innerHTML = `<div class="card"><span class="small">No favorite bands yet.</span></div>`;
+    return;
+  }
+
+  content.innerHTML = bands.map(id=>{
+    // Pretty name: underscores/plus → space, and split camel case
+    const pretty = decodeURIComponent(id)
+      .replace(/[_+]+/g,' ')
+      .replace(/([a-z])([A-Z])/g,'$1 $2')
+      .replace(/\s+/g,' ')
+      .trim();
+    return `
+      <div class="card fav tap" data-id="${id}">
+        <div class="row">
+          <img src="${IA.imgUrl(id)}" alt="" style="width:42px;height:42px;border-radius:8px;object-fit:cover;background:#0c0c0d;border:1px solid var(--ring)">
+          <div>
+            <div class="title" style="font-weight:600">${pretty}</div>
+          </div>
+        </div>
+        <div class="row">
+          <button class="btn ghost is-on" data-unfav="${id}" title="Remove">★</button>
+        </div>
+      </div>`;
+  }).join('');
+
+  // Click to open anywhere on the card (except the star)
+  content.onclick = (e)=>{
+    const unfBtn = e.target.closest('[data-unfav]');
+    if (unfBtn){
+      const unf = unfBtn.getAttribute('data-unfav');
+      toggleFavBand(unf); Router.route(); return;
+    }
+    const card = e.target.closest('.card.fav.tap');
+    if (card){
+      location.hash = '#/band/' + encodeURIComponent(card.dataset.id);
+    }
+  };
+});
+
+Router.on('help', () => {
+  // hide toolbars and show meta like other static pages
+  show($('#toolbar-bands'), false);
+  show($('#toolbar-band'), false);
+  show($('#showMeta'), false);
+
+  const content = $('#content');
+  content.className = 'doc';
+
+  content.innerHTML = `
+    <div class="card">
+      <h2>Quick Start</h2>
+      <p>Three-step flow: <span class="pill">Bands</span> → <span class="pill">Concerts</span> → <span class="pill">Songs</span>. Tap a track to play. Use ★ to favorite anything.</p>
+      <ul>
+        <li><strong>Search</strong>: type to filter; results update as you type.</li>
+        <li><strong>Player</strong>: bottom bar stays visible; play/pause, seek, next/prev.</li>
+        <li><strong>This Day</strong>: past shows on today’s date, with sort and band filter.</li>
+      </ul>
+    </div>
+
+    <div class="card">
+      <h2>Navigation</h2>
+      <ul>
+        <li><span class="icon">🏠</span> <strong>Bands</strong> — your library. Tap a band to see concerts.</li>
+        <li><span class="icon">🎫</span> <strong>Concerts</strong> — date-sorted for that band; tap to view tracks.</li>
+        <li><span class="icon">🎵</span> <strong>Songs</strong> — the setlist; tap to play.</li>
+        <li><span class="icon">🕒</span> <strong>Recently Played</strong> — jump back into recent listens.</li>
+        <li><span class="icon">⭐</span> <strong>Favorites</strong> — Bands / Concerts / Songs.</li>
+        <li><span class="icon">🎟️</span> <strong>This Day</strong> — shows from this month/day in past years.</li>
+      </ul>
+    </div>
+
+    <div class="card">
+      <h2>Favorites (★)</h2>
+      <ul>
+        <li><strong>Bands</strong>: star on Bands page.</li>
+        <li><strong>Concerts</strong>: star at the top of the concert page (solid yellow with yellow border when on).</li>
+        <li><strong>Songs</strong>: star any track; view/play from Favorites → Songs.</li>
+        <li><strong>Shortcut</strong>: on <em>Favorites → Songs</em> and <em>Recently Played</em>, tap the <em>location pill</em> to open that concert. From <em>Favorites → Concerts</em>, tapping the card opens the concert.</li>
+      </ul>
+      <p class="small muted">Favorites are stored on this device only.</p>
+    </div>
+
+    <div class="card">
+      <h2>Search & Filters</h2>
+      <ul>
+        <li><strong>Bands</strong>: sort by Views/Title; search by name.</li>
+        <li><strong>Concerts</strong>: Sort, Year filter, text filter (venue/city/title).</li>
+        <li><strong>This Day</strong>: multi-select favorite bands; sort by <em>Views ↓</em> (default) or Date.</li>
+      </ul>
+    </div>
+
+    <div class="card">
+      <h2>Player Tips</h2>
+      <ul>
+        <li><strong>Now Playing</strong> button jumps to the current track’s concert.</li>
+        <li><strong>Keyboard</strong>: Space/K = play/pause, ←/→ = small seek, J/L = bigger seek.</li>
+        <li><strong>Queue</strong>: Favorites/Recent pages have Play All / Shuffle All.</li>
+      </ul>
+    </div>
+
+    <div class="card muted">
+      <h2>Privacy & Limits</h2>
+      <ul>
+        <li>Favorites and history stay in your browser.</li>
+        <li>Some Archive.org items have limited metadata; filters may be partial.</li>
+        <li>Offline streaming isn’t supported.</li>
+      </ul>
+    </div>
+  `;
+});
+
+/* ------------ Settings ------------ */
+Router.on('settings', () => {
+  show($('#toolbar-bands'), false);
+  show($('#toolbar-band'), false);
+  show($('#showMeta'), false);
+
+  const S = getSettings();
+  const content = $('#content');
+  content.className = 'doc';
+
+  content.innerHTML = `
+    <div class="card">
+      <h2>Recently Played</h2>
+      <div class="row" style="justify-content:space-between">
+        <label class="small"><input id="set-autoClearRecent" type="checkbox" ${S.autoClearRecent?'checked':''}> Auto-clear on exit</label>
+        <button class="btn" id="btn-clearRecent">Clear now</button>
+      </div>
+      <p class="small muted">Auto-clear removes the “Recently Played” list when the app/tab closes.</p>
+    </div>
+
+    <div class="card">
+      <h2>Audio</h2>
+      <div class="row" style="gap:10px; flex-wrap:wrap">
+        <label class="small"><input id="set-rememberVolume" type="checkbox" ${S.rememberVolume?'checked':''}> Remember volume level</label>
+        <div class="pill dropdown" id="cfDrop">
+          <button class="dropBtn" id="cfBtn">Crossfade: ${S.crossfadeSec===0?'Off':S.crossfadeSec+'s'}</button>
+          <div class="menu" id="cfMenu" role="listbox">
+            <div class="item" data-val="0">Off</div>
+            <div class="item" data-val="1">1s</div>
+            <div class="item" data-val="2">2s</div>
+          </div>
+        </div>
+      </div>
+      <p class="small muted">Crossfade is a quick fade-out/in between tracks for smoother transitions.</p>
+    </div>
+
+    <div class="card">
+      <h2>Backup & Data</h2>
+      <div class="row" style="gap:10px; flex-wrap:wrap">
+        <button class="btn" id="btn-exportFavs">Export favorites</button>
+        <button class="btn ghost" id="btn-clearAll">Clear cache & data</button>
+      </div>
+      <p class="small muted">Export creates a JSON file with favorite Bands/Concerts/Songs.</p>
+    </div>
+  `;
+
+  // Handlers
+  $('#set-autoClearRecent').addEventListener('change', e => {
+    setSettings({ autoClearRecent: !!e.target.checked });
+  });
+  $('#set-rememberVolume').addEventListener('change', e => {
+    setSettings({ rememberVolume: !!e.target.checked });
+    if (!e.target.checked) {
+      // If turning off, drop any saved volume
+      localStorage.removeItem('volume');
+    }
+  });
+
+  // Crossfade dropdown
+  const cfWrap = $('#cfDrop'), cfBtn = $('#cfBtn'), cfMenu = $('#cfMenu');
+  cfWrap.addEventListener('click', (e)=>{ if(e.target.closest('.item')) return; cfMenu.classList.toggle('open'); });
+  document.addEventListener('click', (e)=>{ if(!cfWrap.contains(e.target)) cfMenu.classList.remove('open'); });
+  cfMenu.addEventListener('click', (e)=>{
+    const it = e.target.closest('.item'); if(!it) return;
+    const v = Math.max(0, Math.min(2, Number(it.dataset.val||0)));
+    setSettings({ crossfadeSec: v });
+    cfBtn.textContent = 'Crossfade: ' + (v===0 ? 'Off' : (v+'s'));
+    cfMenu.classList.remove('open');
+  });
+
+  // Clear Recently Played
+  $('#btn-clearRecent').addEventListener('click', ()=>{
+    localStorage.removeItem('recentSongs');
+    alert('Recently Played cleared.');
+  });
+
+  // Export favorites
+  $('#btn-exportFavs').addEventListener('click', ()=>{
+    const out = {
+      exportedAt: new Date().toISOString(),
+      favBands:   store.get('favBands', []),
+      favShows:   store.get('favShows', []),
+      favSongs:   store.get('favSongs', [])
+    };
+    const blob = new Blob([JSON.stringify(out, null, 2)], { type:'application/json' });
+    const a = document.createElement('a');
+    const dt = new Date();
+    const y = dt.getFullYear(), m = String(dt.getMonth()+1).padStart(2,'0'), d = String(dt.getDate()).padStart(2,'0');
+    a.download = `setlist-favorites-${y}${m}${d}.json`;
+    a.href = URL.createObjectURL(blob);
+    a.click();
+    URL.revokeObjectURL(a.href);
+  });
+
+  // Clear EVERYTHING (favorites/history/cache)
+  $('#btn-clearAll').addEventListener('click', ()=>{
+    if (!confirm('Clear all app data (favorites, recent, cached lists)?')) return;
+    const keys = Object.keys(localStorage);
+    const prefixKill = [
+      'bands:v1:', 'concerts:', 'years_', 'onthisday:title:',
+      'playlist_', 'cameFrom', 'cameFromBandId'
+    ];
+    // Specific known keys
+    const exactKill = [
+      'favBands','favShows','favSongs','recentSongs',
+      'volume','onthisdaySelectedBands','onthisdaySort',
+      'showQueue','showQueuePos','queueShowsActive',
+      'currentShowId','wasPlaying','wasPlayingOnHide'
+    ];
+    for (const k of keys) {
+      if (exactKill.includes(k) || prefixKill.some(p => k.startsWith(p))) {
+        localStorage.removeItem(k);
+      }
+    }
+    alert('All app data cleared.');
+    location.hash = '#/bands';
+  });
+});
+
+/* ------------ Recently Played page ------------ */  // NEW
+Router.on('recent', () => {
+show($('#toolbar-bands'),false); show($('#toolbar-band'),false); show($('#showMeta'),false);
+const content = $('#content'); content.className = 'tracks';
+const songs = recentSongs();
+
+// Actions
+const actions = document.createElement('div');
+actions.className = 'pageActions';
+actions.innerHTML = `
+   <button class="btn" id="recentPlayAll">▶️ Play All</button>
+   <button class="btn" id="recentShuffleAll">🔀 Shuffle All</button>
+ `;
+content.innerHTML = '';
+content.appendChild(actions);
+
+if (!songs.length){
+const empty = document.createElement('div');
+empty.className='card'; empty.innerHTML=`<span class="small">No recent plays yet.</span>`;
+content.appendChild(empty);
+return;
+}
+
+// List (reuse the .track.favsong two-line layout)
+const listWrap = document.createElement('div');
+listWrap.className='tracks';
+listWrap.style.padding='0 12px 120px';
+listWrap.innerHTML = songs.map((t,i)=>`
+   <div class="track favsong" data-i="${i}">
+     <div class="line1">
+       <div class="tleft">
+<button class="songFav${ findSongIdx(t.url)>=0 ? ' is-on' : '' }" title="${findSongIdx(t.url)>=0 ? 'Unfavorite' : 'Favorite'}">
+ ${ findSongIdx(t.url)>=0 ? '★' : '☆' }
+</button>
+
+         <div class="tnum">${i+1}</div>
+         <div class="tname">${t.title}</div>
+       </div>
+       ${t.band ? `<span class="pill pill-sm bandpill">${t.band}</span>` : ''}
+     </div>
+
+     <div class="line2">
+       ${t.location ? (
+ t.showId
+   ? `<a class="pill pill-sm locpill" href="#/show/${encodeURIComponent(t.showId)}">${t.location}</a>`
+   : `<span class="pill pill-sm locpill">${t.location}</span>`
+) : ''}
+
+       ${t.date ? `<span class="pill pill-sm datepill">${t.date}</span>` : ''}
+     </div>
+
+     <div class="progressBar"></div>
+   </div>
+ `).join('');
+content.appendChild(listWrap);
+
+// After initial render, backfill old rows that are missing metadata and update DOM
+(async () => {
+for (let i = 0; i < songs.length; i++) {
+const t = songs[i];
+if (t.band && t.location && t.date && t.showId) continue;
+
+const enriched = await enrichRecentItem(t);
+if (!enriched) continue;
+
+const row = listWrap.querySelector(`.track[data-i="${i}"]`);
+if (!row) continue;
+
+const line1 = row.querySelector('.line1');
+if (line1) {
+let bandEl = line1.querySelector('.bandpill');
+if (!bandEl) {
+bandEl = document.createElement('span');
+bandEl.className = 'pill pill-sm bandpill';
+line1.appendChild(bandEl);
+}
+bandEl.textContent = enriched.band || '';
+bandEl.style.display = enriched.band ? '' : 'none';
+}
+
+const line2 = row.querySelector('.line2');
+if (line2) {
+let locEl = line2.querySelector('.locpill');
+const href = enriched.showId ? `#/show/${encodeURIComponent(enriched.showId)}` : '';
+if (!locEl) {
+if (href) {
+locEl = document.createElement('a');
+locEl.className = 'pill pill-sm locpill';
+locEl.setAttribute('href', href);
+} else {
+locEl = document.createElement('span');
+locEl.className = 'pill pill-sm locpill';
+}
+line2.prepend(locEl);
+} else {
+if (href && locEl.tagName !== 'A') {
+const replacement = document.createElement('a');
+replacement.className = locEl.className;
+replacement.textContent = locEl.textContent;
+replacement.setAttribute('href', href);
+locEl.replaceWith(replacement);
+locEl = replacement;
+} else if (!href && locEl.tagName === 'A') {
+const replacement = document.createElement('span');
+replacement.className = locEl.className;
+replacement.textContent = locEl.textContent;
+locEl.replaceWith(replacement);
+locEl = replacement;
+}
+}
+locEl.textContent = enriched.location || '';
+locEl.style.display = enriched.location ? '' : 'none';
+
+let dateEl = line2.querySelector('.datepill');
+if (!dateEl) {
+dateEl = document.createElement('span');
+dateEl.className = 'pill pill-sm datepill';
+line2.appendChild(dateEl);
+}
+dateEl.textContent = enriched.date || '';
+dateEl.style.display = enriched.date ? '' : 'none';
+}
+
+songs[i] = enriched;
+}
+})();
+
+trackEls = Array.from(listWrap.querySelectorAll('.track'));
+
+// Play All / Shuffle All
+$('#recentPlayAll').onclick   = ()=> startRecent(false);
+$('#recentShuffleAll').onclick= ()=> startRecent(true);
+
+function startRecent(shuffle){
+const arr = songs.slice();
+if (shuffle) shuffleArray(arr);
+playlistMeta = arr;
+currentShowId = arr[0]?.showId || 'recent_playlist';
+trackList = arr.map(t => ({ url: t.url, title: t.title, length: '' }));
+playIndex(0);
+}
+
+function showLabel(show){
+const loc = [show.city, show.state].filter(Boolean).join(', ');
+return [show.venue || loc || 'Live', show.date].filter(Boolean).join(' • ');
+}
+
+// Item interactions (favorite toggle / play single)
+listWrap.onclick = (e) => {
+// If user clicks a location link to a concert, mark origin so Show header says "← Recently Played"
+const concertLink = e.target.closest('a[href^="#/show/"]');
+if (concertLink) {
+store.set('cameFrom', 'recent');
+// Optional: remember exact track for scroll-into-view (mirrors Favorites → Songs)
+const row = e.target.closest('.track');
+if (row) {
+const i = Number(row.dataset.i);
+const t = songs[i];
+if (t?.url) store.set('jumpToUrl', t.url);
+}
+return; // allow navigation
+}
+
+const tr = e.target.closest('.track'); if (!tr) return;
+const i = Number(tr.dataset.i);
+const t = songs[i];
+
+if (e.target.closest('.songFav')) {
+toggleFavSong(t);
+e.target.textContent = findSongIdx(t.url) >= 0 ? '★' : '☆';
+e.target.classList.toggle('is-on', findSongIdx(t.url) >= 0);
+e.target.title = findSongIdx(t.url) >= 0 ? 'Unfavorite' : 'Favorite';
+return;
+}
+
+// play in place
+playlistMeta = songs;
+trackList = songs.map(s => ({ url: s.url, title: s.title, length: '' }));
+playIndex(i);
+};
+});
+
+Router.on('favorites/concerts', async ()=>{
+show($('#toolbar-bands'),false); show($('#toolbar-band'),false); show($('#showMeta'),false);
+const content=$('#content'); content.className='grid';
+
+const ids = favShows();
+
+const actions = document.createElement('div');
+actions.className='pageActions';
+actions.innerHTML = `
+   <button class="btn" id="favShowsPlayAll">▶️ Play All</button>
+   <button class="btn" id="favShowsShuffleAll">🔀 Shuffle All</button>
+ `;
+content.innerHTML = '';
+content.appendChild(actions);
+
+if(!ids.length){
+const empty = document.createElement('div'); empty.className='card';
+empty.innerHTML = `<span class="small">No favorite concerts yet.</span>`;
+content.appendChild(empty);
+return;
+}
+
+try{
+const batchSize = 40;
+let docs = [];
+for(let i=0;i<ids.length;i+=batchSize){
+const batch = ids.slice(i, i+batchSize);
+const data = await fetchIA(IA.concertsByIdsUrl(batch));
+docs = docs.concat((data?.response?.docs)||[]);
+}
+
+if(!docs.length){
+ids.forEach(id=>{
+const card = document.createElement('div'); card.className='card fav';
+card.innerHTML = `
+         <div>
+           <h3 class="title">${id}</h3>
+           <div class="small">Favorite Concert</div>
+         </div>
+         <div class="row">
+           <button class="btn" data-open="${id}">Open</button>
+           <button class="btn ghost is-on" data-unfav="${id}" title="Remove">★</button>
+         </div>`;
+content.appendChild(card);
+});
+}else{
+content.insertAdjacentHTML('beforeend', docs.map(it=>{
+const dateStr = it.date ? new Date(it.date).toLocaleDateString() : (it.year||'');
+const reviews = it.num_reviews||0;
+const venueLine = [it.venue, it.coverage].filter(Boolean).join(', ');
+const viewsChip = `<span class="chip">${fmtCompact(it.downloads||0)} views</span>`;
+return `
+         <div class="card tap fav" data-id="${it.identifier}">
+           <div>
+             <h3 class="title">${it.title || it.identifier}</h3>
+             <div class="row">
+               <span class="chip">${dateStr}</span>
+               ${viewsChip}
+               ${renderStars(it.avg_rating||0)} <span class="small">(${reviews})</span>
+             </div>
+             <div class="small">${venueLine}</div>
+           </div>
+           <div class="row">
+             <button class="btn ghost favToggle is-on" title="Favorite">★</button>
+           </div>
+         </div>`;
+}).join(''));
+}
+
+// Wire the action buttons
+$('#favShowsPlayAll').onclick = ()=> startShowQueue(false);
+$('#favShowsShuffleAll').onclick = ()=> startShowQueue(true);
+
+function startShowQueue(shuffle){
+showQueue = ids.slice();
+if(shuffle) shuffleArray(showQueue);
+showQueuePos = 0; queueShowsActive = true; persistShowQueue();
+
+// Mark origin before navigating into the first show
+store.set('cameFrom', 'favorites-concerts');
+
+store.set('autoPlayOnLoad', true);
+location.hash = '#/show/' + encodeURIComponent(showQueue[0]);
+}
+
+// Card interactions (open / unfavorite)
+content.onclick = (e)=>{
+const card = e.target.closest('.card.tap');
+
+if (e.target.closest('.favToggle')){
+const id = card ? card.dataset.id : e.target.getAttribute('data-unfav');
+if(id){ toggleFavShow(id); Router.route(); }
+return;
+}
+
+if (card){
+// Mark origin before navigating into a specific show
+store.set('cameFrom', 'favorites-concerts');
+location.hash = '#/show/' + encodeURIComponent(card.dataset.id);
+return;
+}
+
+const open = e.target.getAttribute('data-open');
+if(open){
+// Mark origin for "Open" button as well
+store.set('cameFrom', 'favorites-concerts');
+location.hash = '#/show/'+encodeURIComponent(open);
+return;
+}
+
+const unf  = e.target.getAttribute('data-unfav');
+if(unf){ toggleFavShow(unf); Router.route(); return; }
+};
+}catch(e){
+const err = document.createElement('div'); err.className='card';
+err.innerHTML = `<span class="small">Failed to load favorite concerts.</span>`;
+content.appendChild(err);
+}
+});
+
+Router.on('favorites/songs', ()=>{
+show($('#toolbar-bands'),false); show($('#toolbar-band'),false); show($('#showMeta'),false);
+const content=$('#content'); content.className='tracks';
+const songs = favSongs();
+const actions = document.createElement('div');
+actions.className='pageActions';
+actions.innerHTML = `
+   <button class="btn" id="favSongsPlayAll">▶️ Play All</button>
+   <button class="btn" id="favSongsShuffleAll">🔀 Shuffle All</button>
+ `;
+content.innerHTML = '';
+content.appendChild(actions);
+
+if(!songs.length){
+const empty = document.createElement('div'); empty.className='card'; empty.innerHTML = `<span class="small">No favorite songs yet.</span>`;
+content.appendChild(empty); return;
+}
+
+// Render songs list
+const listWrap = document.createElement('div'); listWrap.className='tracks';
+listWrap.style.padding='0 12px 120px';
+listWrap.innerHTML = songs.map((t,i)=>`
+ <div class="track favsong" data-i="${i}">
+   <div class="line1">
+     <div class="tleft">
+       <button class="songFav is-on" title="Unfavorite">★</button>
+       <div class="tnum">${i+1}</div>
+       <div class="tname">${t.title}</div>
+     </div>
+     ${t.band ? `<span class="pill pill-sm bandpill">${t.band}</span>` : ''}
+   </div>
+
+<div class="line2">
+ ${t.location ? (
+   t.showId
+     ? `<a class="pill pill-sm locpill" href="#/show/${encodeURIComponent(t.showId)}">${t.location}</a>`
+     : `<span class="pill pill-sm locpill">${t.location}</span>`
+ ) : ''}
+
+ ${t.date ? `<span class="pill pill-sm datepill">${t.date}</span>` : ''}
+</div>
+
+
+   <div class="progressBar" id="pb-${i}"></div>
+ </div>
+`).join('');
+
+content.appendChild(listWrap);
+trackEls = Array.from(listWrap.querySelectorAll('.track'));
+// Play All / Shuffle All
+$('#favSongsPlayAll').onclick = ()=> startFavSongs(false);
+$('#favSongsShuffleAll').onclick = ()=> startFavSongs(true);
+
+function startFavSongs(shuffle){
+const arr = songs.slice();
+if (shuffle) shuffleArray(arr);
+
+// Play inline on the Favorites → Songs page
+currentShowId   = 'favorites_songs';
+currentShowBand = arr[0]?.band || '';        // helps Now-Playing metadata
+playlistMeta    = arr;                       // keep song meta (band/date/etc.)
+trackList       = arr.map(t => ({ url: t.url, title: t.title, length: '' }));
+
+playIndex(0);
+}
+
+// Interactions
+listWrap.onclick = (e) => {
+// If user clicked the location link, remember the track and let the link navigate
+const locLink = e.target.closest('a.locpill');
+if (locLink) {
+  const row = e.target.closest('.track');
+  if (row) {
+    const i = Number(row.dataset.i);
+    const t = songs[i];
+    if (t?.url) store.set('jumpToUrl', t.url);
+    // Mark origin so the Show header can say "← Favorite Songs"
+    store.set('cameFrom', 'favorites-songs');
+  }
+  return; // allow default hash navigation
+}
+
+// Star toggle (favorite/unfavorite) — handle inline and do not navigate
+const starBtn = e.target.closest('.songFav');
+if (starBtn) {
+  const row = e.target.closest('.track');
+  if (!row) return;
+  const i = Number(row.dataset.i);
+  const t = songs[i];
+  if (!t) return;
+
+  // Toggle stored favorite state
+  toggleFavSong(t);
+  const isNowFav = findSongIdx(t.url) >= 0;
+
+  // Update star UI
+  starBtn.classList.toggle('is-on', isNowFav);
+  starBtn.textContent = isNowFav ? '★' : '☆';
+  starBtn.title = isNowFav ? 'Unfavorite' : 'Favorite';
+
+  // If it was unfavorited, remove from the list and renumber
+  if (!isNowFav) {
+    // remove from local array and DOM
+    songs.splice(i, 1);
+    row.remove();
+
+    // Renumber visible rows (data-i and .tnum)
+    Array.from(listWrap.querySelectorAll('.track')).forEach((el, idx) => {
+      el.dataset.i = String(idx);
+      const n = el.querySelector('.tnum');
+      if (n) n.textContent = String(idx + 1);
+    });
+
+    // If list is empty, show empty state
+    if (songs.length === 0) {
+      content.innerHTML = '';
+      content.appendChild(actions);
+      const empty = document.createElement('div');
+      empty.className = 'card';
+      empty.innerHTML = `<span class="small">No favorite songs yet.</span>`;
+      content.appendChild(empty);
+    }
+  }
+  return;
+}
+
+// Play inline if user tapped anywhere else on the row
+const tr = e.target.closest('.track'); if (!tr) return;
+const i = Number(tr.dataset.i);
+const t = songs[i];
+
+// Play inline starting at the tapped song
+currentShowId   = 'favorites_songs';
+currentShowBand = t?.band || '';
+playlistMeta    = songs;  // keep meta for Now-Playing and pills
+trackList       = songs.map(s => ({ url: s.url, title: s.title, length: '' }));
+
+playIndex(i);
+};
+
+});
+
+/* ------------ Playlist route (fav-songs, recent-songs) ------------ */
+
+/* Standalone, global function */
+function renderFavSongsPlaylist(){
+show($('#toolbar-bands'),false); show($('#toolbar-band'),false); show($('#showMeta'),false);
+const content = $('#content'); content.className = 'tracks';
+
+const pl = store.get('playlist_fav_songs', []);
+if (!pl.length){
+content.innerHTML = `<div class="card"><span class="small">No songs to play.</span></div>`;
+return;
+}
+
+// Use standard track list + player
+currentShowId = 'favorites_songs';
+trackList = pl.map(t => ({ url: t.url, title: t.title, length: '' }));
+
+content.innerHTML = trackList.map((t,i)=>`
+   <div class="track" data-i="${i}">
+     <div class="tleft">
+<button class="songFav${ findSongIdx(t.url)>=0 ? ' is-on' : '' }" title="Favorite song">
+ ${ findSongIdx(t.url)>=0 ? '★' : '☆' }
+</button>       
+       <div class="tnum">${i+1}</div>
+       <div class="tname">${t.title}</div>
+     </div>
+     <div class="tlen"></div>
+     <div class="progressBar" id="pb-${i}"></div>
+   </div>`).join('');
+trackEls = $$('.track');
+
+// If we arrived via the Now-Playing button, jump to the exact track
+const jumpUrl = store.get('jumpToUrl', null);
+if (jumpUrl) {
+store.set('jumpToUrl', null); // one-time use
+const idx = trackList.findIndex(t => t.url === jumpUrl);
+if (idx >= 0) {
+// Sync highlight with what's playing
+curIndex = idx;
+updateTrackHighlight();
+
+// Scroll into view and pulse
+const el = document.querySelector(`.track[data-i="${idx}"]`);
+if (el) {
+el.scrollIntoView({ block: 'center', behavior: 'smooth' });
+el.classList.add('pulse');
+setTimeout(()=> el.classList.remove('pulse'), 1800);
+}
+}
+}
+
+
+
+content.onclick = ev => {
+const favBtn = ev.target.closest('.songFav');
+if (favBtn){
+const tr = ev.target.closest('.track'); if(!tr) return;
+const idx = Number(tr.dataset.i);
+toggleFavSong({ url: trackList[idx].url, title: trackList[idx].title, showId: 'favorites_songs' });
+favBtn.textContent = findSongIdx(trackList[idx].url) >= 0 ? '★' : '☆';
+return;
+}
+const tr = ev.target.closest('.track'); if (!tr) return;
+playIndex(Number(tr.dataset.i));
+};
+
+// Autoplay first item when entering playlist
+playIndex(0);
+}
+
+/* Standalone, global function */
+function renderRecentSongsPlaylist(){
+show($('#toolbar-bands'),false); show($('#toolbar-band'),false); show($('#showMeta'),false);
+const content = $('#content'); content.className = 'tracks';
+
+const pl = store.get('playlist_recent_songs', []);
+if (!pl.length){
+content.innerHTML = `<div class="card"><span class="small">No songs to play.</span></div>`;
+return;
+}
+
+// Use standard track list + player
+currentShowId = 'recent_songs';
+trackList = pl.map(t => ({ url: t.url, title: t.title, length: '' }));
+
+content.innerHTML = trackList.map((t,i)=>`
+   <div class="track" data-i="${i}">
+     <div class="tleft">
+<button class="songFav${ findSongIdx(t.url)>=0 ? ' is-on' : '' }" title="Favorite song">
+ ${ findSongIdx(t.url)>=0 ? '★' : '☆' }
+</button>
+
+       <div class="tnum">${i+1}</div>
+       <div class="tname">${t.title}</div>
+     </div>
+     <div class="tlen"></div>
+     <div class="progressBar" id="pb-${i}"></div>
+   </div>`).join('');
+trackEls = $$('.track');
+
+content.onclick = ev => {
+const favBtn = ev.target.closest('.songFav');
+if (favBtn){
+const tr = ev.target.closest('.track'); if (!tr) return;
+const idx = Number(tr.dataset.i);
+toggleFavSong({ url: trackList[idx].url, title: trackList[idx].title, showId: 'recent_songs' });
+favBtn.textContent = findSongIdx(trackList[idx].url) >= 0 ? '★' : '☆';
+favBtn.classList.toggle('is-on', findSongIdx(trackList[idx].url) >= 0);
+
+return;
+}
+const tr = ev.target.closest('.track'); if (!tr) return;
+playIndex(Number(tr.dataset.i));
+};
+
+// Autoplay first recent song
+playIndex(0);
+}
+
+/* Router hook */
+Router.on('playlist', (params)=>{
+const listId = (params||[])[0]||'';
+if (listId==='fav-songs')         renderFavSongsPlaylist();
+else if (listId==='recent-songs') renderRecentSongsPlaylist();
+else {
+const c=$('#content'); c.className='grid';
+c.innerHTML=`<div class="card"><span class="small">Empty playlist.</span></div>`;
+}
+});
+
+
+/* ------------ wire base routes ------------ */
+Router.on('bands', showBands);
+Router.on('band', showBand);
+Router.on('show', showShow);
+
+/* ------------ This Day in History — Band Multiselect + Sort (Views ↓ default) ------------ */
+Router.on('onthisday', async () => {
+  show($('#toolbar-bands'), false);
+  show($('#toolbar-band'), false);
+  show($('#showMeta'), false);
+
+  const content = $('#content');
+  content.className = 'grid';
+
+  const fav = favBands(); // collection ids (e.g., gratefuldead)
+  if (!fav.length) {
+    content.innerHTML = `<div class="card"><span class="small">No favorite bands yet. Add some favorites to see shows for today’s date.</span></div>`;
+    return;
+  }
+
+  // Today → "-MM-DD" (for title match like "1971-10-23")
+  const d  = new Date();
+  const mm = String(d.getMonth() + 1).padStart(2, '0');
+  const dd = String(d.getDate()).padStart(2, '0');
+  const md = `-${mm}-${dd}`;
+  const monthName = d.toLocaleString('default', { month: 'long' });
+  const niceDate  = `${monthName} ${d.getDate()}`;
+
+  // Local storage keys
+  const LS_BANDS = 'onthisdaySelectedBands';
+  const LS_SORT  = 'onthisdaySort';
+
+  // Pretty label from collection id
+  function prettyNameFromId(id){
+    return decodeURIComponent(id)
+      .replace(/[_+]+/g,' ')
+      .replace(/([a-z])([A-Z])/g,'$1 $2')
+      .replace(/\s+/g,' ')
+      .trim();
+  }
+
+  // Active band selection (defaults to all)
+  let selected = (() => {
+    try {
+      const raw = JSON.parse(localStorage.getItem(LS_BANDS) || '[]');
+      const arr = Array.isArray(raw) ? raw.filter(x => fav.includes(x)) : [];
+      return arr.length ? arr : fav.slice();
+    } catch { return fav.slice(); }
+  })();
+
+  // Sort state (default Views ↓)
+  const SORT_OPTIONS = [
+    { value: 'downloads desc', label: 'Views ↓' },
+    { value: 'date asc',       label: 'Date ↑' },
+    { value: 'date desc',      label: 'Date ↓' },
+  ];
+  let sortValue = (() => {
+    const v = localStorage.getItem(LS_SORT);
+    return SORT_OPTIONS.some(o => o.value === v) ? v : 'downloads desc';
+  })();
+
+  // UI: filter bar + results container
+  content.innerHTML = `
+    <div class="pageActions" id="otdFilterBar" style="gap:8px; display:flex; align-items:center; flex-wrap:wrap;">
+      <div class="pill dropdown" id="otdBandDrop" aria-label="Filter bands">
+        <button class="dropBtn" id="otdBandBtn">Favorite Bands (${selected.length}/${fav.length})</button>
+        <div class="menu" id="otdBandMenu" role="listbox" aria-label="Favorite bands"></div>
+      </div>
+
+      <div class="pill dropdown" id="otdSortDrop" aria-label="Sort">
+        <button class="dropBtn" id="otdSortBtn"></button>
+        <div class="menu" id="otdSortMenu" role="listbox" aria-label="Sort options"></div>
+      </div>
+
+      <button class="btn ghost" id="otdClearSel" title="Show all favorite bands">Clear</button>
+    </div>
+    <div id="otdList"></div>
+  `;
+
+  const listEl   = $('#otdList');
+  const bandWrap = $('#otdBandDrop');
+  const bandMenu = $('#otdBandMenu');
+  const bandBtn  = $('#otdBandBtn');
+
+  const sortWrap = $('#otdSortDrop');
+  const sortMenu = $('#otdSortMenu');
+  const sortBtn  = $('#otdSortBtn');
+
+  // Render band menu
+  function renderBandMenu(){
+    const selSet = new Set(selected);
+    bandMenu.innerHTML = fav.map(id => {
+      const checked = selSet.has(id) ? 'checked' : '';
+      return `
+        <label class="item" style="display:flex; align-items:center; gap:8px;">
+          <input type="checkbox" data-id="${id}" ${checked}>
+          <span>${prettyNameFromId(id)}</span>
+        </label>`;
+    }).join('');
+  }
+  renderBandMenu();
+
+  // Render sort menu
+  function renderSortMenu(){
+    sortMenu.innerHTML = SORT_OPTIONS.map(o => `
+      <div class="item${o.value===sortValue?' is-on':''}" data-value="${o.value}">${o.label}</div>
+    `).join('');
+    sortBtn.textContent = (SORT_OPTIONS.find(o => o.value===sortValue)?.label) || 'Sort';
+  }
+  renderSortMenu();
+
+  // Open/close behavior
+  bandWrap.addEventListener('click', (e) => {
+    if (e.target.closest('input[type="checkbox"]')) return;
+    bandMenu.classList.toggle('open');
+  });
+  sortWrap.addEventListener('click', (e) => {
+    if (e.target.closest('.item')) return;
+    sortMenu.classList.toggle('open');
+  });
+  document.addEventListener('click', (e) => {
+    if (!bandWrap.contains(e.target)) bandMenu.classList.remove('open');
+    if (!sortWrap.contains(e.target)) sortMenu.classList.remove('open');
+  });
+
+  // Band checkbox changes
+  bandMenu.addEventListener('change', () => {
+    const checks = Array.from(bandMenu.querySelectorAll('input[type="checkbox"]'));
+    selected = checks.filter(c => c.checked).map(c => c.getAttribute('data-id'));
+    if (!selected.length) selected = fav.slice(); // treat empty → all
+    localStorage.setItem(LS_BANDS, JSON.stringify(selected));
+    bandBtn.textContent = `Favorite Bands (${selected.length}/${fav.length})`;
+
+    load(); // reload with new selection
+  });
+
+  // Clear → reset to all favorites
+  $('#otdClearSel').addEventListener('click', () => {
+    selected = fav.slice();
+    localStorage.setItem(LS_BANDS, JSON.stringify(selected));
+    bandBtn.textContent = `Favorite Bands (${selected.length}/${fav.length})`;
+    renderBandMenu();
+    load();
+  });
+
+  // Sort option clicks
+  sortMenu.addEventListener('click', (e) => {
+    const it = e.target.closest('.item');
+    if (!it) return;
+    sortValue = it.dataset.value || 'downloads desc';
+    localStorage.setItem(LS_SORT, sortValue);
+    renderSortMenu();
+    sortMenu.classList.remove('open');
+    load();
+  });
+
+  // Fetch + render
+  async function load() {
+    const bandsToUse = selected.length ? selected : fav;
+    const collExpr = bandsToUse
+      .map(id => `"${id.replace(/"/g, '\\"')}"`)
+      .join(' OR ');
+    // title:"-MM-DD" catches 1970-10-23 etc.
+    const q = `(collection:(${collExpr})) AND (mediatype:(etree OR audio)) AND title:("${md}")`;
+
+    const fields = [
+      'identifier','title','date','year',
+      'downloads','avg_rating','num_reviews',
+      'venue','coverage','creator','publicdate','collection'
+    ];
+
+    listEl.className = 'grid';
+    listEl.innerHTML = `<div class="card"><span class="small">Loading shows for ${niceDate}…</span></div>`;
+
+    try {
+      const u = new URL('https://archive.org/advancedsearch.php');
+      u.searchParams.set('q', q);
+      fields.forEach(f => u.searchParams.append('fl[]', f));
+      u.searchParams.append('sort[]', sortValue); // <-- apply chosen sort
+      u.searchParams.set('rows', '500');
+      u.searchParams.set('page', '1');
+      u.searchParams.set('output', 'json');
+
+      const cacheKey = `onthisday:title:${mm}-${dd}:${bandsToUse.join(',')}:sort=${sortValue}`;
+      const { data } = await iaFetchJSON(u.toString(), { cacheKey, retries: 2, timeoutMs: 15000 });
+
+      const docs = (data?.response?.docs) || [];
+      if (!docs.length) {
+        listEl.innerHTML = `<div class="card"><span class="small">No shows found for ${niceDate} across the selected bands.</span></div>`;
+        return;
+      }
+
+      listEl.innerHTML = docs.map(it => {
+        const dateStr   = it.date ? new Date(it.date).toLocaleDateString() : (it.year || '');
+        const reviews   = it.num_reviews || 0;
+        const venueLine = [it.venue, it.coverage].filter(Boolean).join(', ');
+        const viewsChip = `<span class="chip">${fmtCompact(it.downloads || 0)} views</span>`;
+        const favOn     = isFav(it.identifier);
+        return `
+          <div class="card tap" data-id="${it.identifier}">
+            <div>
+              <h3>${it.title || it.identifier}</h3>
+              <div class="row">
+                <span class="chip">${dateStr}</span>
+                ${viewsChip}
+                ${renderStars(it.avg_rating || 0)} <span class="small">(${reviews})</span>
+              </div>
+              <div class="small">${venueLine}</div>
+            </div>
+            <div class="row">
+              <button class="btn ghost favToggle${favOn ? ' is-on' : ''}" title="Favorite">
+                ${favOn ? '★' : '☆'}
+              </button>
+            </div>
+          </div>`;
+      }).join('');
+
+      // card interactions
+      listEl.onclick = ev => {
+        const favBtn = ev.target.closest('.favToggle');
+        if (favBtn) {
+          const card = favBtn.closest('.card');
+          const id   = card?.dataset.id;
+          if (id) {
+            toggleFavShow(id);
+            const nowOn = isFav(id);
+            favBtn.classList.toggle('is-on', nowOn);
+            favBtn.textContent = nowOn ? '★' : '☆';
+          }
+          return;
+        }
+        const card = ev.target.closest('.card.tap');
+        if (card) {
+          store.set('cameFrom', 'onthisday');
+          location.hash = '#/show/' + encodeURIComponent(card.dataset.id);
+        }
+      };
+
+    } catch (e) {
+      showRetry(listEl, 'Problem loading “This Day in History.”', load);
+    }
+  }
+
+  load();
+});
+
+/* ------------ bands filters ------------ */
+$('#sortSel')?.addEventListener('change', showBands);
+$('#searchBox')?.addEventListener('change', showBands);
+$('#favToggle')?.addEventListener('click', ()=>{
+onlyFavBands = !onlyFavBands;
+$('#favToggle').textContent = onlyFavBands ? '★ Favorites' : '☆ Favorites';
+$('#favToggle').classList.toggle('is-on', !!onlyFavBands); // visual ON
+showBands();
+});
+$('#resetBtn')?.addEventListener('click', ()=>{
+$('#sortSel').value='downloads desc';
+$('#searchBox').value='';
+onlyFavBands = false;
+$('#favToggle').textContent = '☆ Favorites';
+$('#favToggle').classList.remove('is-on');
+location.hash='#/bands';
+showBands();
+});
+
+/* ------------ optional SW (disabled to avoid extra reconnect toasts) ------------ */
+// if('serviceWorker' in navigator){ navigator.serviceWorker.register('sw.js').catch(()=>{}); }
+
+/* Init eq state once DOM is ready */
+document.addEventListener('DOMContentLoaded', updateEqAnim);
+
+/* ------------ utils ------------ */
+function shuffleArray(arr){
+for(let i=arr.length-1;i>0;i--){
+const j=Math.floor(Math.random()*(i+1));
+[arr[i],arr[j]]=[arr[j],arr[i]];
+}
+}
+</script>
+<script>
+/* Measure player height and set padding so content never hides underneath */
+(function () {
+function setPlayerHeightPadding(){
+const bar = document.getElementById('player') 
+  || document.getElementById('P_bar') 
+  || document.querySelector('#playerBar, .playerBar, #P_now');
+
+if (!bar) return;
+const h = bar.offsetHeight || 96;
+document.documentElement.style.setProperty('--playerH', h + 'px');
+}
+window.addEventListener('resize', setPlayerHeightPadding);
+document.addEventListener('DOMContentLoaded', setPlayerHeightPadding);
+// In case the player renders after JS init (route change, etc.)
+setTimeout(setPlayerHeightPadding, 0);
+})();
+</script>
+
+</body>
+</html>
