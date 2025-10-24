@@ -162,15 +162,6 @@ document.getElementById('statusRetryBtn')?.addEventListener('click', ()=> locati
 
 <script>
 /* ------------ utils/store ------------ */
-
-// --- Phish.in merge hook (no UI changes) ---
-// If you already define window.mergeConcert elsewhere, this won't overwrite it.
-window.mergeConcert = window.mergeConcert || function (concert) {
-  // stash for future use; no rendering here
-  window._phishBuffer ??= [];
-  window._phishBuffer.push(concert);
-};
-
 const $ = s => document.querySelector(s);
 const $$ = s => Array.from(document.querySelectorAll(s));
 const fmtTime = secs => { secs = Math.max(0, Math.floor(secs||0)); const m=Math.floor(secs/60), s=secs%60; return m+":"+String(s).padStart(2,"0"); };
@@ -351,44 +342,30 @@ async function fetchIA(url){
 /* ------------ IA helpers ------------ */
 // === Archive API fetch with timeout + retries + outage detection ===
 const IA_STATUS = { failCount: 0, circuitUntil: 0, lastError: '' };
-// --- simple circuit breaker helpers ---
-// Uses IA_STATUS.circuitUntil (ms since epoch)
-function circuitOpen() {
-  // circuitUntil = timestamp until which we should avoid live requests
-  return Boolean(IA_STATUS.circuitUntil && Date.now() < IA_STATUS.circuitUntil);
-}
-function openCircuit(ms = 5 * 60 * 1000) { // default 5 minutes
-  IA_STATUS.circuitUntil = Date.now() + Number(ms || 0);
-  IA_STATUS.lastError = IA_STATUS.lastError || 'circuit opened';
-}
-function closeCircuit() {
-  IA_STATUS.circuitUntil = 0;
-  IA_STATUS.lastError = '';
-}
 
 function showStatus(msg, kind='warn') {
   // downgrade super generic messages to 'info' to reduce alarm
   if (/offline|cached|retry/i.test(msg)) kind = (kind === 'warn' ? 'info' : kind);
 
-  const el = document.getElementById('statusBanner');
-  const msgEl = document.getElementById('statusMsg');
-  if (!el || !msgEl) return;
-  msgEl.textContent = msg;       // preserve the button
-  el.dataset.kind = kind;
-
-  // Explicitly show via display so it doesn't leave a gap when hidden
-  el.hidden = false;
-  el.style.display = ''; // allow CSS to control visual (fallback to inline style)
+const el = document.getElementById('statusBanner');
+const msgEl = document.getElementById('statusMsg');
+if (!el || !msgEl) return;
+msgEl.textContent = msg;       // preserve the button
+el.dataset.kind = kind;
+el.hidden = false;
 }
 
-function hideStatus(){
-  const el = document.getElementById('statusBanner');
-  if (!el) return;
-  // ensure it's removed from layout (no sticky gap)
-  el.hidden = true;
-  el.style.display = 'none';
-}
+function hideStatus(){ const el = document.getElementById('statusBanner'); if (el) el.hidden = true; }
 
+function now(){ return Date.now(); }
+function circuitOpen(){ return now() < IA_STATUS.circuitUntil; }
+function openCircuit(ms=5*60*1000){ IA_STATUS.circuitUntil = now()+ms; }
+
+function fetchWithTimeout(url, ms=15000, opts={}) {
+const ctl = new AbortController();
+const t = setTimeout(()=>ctl.abort(), ms);
+return fetch(url, {...opts, signal: ctl.signal}).finally(()=>clearTimeout(t));
+}
 
 // small cache helpers
 function setCache(key, data){ try{ localStorage.setItem(key, JSON.stringify({ts:Date.now(), data})); }catch{} }
@@ -424,7 +401,7 @@ async function iaFetchJSON(url, { cacheKey, retries=2, timeoutMs=15000 } = {}) {
   let attempt = 0;
   while (true) {
     try {
-      const res = await fetchWithTimeoutLegacy(url, { timeout: timeoutMs });
+      const res = await fetchWithTimeout(url, timeoutMs);
       if (!res.ok) throw new Error(`HTTP ${res.status}`);
       const data = await res.json();
       IA_STATUS.failCount = 0; IA_STATUS.lastError = ''; hideStatus();
@@ -704,120 +681,42 @@ let q='collection:(etree) AND mediatype:(collection)';
 if(term) q+=` AND (title:(${term}) OR identifier:(${term}))`;
 
 const load = async ()=>{
-  let url = ''; // <-- hoisted so catch can see it
-  try{
-    // Map UI sort ("downloads desc") → API sort ("downloads:desc")
-    // v1 likes title.raw for alpha sorts
-    function mapSortForV1(s = 'downloads desc') {
-      const [field, dir = 'desc'] = s.split(/\s+/);
-      // v1 uses `titleSorter` for alpha sorts
-      const f = field === 'title' ? 'titleSorter' : field;
-      const d = dir.toLowerCase();
-      return `${f} ${d}`; // NOTE: space, not colon
-    }
+try{
+// Map UI sort ("downloads desc") → API sort ("downloads:desc")
+// v1 likes title.raw for alpha sorts
+function mapSortForV1(s = 'downloads desc') {
+const [field, dir = 'desc'] = s.split(/\s+/);
+// v1 uses `titleSorter` for alpha sorts
+const f = field === 'title' ? 'titleSorter' : field;
+const d = dir.toLowerCase();
+return `${f} ${d}`; // NOTE: space, not colon
+}
 
-    const sortExpr = mapSortForV1(sort);
-    const params = new URLSearchParams({
-      q,
-      fields: 'identifier,title,downloads',
-      sorts: sortExpr,          // <— plural
-      count: '150'
-    });
 
-    url = `https://archive.org/services/search/v1/scrape?${params.toString()}`;
-    const cacheKey = `bands:v1:${sortExpr}:${term || ''}`;      
+const sortExpr = mapSortForV1(sort);
+const params = new URLSearchParams({
+q,
+fields: 'identifier,title,downloads',
+sorts: sortExpr,          // <— plural
+count: '150'
+});
 
-    // ✨ use the resilient fetch with cache
-    const { data, stale } = await iaFetchJSON(url, {
-      cacheKey,
-      retries: 2,
-      timeoutMs: 15000
-    });
-   
+const url = `https://archive.org/services/search/v1/scrape?${params.toString()}`;
+const cacheKey = `bands:v1:${sortExpr}:${term || ''}`;      
+// cache key should depend on sort + term to avoid stale mismatches
+// ✨ use the resilient fetch with cache
+const { data, stale } = await iaFetchJSON(url, {
+cacheKey,
+retries: 2,
+timeoutMs: 15000
+});
+
 // v1 returns { items: [...] }
 let items = (data.items || []).map(d => ({
   id: d.identifier,
   title: d.title || d.identifier,
   downloads: d.downloads || 0
 }));
-// --- Ensure Phish appears at #1 (best-effort) ---
-// Try to find an existing Phish row (match id/title containing "phish")
-(function promotePhish() {
-  if (!items || !items.length) return;
-  const keyMatch = (s) => String(s||'').toLowerCase().includes('phish');
-  // try to find first item where id or title looks like Phish
-  let idx = items.findIndex(it => keyMatch(it.id) || keyMatch(it.title));
-  if (idx === -1) {
-    // not found — inject a synthetic "Phish" entry at the front (keeps UI stable)
-    const fallbackDownloads = items.length ? Math.max(...items.map(i => Number(i.downloads||0))) + 1 : 1;
-    items.unshift({
-      id: 'phish',
-      title: 'Phish',
-      downloads: fallbackDownloads
-    });
-  } else if (idx > 0) {
-    // move the discovered Phish item to index 0
-    const [ph] = items.splice(idx, 1);
-    items.unshift(ph);
-  }
-})();
-
-// --- Merge any buffered Phish.in concerts (from the merge hook) into bands list ---
-// window._phishBuffer will be an array of concert-like objects
-try {
-  if (Array.isArray(window._phishBuffer) && window._phishBuffer.length) {
-    const existing = new Set(items.map(i => i.id));
-    const fromPhish = new Map(); // id -> { id, title, downloads }
-
-    for (const c of window._phishBuffer) {
-      // try multiple heuristics to find a collection/band id
-      let bandId = null;
-      if (c.collection) {
-        if (Array.isArray(c.collection)) bandId = c.collection[0];
-        else bandId = String(c.collection);
-      }
-      // fallback: some feeds provide 'creator' (band name). try slugifying that
-      if (!bandId && c.creator) {
-        bandId = String(c.creator).replace(/\s+/g, '_').replace(/[^\w\-]+/g,'').toLowerCase();
-      }
-      // final fallback: try identifier-ish field on the concert
-      if (!bandId && c.identifier) bandId = String(c.identifier).split('/')[0];
-
-      if (bandId) {
-        bandId = decodeURIComponent(bandId);
-        if (!existing.has(bandId) && !fromPhish.has(bandId)) {
-          const title = c.creator || bandId;
-          fromPhish.set(bandId, { id: bandId, title: title, downloads: Number(c.downloads || 0) || 0 });
-        }
-      }
-    }
-
-    if (fromPhish.size) {
-      // append phish-derived entries and re-apply the UI sort
-      items = items.concat(Array.from(fromPhish.values()));
-
-      // Re-sort to match current sort UI (mapSortForV1 earlier returned "field dir")
-      (function reorder() {
-        const mapSort = (s = 'downloads desc') => {
-          const [field, dir = 'desc'] = s.split(/\s+/);
-          const f = field === 'title' ? 'titleSorter' : field;
-          return { field: f, dir: dir.toLowerCase() };
-        };
-        const uiSort = document.getElementById('sortSel')?.value || 'downloads desc';
-        const so = mapSort(uiSort);
-        if (so.field === 'titleSorter') {
-          items.sort((a,b) => so.dir === 'asc' ? a.title.localeCompare(b.title, undefined, {sensitivity:'base', numeric:true}) : b.title.localeCompare(a.title, undefined, {sensitivity:'base', numeric:true}));
-        } else {
-          // numeric sort (downloads)
-          items.sort((a,b) => so.dir === 'asc' ? (a.downloads - b.downloads) : (b.downloads - a.downloads));
-        }
-      })();
-    }
-  }
-} catch (err) {
-  // non-fatal: don't break bands rendering if phish merge fails
-  console.warn('phish merge failed', err);
-}
 
 // If the Favorites toggle is on, filter the fetched list to favs
 if (onlyFavBands) {
@@ -2856,18 +2755,5 @@ setTimeout(setPlayerHeightPadding, 0);
 })();
 </script>
 
-<script type="module">
-  import { initPhishIn } from './services/phishin.js';
-
-  // quietly prefetch a few years; nothing in the UI changes
-  initPhishIn({
-    years: [1993, 1994, 1995, 1996, 1997, 1998, 1999, 2000, 2001, 2002, 2003, 2004, 2005, 2006, 2007, 2008, 2009, 2010, 2011, 2012],
-    mergeFn: window.mergeConcert
-  }).catch(console.warn);
-</script>
-<script>
-  document.addEventListener('DOMContentLoaded', () => hideStatus && hideStatus());
-</script>
- 
 </body>
 </html>
