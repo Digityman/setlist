@@ -572,10 +572,7 @@ padding-bottom: var(--playerH);
 
 /* Keep layout steady; slide it out instead of removing */
 #statusBanner[hidden]{
-  display: block !important;
-  opacity: 0;
-  transform: translateY(-100%);
-  pointer-events: none;
+  display: none !important;
 }
 
 /* Themes: override the inline yellow when not a true warning */
