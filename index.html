@@ -740,6 +740,27 @@ let items = (data.items || []).map(d => ({
   title: d.title || d.identifier,
   downloads: d.downloads || 0
 }));
+// --- Ensure Phish appears at #1 (best-effort) ---
+// Try to find an existing Phish row (match id/title containing "phish")
+(function promotePhish() {
+  if (!items || !items.length) return;
+  const keyMatch = (s) => String(s||'').toLowerCase().includes('phish');
+  // try to find first item where id or title looks like Phish
+  let idx = items.findIndex(it => keyMatch(it.id) || keyMatch(it.title));
+  if (idx === -1) {
+    // not found — inject a synthetic "Phish" entry at the front (keeps UI stable)
+    const fallbackDownloads = items.length ? Math.max(...items.map(i => Number(i.downloads||0))) + 1 : 1;
+    items.unshift({
+      id: 'phish',
+      title: 'Phish',
+      downloads: fallbackDownloads
+    });
+  } else if (idx > 0) {
+    // move the discovered Phish item to index 0
+    const [ph] = items.splice(idx, 1);
+    items.unshift(ph);
+  }
+})();
 
 // --- Merge any buffered Phish.in concerts (from the merge hook) into bands list ---
 // window._phishBuffer will be an array of concert-like objects
