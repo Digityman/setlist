@@ -110,8 +110,6 @@ color:var(--text);              /* default = white */
 color:var(--warn);
 }
 
-/* Make sure the banner never reserves space when hidden */
-#statusBanner[hidden] { display: none !important; }
 
 /* Pulse the track briefly when we deep-link to it */
 @keyframes pulseTrack {
@@ -606,5 +604,3 @@ padding-bottom: var(--playerH);
   border-radius: 6px;
   cursor: pointer;
 }
-
-
